@@ -27,16 +27,6 @@ It was created to solve the common problem of AI assistants adding excessive com
 
 ## Installation
 
-### Using the Install Script (Linux and macOS)
-
-```shell
-curl -sSL https://raw.githubusercontent.com/Goldziher/uncomment/main/install.sh | bash
-```
-
-This script automatically detects your platform, downloads the appropriate binary from the latest GitHub release, and installs it to `/usr/local/bin`.
-
-### Using Cargo
-
 ```shell
 cargo install uncomment
 ```
