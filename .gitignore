@@ -1,0 +1,40 @@
+# Rust specific ignores
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Debug files
+*.pdb
+
+# IDE - VSCode
+.vscode/
+*.code-workspace
+
+# IDE - IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IDE - RustRover
+.rustover/
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Backup files
+*.swp
+*.bak
+*~
+
+# Environment files
+.env
+.env.local
+
+# Dependency directory
+vendor/
+
+# Generated documentation
+doc/

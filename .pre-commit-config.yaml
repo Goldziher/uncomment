@@ -1,0 +1,37 @@
+default_language_version:
+  python: python3.12
+repos:
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: "v9.21.0"
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ["@commitlint/config-conventional"]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-case-conflict
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: "v3.5.3"
+    hooks:
+      - id: prettier
+        exclude: ^tests|^.idea|^migrations|^.git
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+      - id: cargo-check
+      - id: clippy
+
+  - repo: local
+    hooks:
+      - id: cargo-test
+        name: cargo test
+        entry: cargo test
+        language: system
+        types: [rust]
+        pass_filenames: false
