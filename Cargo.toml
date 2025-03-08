@@ -1,10 +1,9 @@
 [package]
 authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
 description = "A cli tool to remove comments from code. Supports multiple languages."
-edition = "2021"
+edition = "2024"
 keywords = ["comments", "cli", "pre-commit"]
 license = "MIT"
-license-file = "LICENSE"
 name = "uncomment"
 readme = "README.md"
 repository = "https://github.com/Goldziher/uncomment"
