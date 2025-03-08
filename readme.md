@@ -27,6 +27,14 @@ It was created to solve the common problem of AI assistants adding excessive com
 
 ## Installation
 
+### Using the Install Script (Linux and macOS)
+
+```shell
+curl -sSL https://raw.githubusercontent.com/Goldziher/uncomment/main/install.sh | bash
+```
+
+This script automatically detects your platform, downloads the appropriate binary from the latest GitHub release, and installs it to `/usr/local/bin`.
+
 ### Using Cargo
 
 ```shell
@@ -36,12 +44,16 @@ cargo install uncomment
 ### From Source
 
 ```shell
-git clone https://github.com/your-username/uncomment.git
+git clone https://github.com/Goldziher/uncomment.git
 cd uncomment
 cargo build --release
 ```
 
 The compiled binary will be located in `./target/release/uncomment`
+
+### From GitHub Releases
+
+You can also download pre-built binaries directly from the [GitHub Releases page](https://github.com/Goldziher/uncomment/releases).
 
 ## Usage
 
@@ -58,7 +70,7 @@ When given a directory path without glob patterns (like `uncomment src`), the to
 
 ### Command Line Options
 
-```
+```shell
 Usage: uncomment [OPTIONS] <PATHS>...
 
 Arguments:
@@ -130,6 +142,27 @@ uncomment src/*.rs --no-default-ignores
 - `1`: One or more files were modified
 
 This makes it easy to use in CI/CD pipelines to detect if files would be changed by the tool.
+
+## Using as a Pre-commit Hook
+
+To use `uncomment` as a pre-commit hook:
+
+1. First, install the `uncomment` binary using one of the installation methods above.
+
+2. Add this to your `.pre-commit-config.yaml`:
+
+```yaml
+- repo: https://github.com/Goldziher/uncomment
+  rev: v1.0.0 # Use the latest version
+  hooks:
+    - id: uncomment
+      # Optional: Add any arguments you want
+      # args: [--remove-todo, --remove-fixme]
+```
+
+3. Run `pre-commit install` to set up the git hook scripts
+
+4. Now `uncomment` will run automatically on your staged files when you commit
 
 ## License
 
