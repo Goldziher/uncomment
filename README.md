@@ -35,6 +35,23 @@ cargo install uncomment
 
 You can also download pre-built binaries directly from the [GitHub Releases page](https://github.com/Goldziher/uncomment/releases).
 
+### Using as a Pre-commit Hook
+
+To use `uncomment` as a pre-commit hook:
+
+Add this to your `.pre-commit-config.yaml`:
+
+```yaml
+- repo: https://github.com/Goldziher/uncomment
+  rev: v1.0.1 # Use the latest version
+  hooks:
+    - id: uncomment
+      # Optional: Add any arguments you want
+      # args: [--remove-todo, --remove-fixme]
+```
+
+Note - the pre-commit hook relies on the rust toolchain being available on the system.
+
 ## Usage
 
 Basic usage:
@@ -92,10 +109,10 @@ Remove all comments except TODOs, FIXMEs, and docstrings:
 uncomment src/*.rs
 ```
 
-Remove everything including TODOs and FIXMEs:
+Remove everything including doc strings, TODOs and FIXMEs:
 
 ```shell
-uncomment src/*.rs --remove-todo --remove-fixme
+uncomment src/*.py --remove-todo --remove-fixme --remove-doc
 ```
 
 Keep comments containing certain patterns:
@@ -115,34 +132,6 @@ Disable language-specific default ignore patterns:
 ```shell
 uncomment src/*.rs --no-default-ignores
 ```
-
-## Exit Codes
-
-- `0`: No files were modified
-- `1`: One or more files were modified
-
-This makes it easy to use in CI/CD pipelines to detect if files would be changed by the tool.
-
-## Using as a Pre-commit Hook
-
-To use `uncomment` as a pre-commit hook:
-
-1. First, install the `uncomment` binary using one of the installation methods above.
-
-2. Add this to your `.pre-commit-config.yaml`:
-
-```yaml
-- repo: https://github.com/Goldziher/uncomment
-  rev: v1.0.0 # Use the latest version
-  hooks:
-    - id: uncomment
-      # Optional: Add any arguments you want
-      # args: [--remove-todo, --remove-fixme]
-```
-
-3. Run `pre-commit install` to set up the git hook scripts
-
-4. Now `uncomment` will run automatically on your staged files when you commit
 
 ## License
 

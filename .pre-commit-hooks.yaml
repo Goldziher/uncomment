@@ -2,9 +2,11 @@
   name: Uncomment
   description: Remove comments from source code files
   entry: uncomment
-  language: system
+  language: rust
   types_or: [text]
   files: \.(rs|c|h|cpp|cc|cxx|hpp|hxx|java|js|ts|py|rb|go|swift)$
+  additional_dependencies:
+    - uncomment
   require_serial: true
   pass_filenames: true
   minimum_pre_commit_version: "2.9.0"
