@@ -89,7 +89,7 @@ Options:
 
 By default, `uncomment` preserves:
 
-1. Comments containing `~keep~` explicitly marked for preservation
+1. Comments containing `~keep` are marked for preservation
 2. TODO comments (unless `--remove-todo` is specified)
 3. FIXME comments (unless `--remove-fixme` is specified)
 4. Documentation comments/docstrings (unless `--remove-doc` is specified)
