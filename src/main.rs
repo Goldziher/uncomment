@@ -1122,8 +1122,8 @@ fn expand_paths(patterns: &[String]) -> Vec<PathBuf> {
 #[derive(Parser, Debug)]
 #[command(
     name = "uncomment",
-    version = "1.0",
-    about = "Remove comments from files."
+    version = "1.0.3",
+    about = "Remove comments from code files."
 )]
 struct Cli {
     paths: Vec<String>,
