@@ -43,7 +43,7 @@ Add this to your `.pre-commit-config.yaml`:
 
 ```yaml
 - repo: https://github.com/Goldziher/uncomment
-  rev: v1.0.2 # Use the latest version
+  rev: v1.0.4 # Use the latest version
   hooks:
     - id: uncomment
       # Optional: Add any arguments you want
