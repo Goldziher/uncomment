@@ -7,7 +7,7 @@ license = "MIT"
 name = "uncomment"
 readme = "README.md"
 repository = "https://github.com/Goldziher/uncomment"
-version = "1.0.1"
+version = "1.0.2"
 
 [dependencies]
 clap = { version = "4.5.31", features = ["derive"] }
