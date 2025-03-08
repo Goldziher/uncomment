@@ -2,7 +2,7 @@ use clap::Parser;
 use glob::glob;
 use std::collections::HashSet;
 use std::fs;
-use std::io::{self, Read};
+use std::io;
 use std::path::{Path, PathBuf};
 
 #[derive(Hash, Eq, PartialEq, Debug)]
@@ -408,6 +408,18 @@ fn is_in_string(line: &str, pos: usize) -> bool {
         return false;
     }
 
+    // Collect character indices and chars to safely handle Unicode
+    let char_indices: Vec<(usize, char)> = line.char_indices().collect();
+
+    // Find the char index that corresponds to the byte position
+    let mut char_idx = 0;
+    for (i, (byte_idx, _)) in char_indices.iter().enumerate() {
+        if *byte_idx > pos {
+            break;
+        }
+        char_idx = i;
+    }
+
     let chars: Vec<char> = line.chars().collect();
     let mut i = 0;
     let mut in_string = false;
@@ -447,7 +459,7 @@ fn is_in_string(line: &str, pos: usize) -> bool {
                         }
                         if end_hashes == hash_count {
                             // Found the end of raw string
-                            if i >= pos {
+                            if i >= char_idx {
                                 return true; // Position is inside raw string
                             }
                             in_string = false;
@@ -456,7 +468,7 @@ fn is_in_string(line: &str, pos: usize) -> bool {
                             break;
                         }
                     }
-                    if i >= pos {
+                    if i >= char_idx {
                         return true; // Position is inside raw string
                     }
                     i += 1;
@@ -478,7 +490,7 @@ fn is_in_string(line: &str, pos: usize) -> bool {
             _ => {}
         }
 
-        if i >= pos {
+        if i >= char_idx {
             return in_string;
         }
         i += 1;
@@ -489,17 +501,29 @@ fn is_in_string(line: &str, pos: usize) -> bool {
 
 // Check if line has a true block comment start (not inside a string)
 fn is_real_block_comment_start(line: &str, start: &str, _end: &str) -> bool {
+    // Collect character indices for safe Unicode handling
+    let char_indices: Vec<(usize, char)> = line.char_indices().collect();
+
     let mut search_pos = 0;
     while search_pos < line.len() {
         if let Some(pos) = line[search_pos..].find(start) {
             let abs_pos = search_pos + pos;
+
             // Make sure it's not inside a string
             if !is_in_string(line, abs_pos) {
                 return true;
             }
 
+            // Find the next safe position after this start marker
+            let next_pos = abs_pos + start.len();
+            let safe_next_pos = char_indices
+                .iter()
+                .find(|(idx, _)| *idx >= next_pos)
+                .map(|(idx, _)| *idx)
+                .unwrap_or(next_pos);
+
             // Continue search after this occurrence
-            search_pos = abs_pos + start.len();
+            search_pos = safe_next_pos;
         } else {
             break;
         }
@@ -509,6 +533,9 @@ fn is_real_block_comment_start(line: &str, start: &str, _end: &str) -> bool {
 
 // Check if a block comment start has a matching end on the same line
 fn has_matching_end(line: &str, start: &str, end: &str) -> bool {
+    // Collect character indices for safe Unicode handling
+    let char_indices: Vec<(usize, char)> = line.char_indices().collect();
+
     let mut search_pos = 0;
     while search_pos < line.len() {
         if let Some(start_pos) = line[search_pos..].find(start) {
@@ -516,21 +543,45 @@ fn has_matching_end(line: &str, start: &str, end: &str) -> bool {
 
             // Skip if the start is inside a string
             if is_in_string(line, abs_start_pos) {
-                search_pos = abs_start_pos + start.len();
+                // Find the next safe position after this start marker
+                let next_pos = abs_start_pos + start.len();
+                let safe_next_pos = char_indices
+                    .iter()
+                    .find(|(idx, _)| *idx >= next_pos)
+                    .map(|(idx, _)| *idx)
+                    .unwrap_or(next_pos);
+
+                search_pos = safe_next_pos;
                 continue;
             }
 
+            // Find a safe starting point for the end search
+            let end_search_start = abs_start_pos + start.len();
+            let safe_end_search_start = char_indices
+                .iter()
+                .find(|(idx, _)| *idx >= end_search_start)
+                .map(|(idx, _)| *idx)
+                .unwrap_or(end_search_start);
+
             // Look for matching end
-            if let Some(end_pos) = line[abs_start_pos + start.len()..].find(end) {
-                let abs_end_pos = abs_start_pos + start.len() + end_pos;
+            if let Some(end_pos) = line[safe_end_search_start..].find(end) {
+                let abs_end_pos = safe_end_search_start + end_pos;
 
                 // Make sure the end is not inside a string (from the start position)
                 if !is_in_string(line, abs_end_pos) {
                     return true;
                 }
 
+                // Find a safe position after this end marker
+                let after_end = abs_end_pos + end.len();
+                let safe_after_end = char_indices
+                    .iter()
+                    .find(|(idx, _)| *idx >= after_end)
+                    .map(|(idx, _)| *idx)
+                    .unwrap_or(after_end);
+
                 // Continue search after this end
-                search_pos = abs_end_pos + end.len();
+                search_pos = safe_after_end;
             } else {
                 // No end found
                 return false;
@@ -552,6 +603,10 @@ fn process_line_with_block_comments<'a>(
     let mut pos = 0;
     let mut found_comment = false;
 
+    // Collect character indices for safe Unicode handling
+    let char_indices: Vec<(usize, char)> = line.char_indices().collect();
+
+    // Process the line with Unicode-aware operations
     while pos < line.len() {
         if let Some(comment_start) = line[pos..].find(start) {
             let abs_start = pos + comment_start;
@@ -579,7 +634,25 @@ fn process_line_with_block_comments<'a>(
                     // Check if the end is inside a string
                     if !is_in_string(line, abs_end_pos) {
                         let abs_end = abs_end_pos + end.len();
-                        let comment_content = &line[abs_start + start.len()..abs_end_pos];
+
+                        // Ensure we have valid UTF-8 character boundaries
+                        let start_content_idx = abs_start + start.len();
+
+                        // Find the closest valid character boundary
+                        let valid_start = char_indices
+                            .iter()
+                            .find(|(idx, _)| *idx >= start_content_idx)
+                            .map(|(idx, _)| *idx)
+                            .unwrap_or(start_content_idx);
+
+                        let valid_end = char_indices
+                            .iter()
+                            .take_while(|(idx, _)| *idx <= abs_end_pos)
+                            .last()
+                            .map(|(idx, _)| *idx)
+                            .unwrap_or(abs_end_pos);
+
+                        let comment_content = &line[valid_start..valid_end];
                         let full_comment = &line[abs_start..abs_end];
 
                         segments.push(LineSegment::Comment(comment_content, full_comment));
@@ -629,30 +702,32 @@ fn process_line_with_line_comments<'a>(
     let mut found_comment = false;
 
     // Find the first occurrence of the comment marker that's not in a string
-    let mut pos = 0;
-    while pos < line.len() {
+    let char_indices: Vec<(usize, char)> = line.char_indices().collect();
+
+    let mut i = 0;
+    while i < char_indices.len() {
+        let pos = char_indices[i].0;
         if line[pos..].starts_with(comment_marker) && !is_in_string(line, pos) {
             found_comment = true;
+            // If we found a comment, split into code and comment parts
+            if pos > 0 {
+                // There's code before the comment
+                let code = &line[..pos];
+                // Only add non-empty code segments
+                if !code.trim().is_empty() {
+                    segments.push(LineSegment::Code(code));
+                }
+            }
+
+            // Add the comment part, including any trailing whitespace
+            let comment = &line[pos..];
+            segments.push(LineSegment::Comment(comment, comment));
             break;
         }
-        pos += 1;
+        i += 1;
     }
 
-    if found_comment {
-        // If we found a comment, split into code and comment parts
-        if pos > 0 {
-            // There's code before the comment
-            let code = &line[..pos];
-            // Only add non-empty code segments
-            if !code.trim().is_empty() {
-                segments.push(LineSegment::Code(code));
-            }
-        }
-
-        // Add the comment part, including any trailing whitespace
-        let comment = &line[pos..];
-        segments.push(LineSegment::Comment(comment, comment));
-    } else {
+    if !found_comment {
         // No comment found, treat the whole line as code
         segments.push(LineSegment::Code(line));
     }
@@ -665,9 +740,20 @@ fn process_file(
     language: &SupportedLanguage,
     options: &ProcessOptions,
 ) -> io::Result<bool> {
-    // Read file content
-    let mut content = String::new();
-    fs::File::open(file_path)?.read_to_string(&mut content)?;
+    // Read file content with explicit UTF-8 handling
+    let file_bytes = fs::read(file_path)?;
+    let content = match String::from_utf8(file_bytes) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!(
+                "Warning: File {} contains invalid UTF-8: {}",
+                file_path.display(),
+                e
+            );
+            // Try lossy conversion instead
+            String::from_utf8_lossy(&e.into_bytes()).to_string()
+        }
+    };
 
     // Handle empty or content-less files
     if content.is_empty() || content.trim().is_empty() {
@@ -882,6 +968,12 @@ fn process_file(
     if let Some(output_dir) = options.output_dir {
         let output_path = PathBuf::from(output_dir).join(file_path.file_name().unwrap());
         fs::write(&output_path, &result).unwrap(); // Borrow result here
+    } else if !options.dry_run {
+        // Write back to the original file
+        match fs::write(file_path, &result) {
+            Ok(_) => (),
+            Err(e) => eprintln!("Error writing to file {}: {}", file_path.display(), e),
+        }
     }
 
     // Return whether the content was modified

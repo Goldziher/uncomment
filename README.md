@@ -31,16 +31,6 @@ It was created to solve the common problem of AI assistants adding excessive com
 cargo install uncomment
 ```
 
-### From Source
-
-```shell
-git clone https://github.com/Goldziher/uncomment.git
-cd uncomment
-cargo build --release
-```
-
-The compiled binary will be located in `./target/release/uncomment`
-
 ### From GitHub Releases
 
 You can also download pre-built binaries directly from the [GitHub Releases page](https://github.com/Goldziher/uncomment/releases).
