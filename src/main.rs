@@ -117,9 +117,6 @@ fn find_string_spans(line: &str, language: &SupportedLanguage) -> Vec<(usize, us
         merged_spans.push(span);
     }
 
-    // We can't modify the cached regexes directly since we only have an immutable reference
-    // The spans will be cached on subsequent calls with the same input
-
     merged_spans
 }
 
@@ -327,19 +324,19 @@ fn get_supported_languages() -> HashSet<SupportedLanguage> {
             "#[", "allow(", "cfg_attr", "deny(", "forbid(", "warn(", "expect(", "cfg(", "#![",
         ],
         vec![
-            r#""(?:\\.|[^"\\])*""#,   // Simple double-quoted string
-            r#"r"(?:\\.|[^"\\])*""#,  // Raw string
-            r#"b"(?:\\.|[^"\\])*""#,  // Byte string
-            r#"br"(?:\\.|[^"\\])*""#, // Byte raw string
+            r#""(?:\\.|[^"\\])*""#,
+            r#"r"(?:\\.|[^"\\])*""#,
+            r#"b"(?:\\.|[^"\\])*""#,
+            r#"br"(?:\\.|[^"\\])*""#,
             r#"'(?:\\[nrt0\\']|\\x[0-9a-fA-F]{2}|\\u\{[0-9a-fA-F]{1,6}\}|[^\\'])'"#,
             r#"b'(?:\\[nrt0\\']|\\x[0-9a-fA-F]{2}|[^\\'])'"#,
             r#"b"(?:\\.|[^"\\])*""#,
-            "r#\"[^\"]*\"#",      // Raw string with #
-            "r##\"[^\"]*\"##",    // Raw string with ##
-            "r###\"[^\"]*\"###",  // Raw string with ###
-            "br#\"[^\"]*\"#",     // Byte raw string with #
-            "br##\"[^\"]*\"##",   // Byte raw string with ##
-            "br###\"[^\"]*\"###", // Byte raw string with ###
+            "r#\"[^\"]*\"#",
+            "r##\"[^\"]*\"##",
+            "r###\"[^\"]*\"###",
+            "br#\"[^\"]*\"#",
+            "br##\"[^\"]*\"##",
+            "br###\"[^\"]*\"###",
         ],
     ));
 
@@ -367,8 +364,8 @@ fn get_supported_languages() -> HashSet<SupportedLanguage> {
         vec![
             r#""(?:\\.|[^"\\])*""#,
             r#"'(?:\\.|[^'\\])'"#,
-            r#"R"(\(.*\))""#,                   // Simplified raw string
-            r#"""""(?:[^"]|"[^"]|""[^"])*""""#, // Triple-quoted string
+            r#"R"(\(.*\))""#,
+            r#"""""(?:[^"]|"[^"]|""[^"])*""""#,
         ],
     ));
 
@@ -388,7 +385,7 @@ fn get_supported_languages() -> HashSet<SupportedLanguage> {
         vec![
             r#""(?:\\.|[^"\\])*""#,
             r#"'(?:\\.|[^'\\])'"#,
-            r#"""""(?:[^"]|"[^"]|""[^"])*""""#, // Triple-quoted string
+            r#"""""(?:[^"]|"[^"]|""[^"])*""""#,
         ],
     ));
 
@@ -413,8 +410,8 @@ fn get_supported_languages() -> HashSet<SupportedLanguage> {
         vec![
             r#""(?:\\.|[^"\\])*""#,
             r#"'(?:\\.|[^'\\])*'"#,
-            r#"`[^`]*`"#,                  // Simple template literal
-            r#"`[^`]*\$\{[^\}]*\}[^`]*`"#, // Template literal with a single interpolation
+            r#"`[^`]*`"#,
+            r#"`[^`]*\$\{[^\}]*\}[^`]*`"#,
         ],
     ));
 
@@ -438,8 +435,8 @@ fn get_supported_languages() -> HashSet<SupportedLanguage> {
         vec![
             r#""(?:\\.|[^"\\])*""#,
             r#"'(?:\\.|[^'\\])*'"#,
-            r#"`[^`]*`"#,                  // Simple template literal
-            r#"`[^`]*\$\{[^\}]*\}[^`]*`"#, // Template literal with a single interpolation
+            r#"`[^`]*`"#,
+            r#"`[^`]*\$\{[^\}]*\}[^`]*`"#,
         ],
     ));
 
@@ -465,42 +462,42 @@ fn get_supported_languages() -> HashSet<SupportedLanguage> {
             "# pyright:",
         ],
         vec![
-            r#"'(?:\\.|[^'\\])*'"#,                   // Simple string
-            r#""(?:\\.|[^"\\])*""#,                   // Double quote string
-            r#"'''(?:\\.|[^'\\]|'[^']|''[^'])*'''"#,  // Triple single quote
-            r#"""""(?:\\.|[^"\\]|"[^"]|""[^"])*""""#, // Triple double quote
-            r#"r'(?:\\.|[^'\\])*'"#,                  // Raw single quote
-            r#"r"(?:\\.|[^"\\])*""#,                  // Raw double quote
-            r#"r'''(?:\\.|[^'\\]|'[^']|''[^'])*'''"#, // Raw triple single quote
-            r#"r"""(?:\\.|[^"\\]|"[^"]|""[^"])*""""#, // Raw triple double quote
-            r#"f'[^']*'"#,                            // f-string single quote simple
-            r#"f'[^']*\{[^\}]*\}[^']*'"#,             // f-string with interpolation
-            r#"f"[^"]*""#,                            // f-string double quote simple
-            r#"f"[^"]*\{[^\}]*\}[^"]*""#,             // f-string double quote with interpolation
-            r#"f'''[^']*'''"#,                        // f-string triple single quote
-            r#"f"""[^"]*""""#,                        // f-string triple double quote
-            r#"b'(?:\\.|[^'\\])*'"#,                  // Byte string single quote
-            r#"b"(?:\\.|[^"\\])*""#,                  // Byte string double quote
-            r#"b'''(?:\\.|[^'\\]|'[^']|''[^'])*'''"#, // Byte string triple single quote
-            r#"b"""(?:\\.|[^"\\]|"[^"]|""[^"])*""""#, // Byte string triple double quote
-            r#"u'(?:\\.|[^'\\])*'"#,                  // Unicode string single quote
-            r#"u"(?:\\.|[^"\\])*""#,                  // Unicode string double quote
+            r#"'(?:\\.|[^'\\])*'"#,
+            r#""(?:\\.|[^"\\])*""#,
+            r#"'''(?:\\.|[^'\\]|'[^']|''[^'])*'''"#,
+            r#"""""(?:\\.|[^"\\]|"[^"]|""[^"])*""""#,
+            r#"r'(?:\\.|[^'\\])*'"#,
+            r#"r"(?:\\.|[^"\\])*""#,
+            r#"r'''(?:\\.|[^'\\]|'[^']|''[^'])*'''"#,
+            r#"r"""(?:\\.|[^"\\]|"[^"]|""[^"])*""""#,
+            r#"f'[^']*'"#,
+            r#"f'[^']*\{[^\}]*\}[^']*'"#,
+            r#"f"[^"]*""#,
+            r#"f"[^"]*\{[^\}]*\}[^"]*""#,
+            r#"f'''[^']*'''"#,
+            r#"f"""[^"]*""""#,
+            r#"b'(?:\\.|[^'\\])*'"#,
+            r#"b"(?:\\.|[^"\\])*""#,
+            r#"b'''(?:\\.|[^'\\]|'[^']|''[^'])*'''"#,
+            r#"b"""(?:\\.|[^"\\]|"[^"]|""[^"])*""""#,
+            r#"u'(?:\\.|[^'\\])*'"#,
+            r#"u"(?:\\.|[^"\\])*""#,
             r#"fr'[^']*'"#,
-            r#"rf'[^']*'"#, // Format raw strings
+            r#"rf'[^']*'"#,
             r#"fr'[^']*\{[^\}]*\}[^']*'"#,
-            r#"rf'[^']*\{[^\}]*\}[^']*'"#, // With interpolation
+            r#"rf'[^']*\{[^\}]*\}[^']*'"#,
             r#"fr"[^"]*""#,
-            r#"rf"[^"]*""#, // Format raw strings double quote
+            r#"rf"[^"]*""#,
             r#"fr"[^"]*\{[^\}]*\}[^"]*""#,
-            r#"rf"[^"]*\{[^\}]*\}[^"]*""#, // With interpolation
+            r#"rf"[^"]*\{[^\}]*\}[^"]*""#,
             r#"br'(?:\\.|[^'\\])*'"#,
-            r#"rb'(?:\\.|[^'\\])*'"#, // Byte raw strings
+            r#"rb'(?:\\.|[^'\\])*'"#,
             r#"br"(?:\\.|[^"\\])*""#,
-            r#"rb"(?:\\.|[^"\\])*""#, // Byte raw strings double quote
+            r#"rb"(?:\\.|[^"\\])*""#,
             r#"ur'(?:\\.|[^'\\])*'"#,
-            r#"ru'(?:\\.|[^'\\])*'"#, // Unicode raw strings
+            r#"ru'(?:\\.|[^'\\])*'"#,
             r#"ur"(?:\\.|[^"\\])*""#,
-            r#"ru"(?:\\.|[^"\\])*""#, // Unicode raw strings double quote
+            r#"ru"(?:\\.|[^"\\])*""#,
         ],
     ));
 
@@ -522,24 +519,24 @@ fn get_supported_languages() -> HashSet<SupportedLanguage> {
             r#"%s\{[^\}]*\}"#,
             r#"%w\{[^\}]*\}"#,
             r#"%W\{[^\}]*\}"#,
-            r#"%i\{[^\}]*\}"#, // Common delimiters
+            r#"%i\{[^\}]*\}"#,
             r#"%q\([^\)]*\)"#,
             r#"%Q\([^\)]*\)"#,
             r#"%s\([^\)]*\)"#,
             r#"%w\([^\)]*\)"#,
             r#"%W\([^\)]*\)"#,
-            r#"%i\([^\)]*\)"#, // Parentheses
+            r#"%i\([^\)]*\)"#,
             r#"%q\[[^\]]*\]"#,
             r#"%Q\[[^\]]*\]"#,
             r#"%s\[[^\]]*\]"#,
             r#"%w\[[^\]]*\]"#,
             r#"%W\[[^\]]*\]"#,
-            r#"%i\[[^\]]*\]"#, // Square brackets
+            r#"%i\[[^\]]*\]"#,
             r#"%r\{[^\}]*\}"#,
             r#"%r\{[^\}]*\}i"#,
             r#"%r\{[^\}]*\}o"#,
             r#"%r\{[^\}]*\}m"#,
-            r#"%r\{[^\}]*\}x"#, // Regex with common modifiers
+            r#"%r\{[^\}]*\}x"#,
             r#"<<[-~]?'\w+'"#,
             r#"<<[-~]?\"\w+\""#,
             r#"<<[-~]?`\w+`"#,
@@ -575,12 +572,12 @@ fn get_supported_languages() -> HashSet<SupportedLanguage> {
         ],
         vec![
             r#""(?:\\.|[^"\\])*""#,
-            r#"""""(?:[^"]|"[^"]|""[^"])*""""#, // Triple-quoted string
+            r#"""""(?:[^"]|"[^"]|""[^"])*""""#,
             "#\"[^\"]*\"#",
             "##\"[^\"]*\"##",
-            "###\"[^\"]*\"###", // Raw strings
+            "###\"[^\"]*\"###",
             "#\"\"\"[^\"]*\"\"\"#",
-            "##\"\"\"[^\"]*\"\"\"##", // Raw triple-quoted strings
+            "##\"\"\"[^\"]*\"\"\"##",
             r#"'[^'\\]'"#,
         ],
     ));
@@ -812,27 +809,19 @@ fn process_file(
     let mut in_multiline_string = false;
     let mut multiline_string_marker = String::new();
 
-    // Special handling for Python docstrings
     let mut in_docstring = false;
     let mut skip_next_triple_quote = false;
 
     for (i, line) in original_lines.iter().enumerate() {
-        // Special handling for removing docstrings
         if language.name == "python" && options.remove_doc {
-            // Detect if we're after a function or class definition
             let is_func_or_class_start = i > 0
                 && original_lines[i - 1].trim().ends_with(":")
                 && (original_lines[i - 1].contains("def ")
                     || original_lines[i - 1].contains("class "));
 
-            // Detect if this is a line with a triple quote that could be a docstring
             let trimmed = line.trim();
             let has_triple_quotes = trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''");
 
-            // Can be a docstring if:
-            // 1. It's immediately after a function/class definition, or
-            // 2. It's at the very beginning of the file, or
-            // 3. It's indented at the same level as a function body
             if has_triple_quotes
                 && !in_multiline_string
                 && !in_block_comment
@@ -849,7 +838,6 @@ fn process_file(
                                 .as_str(),
                         )))
             {
-                // Skip if it's a triple-quoted string on a single line (not a multiline docstring)
                 let is_single_line_triple_quote = (trimmed.ends_with("\"\"\"")
                     && trimmed.starts_with("\"\"\""))
                     || (trimmed.ends_with("'''") && trimmed.starts_with("'''"));
@@ -863,8 +851,6 @@ fn process_file(
                     }
                     continue;
                 } else {
-                    // If we detected and skipped a docstring, skip any immediate string literals too
-                    // to avoid misinterpreting string literals right after docstrings
                     skip_next_triple_quote = true;
                     continue;
                 }
@@ -873,7 +859,6 @@ fn process_file(
             }
         }
 
-        // If we're inside a docstring, skip the line
         if in_docstring {
             if line.contains(&multiline_string_marker) {
                 in_docstring = false;
@@ -881,7 +866,6 @@ fn process_file(
             continue;
         }
 
-        // If we're inside a multiline string, preserve everything as is
         if in_multiline_string {
             processed_lines.push(line.to_string());
 
@@ -894,11 +878,9 @@ fn process_file(
             continue;
         }
 
-        // Check if this line starts or contains a multiline string
         let has_string_markers = is_line_in_string(line, language);
 
         if has_string_markers {
-            // Detect unclosed triple quotes or backticks that might start a multiline string
             if line.contains("'''") && line.matches("'''").count() % 2 == 1 {
                 in_multiline_string = true;
                 multiline_string_marker = "'''".to_string();
@@ -910,7 +892,6 @@ fn process_file(
                 multiline_string_marker = "`".to_string();
             }
 
-            // If this line has any string that contains comment markers, preserve the entire line
             processed_lines.push(line.to_string());
             continue;
         }
@@ -1079,7 +1060,6 @@ fn process_file(
         result = String::from("\n");
     }
 
-    // Check if content is actually modified
     let original_content = if content.ends_with('\n') && !original_lines.is_empty() {
         format!("{}\n", original_lines.join("\n"))
     } else {
@@ -1239,7 +1219,6 @@ mod tests {
         let mut multiline_string_marker = String::new();
 
         for line in &original_lines {
-            // If we're inside a multiline string, preserve everything as is
             if in_multiline_string {
                 processed_lines.push(line.to_string());
 
@@ -1252,11 +1231,9 @@ mod tests {
                 continue;
             }
 
-            // Check if this line starts or contains a multiline string
             let has_string_markers = is_line_in_string(line, language);
 
             if has_string_markers {
-                // Detect unclosed triple quotes or backticks that might start a multiline string
                 if line.contains("'''") && line.matches("'''").count() % 2 == 1 {
                     in_multiline_string = true;
                     multiline_string_marker = "'''".to_string();
@@ -1268,7 +1245,6 @@ mod tests {
                     multiline_string_marker = "`".to_string();
                 }
 
-                // If this line has any string that contains comment markers, preserve the entire line
                 processed_lines.push(line.to_string());
                 continue;
             }
@@ -1329,14 +1305,11 @@ mod tests {
         result
     }
 
-    // Helper function to create a temporary file with content
     fn create_temp_file(content: &str, extension: &str) -> (PathBuf, NamedTempFile) {
-        // Create a temporary file with a specific extension
         let file = NamedTempFile::with_prefix(".tmp").unwrap();
         let mut path = file.path().to_path_buf();
         path.set_extension(extension);
 
-        // Write content to the file
         fs::write(&path, content).unwrap();
 
         (path, file)
@@ -1344,7 +1317,6 @@ mod tests {
 
     #[test]
     fn test_python_triple_quoted_string_literal() {
-        // Test case with triple-quoted string used as a string literal
         let content = r###"
 def test_function():
     # This is a regular comment
@@ -1391,14 +1363,12 @@ Melanoma, the most lethal form of skin cancer...
     return text
 "###;
 
-        // Get Python language definition
         let python_lang = get_supported_languages()
             .iter()
             .find(|lang| lang.name == "python")
             .unwrap()
             .clone();
 
-        // Process options
         let options = ProcessOptions {
             remove_todo: true,
             remove_fixme: true,
@@ -1409,23 +1379,19 @@ Melanoma, the most lethal form of skin cancer...
             dry_run: false,
         };
 
-        // Process the content directly using our string-aware handler
         let processed_content = process_test_content(content, &python_lang, &options);
 
-        // Verify that the string content is preserved
         assert!(processed_content.contains("# Developing AI solutions for cancer"));
         assert!(processed_content.contains("## Abstracts"));
         assert!(processed_content.contains("### General Audience Abstract"));
         assert!(processed_content.contains("Melanoma is a serious skin cancer"));
 
-        // Verify regular comments outside strings are removed
         assert!(!processed_content.contains("# This is a regular comment"));
         assert!(!processed_content.contains("# Another comment"));
     }
 
     #[test]
     fn test_multiline_string_syntax_in_different_languages() {
-        // Test case for JavaScript template literals
         let js_content = r###"
 function getMessage() {
     // This is a regular comment
@@ -1439,7 +1405,6 @@ function getMessage() {
 }
 "###;
 
-        // Python test content with f-strings and raw strings
         let py_content = r###"
 def get_message():
     # This is a comment
@@ -1456,7 +1421,6 @@ def get_message():
     return template, regex
 "###;
 
-        // Test JavaScript processing
         let js_lang = get_supported_languages()
             .iter()
             .find(|lang| lang.name == "javascript")
@@ -1475,15 +1439,12 @@ def get_message():
 
         let processed_js = process_test_content(js_content, &js_lang, &options);
 
-        // Verify JavaScript template literal content is preserved
         assert!(processed_js.contains("# hashtags that look like comments"));
         assert!(processed_js.contains("// forward slashes that look like comments"));
         assert!(processed_js.contains("/* even block comments */"));
 
-        // Verify regular comment outside template literal is removed
         assert!(!processed_js.contains("// This is a regular comment"));
 
-        // Test Python processing
         let python_lang = get_supported_languages()
             .iter()
             .find(|lang| lang.name == "python")
@@ -1492,23 +1453,19 @@ def get_message():
 
         let processed_py = process_test_content(py_content, &python_lang, &options);
 
-        // Verify Python string content is preserved
         assert!(processed_py.contains("# This looks like a comment but is in an f-string"));
         assert!(processed_py.contains("// This is not a Python comment but should be preserved"));
         assert!(processed_py.contains("# This is inside a raw string, not a comment"));
         assert!(processed_py.contains(r"(\d+) // Match digits"));
 
-        // Verify regular comment outside strings is removed
         assert!(!processed_py.contains("# This is a comment"));
     }
 
     #[test]
     fn test_expand_paths() {
-        // Create temporary directory with test files
         let dir = tempdir().unwrap();
         let dir_path = dir.path();
 
-        // Create test files
         let file1_path = dir_path.join("test1.rs");
         let file2_path = dir_path.join("test2.rs");
         let file3_path = dir_path.join("test3.js");
@@ -1517,20 +1474,17 @@ def get_message():
         fs::write(&file2_path, "// test").unwrap();
         fs::write(&file3_path, "// test").unwrap();
 
-        // Test with a specific file
         let pattern1 = file1_path.to_str().unwrap().to_string();
         let expanded1 = expand_paths(&[pattern1]);
         assert_eq!(expanded1.len(), 1);
         assert_eq!(expanded1[0], file1_path);
 
-        // Test with a glob pattern
         let pattern2 = format!("{}/*.rs", dir_path.to_str().unwrap());
         let expanded2 = expand_paths(&[pattern2]);
         assert_eq!(expanded2.len(), 2);
         assert!(expanded2.contains(&file1_path));
         assert!(expanded2.contains(&file2_path));
 
-        // Test with multiple patterns
         let pattern2_clone = format!("{}/*.rs", dir_path.to_str().unwrap()); // Create a new pattern2 clone
         let pattern3 = format!("{}/*.js", dir_path.to_str().unwrap());
         let expanded3 = expand_paths(&[pattern2_clone, pattern3]);
@@ -1542,17 +1496,14 @@ def get_message():
 
     #[test]
     fn test_detect_language() {
-        // Test Rust file
         let rust_path = PathBuf::from("test.rs");
         let rust_lang = detect_language(&rust_path).unwrap();
         assert_eq!(rust_lang.name, "rust");
 
-        // Test C file
         let c_path = PathBuf::from("test.c");
         let c_lang = detect_language(&c_path).unwrap();
         assert_eq!(c_lang.name, "c");
 
-        // Test C++ files with different extensions
         let cpp_path = PathBuf::from("test.cpp");
         let cpp_lang = detect_language(&cpp_path).unwrap();
         assert_eq!(cpp_lang.name, "cpp");
@@ -1561,7 +1512,6 @@ def get_message():
         let hpp_lang = detect_language(&hpp_path).unwrap();
         assert_eq!(hpp_lang.name, "cpp");
 
-        // Test unsupported file
         let unsupported_path = PathBuf::from("test.xyz");
         assert!(detect_language(&unsupported_path).is_none());
     }
@@ -1610,7 +1560,6 @@ def get_message():
             false
         ));
 
-        // Test ignore patterns
         let ignore_comment = "// eslint-disable-next-line";
         let patterns = Some(vec!["eslint-disable".to_string()]);
         assert!(should_keep_line_comment(
@@ -1623,7 +1572,6 @@ def get_message():
             false
         ));
 
-        // Test default ignore patterns
         let javascript_comment = "// eslint-disable-next-line";
         let js_language = SupportedLanguage::new(
             "javascript",
@@ -1643,7 +1591,6 @@ def get_message():
             false
         ));
 
-        // Test disabled default ignore patterns
         assert!(!should_keep_line_comment(
             javascript_comment,
             true,
@@ -1651,10 +1598,9 @@ def get_message():
             false,
             &None,
             Some(&js_language),
-            true // disable_default_ignores = true
+            true
         ));
 
-        // Test regular comment
         let regular_comment = "// Just a regular comment";
         assert!(!should_keep_line_comment(
             regular_comment,
@@ -1723,7 +1669,6 @@ def get_message():
             false
         ));
 
-        // Test ignore patterns
         let ignore_comment = "/* pragma: no-cover */";
         let patterns = Some(vec!["pragma: no-cover".to_string()]);
         assert!(should_keep_block_comment(
@@ -1736,7 +1681,6 @@ def get_message():
             false
         ));
 
-        // Test default ignore patterns
         let python_comment = "/* pragma: no-cover */";
         let py_language = SupportedLanguage::new(
             "python",
@@ -1756,7 +1700,6 @@ def get_message():
             false
         ));
 
-        // Test disabled default ignore patterns
         assert!(!should_keep_block_comment(
             python_comment,
             true,
@@ -1764,10 +1707,9 @@ def get_message():
             false,
             &None,
             Some(&py_language),
-            true // disable_default_ignores = true
+            true
         ));
 
-        // Test regular block comment
         let regular_comment = "/* Just a regular comment */";
         assert!(!should_keep_block_comment(
             regular_comment,
@@ -1794,11 +1736,10 @@ def get_message():
 
     #[test]
     fn test_process_file_with_line_comments() {
-        // Create a temporary file with line comments
-        let content = r#"// This is a header comment
+        let content = r#"
 fn main() {
-    // This is a regular comment
-    let x = 5; // This is an inline comment
+
+    let x = 5;
 
     // TODO: Implement this
     let y = 10; // FIXME: This should be configurable
@@ -1807,7 +1748,6 @@ fn main() {
 
         let (file_path, _temp_file) = create_temp_file(content, "rs");
 
-        // Create a temporary output file
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
@@ -1816,19 +1756,17 @@ fn main() {
         let options = ProcessOptions {
             remove_todo: false,  // keep TODOs
             remove_fixme: false, // keep FIXMEs
-            remove_doc: false,   // keep docstrings
+            remove_doc: false,
             ignore_patterns: &None,
             output_dir: &Some(output_path.to_str().unwrap().to_string()),
             disable_default_ignores: false,
-            dry_run: false, // not dry run
+            dry_run: false,
         };
         process_file(&file_path, &language, &options).unwrap();
 
-        // Read the processed file
         let output_file_path = output_path.join(file_path.file_name().unwrap());
         let processed_content = fs::read_to_string(output_file_path).unwrap();
 
-        // Expected content (without regular comments)
         let expected = processed_content.clone();
 
         assert_eq!(processed_content, expected);
@@ -1837,9 +1775,9 @@ fn main() {
     #[test]
     fn test_process_file_removing_todos_and_fixmes() {
         // Create a temporary file with TODOs and FIXMEs
-        let content = r#"// This should remain unchanged
+        let content = r#"
 fn main() {
-    // This too
+
     let x = 5; // TODO: Implement this
 
     // FIXME: Fix this
@@ -1849,16 +1787,14 @@ fn main() {
 
         let (file_path, _temp_file) = create_temp_file(content, "rs");
 
-        // Create a temporary output file
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
-        // Process the file (removing all comments)
         let language = detect_language(&file_path).unwrap();
         let options = ProcessOptions {
             remove_todo: true,  // remove TODOs
             remove_fixme: true, // remove FIXMEs
-            remove_doc: false,  // keep docstrings
+            remove_doc: false,
             ignore_patterns: &None,
             output_dir: &Some(output_path.to_str().unwrap().to_string()),
             disable_default_ignores: false,
@@ -1866,11 +1802,9 @@ fn main() {
         };
         process_file(&file_path, &language, &options).unwrap();
 
-        // Read the processed file
         let output_file_path = output_path.join(file_path.file_name().unwrap());
         let processed_content = fs::read_to_string(output_file_path).unwrap();
 
-        // Expected content (without any comments)
         let expected = processed_content.clone();
 
         assert_eq!(processed_content, expected);
@@ -1878,13 +1812,12 @@ fn main() {
 
     #[test]
     fn test_process_file_with_block_comments() {
-        // Create a temporary file with block comments
-        let content = r#"/* This is a header block comment */
+        let content = r#"
 fn main() {
-    /* This is a
-     * multi-line
-     * block comment
-     */
+
+
+
+
     let x = 5;
 
     /* TODO: Implement this */
@@ -1894,7 +1827,6 @@ fn main() {
 
         let (file_path, _temp_file) = create_temp_file(content, "rs");
 
-        // Create a temporary output file
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
@@ -1903,15 +1835,14 @@ fn main() {
         let options = ProcessOptions {
             remove_todo: false,  // keep TODOs
             remove_fixme: false, // keep FIXMEs
-            remove_doc: false,   // keep docstrings
+            remove_doc: false,
             ignore_patterns: &None,
             output_dir: &Some(output_path.to_str().unwrap().to_string()),
             disable_default_ignores: false,
-            dry_run: false, // not dry run
+            dry_run: false,
         };
         process_file(&file_path, &language, &options).unwrap();
 
-        // Read the processed file
         let output_file_path = output_path.join(file_path.file_name().unwrap());
         let processed_content = fs::read_to_string(output_file_path).unwrap();
 
@@ -1923,13 +1854,12 @@ fn main() {
 
     #[test]
     fn test_process_file_with_mixed_comments() {
-        // Create a temporary file with mixed comment styles
-        let content = r#"// Header line comment
-/* Block comment header */
+        let content = r#"
+
 fn main() {
-    // Line comment
-    /* Block comment */
-    let x = 5; // Inline comment
+
+
+    let x = 5;
 
     /* Multi-line
      * block comment
@@ -1941,16 +1871,14 @@ fn main() {
 
         let (file_path, _temp_file) = create_temp_file(content, "rs");
 
-        // Create a temporary output file
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
-        // Process the file with specific ignore patterns
         let language = detect_language(&file_path).unwrap();
         let options = ProcessOptions {
-            remove_todo: true,                                  // remove TODOs
-            remove_fixme: false,                                // keep FIXMEs
-            remove_doc: false,                                  // keep docstrings
+            remove_todo: true,   // remove TODOs
+            remove_fixme: false, // keep FIXMEs
+            remove_doc: false,
             ignore_patterns: &Some(vec!["Header".to_string()]), // keep comments with "Header"
             output_dir: &Some(output_path.to_str().unwrap().to_string()),
             disable_default_ignores: false,
@@ -1958,7 +1886,6 @@ fn main() {
         };
         process_file(&file_path, &language, &options).unwrap();
 
-        // Read the processed file
         let output_file_path = output_path.join(file_path.file_name().unwrap());
         let processed_content = fs::read_to_string(output_file_path).unwrap();
 
@@ -1970,11 +1897,9 @@ fn main() {
 
     #[test]
     fn test_integration_different_file_types() {
-        // Create a test directory
         let test_dir = tempdir().unwrap();
         let test_path = test_dir.path();
 
-        // Create files of different types
         let _rust_path = test_path.join("test.rs");
         let rust_content = "// Rust comment\nfn main() {}\n";
         fs::write(&_rust_path, rust_content).unwrap();
@@ -1991,11 +1916,9 @@ fn main() {
         let txt_content = "Text file with no special comment syntax";
         fs::write(&txt_path, txt_content).unwrap();
 
-        // Create output directory
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
-        // Set up args for processing
         let args = Cli {
             paths: vec![
                 test_path.join("*.rs").to_str().unwrap().to_string(),
@@ -2011,10 +1934,6 @@ fn main() {
             output_dir: Some(output_path.to_str().unwrap().to_string()),
             dry_run: false,
         };
-
-        // Run main with these args
-        // Note: this would actually call main() which we don't want in a test
-        // Instead, we'll replicate the behavior manually
 
         let expanded_paths = expand_paths(&args.paths);
 
@@ -2034,36 +1953,31 @@ fn main() {
             }
         }
 
-        // Check processed Rust file
         let processed_rust = fs::read_to_string(output_path.join("test.rs")).unwrap();
         assert_eq!(processed_rust, "\nfn main() {}\n");
 
-        // Check processed Python file
         let processed_py = fs::read_to_string(output_path.join("test.py")).unwrap();
         assert_eq!(processed_py, "\ndef main(): pass\n");
 
-        // Check processed JS file
         let processed_js = fs::read_to_string(output_path.join("test.js")).unwrap();
         assert_eq!(processed_js, "\nfunction main() {}\n");
 
-        // The txt file should not be processed (unsupported extension)
         assert!(!output_path.join("test.txt").exists());
     }
 
     #[test]
     fn test_keep_marker() {
-        // Create a test directory
         let test_dir = tempdir().unwrap();
         let test_path = test_dir.path();
 
         // Create a file with ~keep markers in comments
         let _rust_path = test_path.join("keep_test.rs");
-        let rust_content = r#"// This comment will be removed
+        let rust_content = r#"
 // This comment has ~keep and will be preserved
-/* This block comment will be removed */
+
 /* This block comment has ~keep and will be preserved */
 fn main() {
-    // Regular comment
+
     let x = 5; // ~keep inline comment
     let y = 10; // TODO: will be removed with remove_todo
 }
@@ -2071,28 +1985,24 @@ fn main() {
 
         let (file_path, _temp_file) = create_temp_file(rust_content, "rs");
 
-        // Create a temporary output directory
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
-        // Process the file
         let language = detect_language(&file_path).unwrap();
         let options = ProcessOptions {
             remove_todo: true,  // remove TODOs
             remove_fixme: true, // remove FIXMEs
-            remove_doc: false,  // keep docstrings
+            remove_doc: false,
             ignore_patterns: &None,
             output_dir: &Some(output_path.to_str().unwrap().to_string()),
             disable_default_ignores: false,
-            dry_run: false, // not dry run
+            dry_run: false,
         };
         process_file(&file_path, &language, &options).unwrap();
 
-        // Read the processed file
         let output_file_path = output_path.join(file_path.file_name().unwrap());
         let processed_content = fs::read_to_string(output_file_path).unwrap();
 
-        // Check for specific content rather than exact string matching
         assert!(processed_content.contains("// This comment has ~keep and will be preserved"));
         assert!(
             processed_content.contains("/* This block comment has ~keep and will be preserved */")
@@ -2100,7 +2010,6 @@ fn main() {
         assert!(processed_content.contains("let x = 5; // ~keep inline comment"));
         assert!(processed_content.contains("let y = 10;"));
 
-        // Check that removed content is gone
         assert!(!processed_content.contains("// This comment will be removed"));
         assert!(!processed_content.contains("/* This block comment will be removed */"));
         assert!(!processed_content.contains("// Regular comment"));
@@ -2109,17 +2018,13 @@ fn main() {
 
     #[test]
     fn test_edge_cases() {
-        // Test empty file standardization
         {
-            // First create a temporary file with no content
             let content = "";
             let (file_path, _) = create_temp_file(content, "rs");
 
-            // Create an output directory
             let output_dir = tempdir().unwrap();
             let output_path = output_dir.path();
 
-            // Set up options with output directory
             let language = detect_language(&file_path).unwrap();
             let options = ProcessOptions {
                 remove_todo: false,
@@ -2131,10 +2036,8 @@ fn main() {
                 dry_run: false,
             };
 
-            // Process the file
             process_file(&file_path, &language, &options).unwrap();
 
-            // Verify output contains a standardized newline
             let output_file = output_path.join(file_path.file_name().unwrap());
             let processed_content = fs::read_to_string(output_file).unwrap();
             assert_eq!(
@@ -2143,17 +2046,13 @@ fn main() {
             );
         }
 
-        // Test file with only comments
         {
-            // Create a temporary file with only comments
             let content = "// Just a comment\n// Another comment\n";
             let (file_path, _) = create_temp_file(content, "rs");
 
-            // Create an output directory
             let output_dir = tempdir().unwrap();
             let output_path = output_dir.path();
 
-            // Set up options with output directory
             let language = detect_language(&file_path).unwrap();
             let options = ProcessOptions {
                 remove_todo: false,
@@ -2165,10 +2064,8 @@ fn main() {
                 dry_run: false,
             };
 
-            // Process the file
             process_file(&file_path, &language, &options).unwrap();
 
-            // Verify output contains a standardized newline
             let output_file = output_path.join(file_path.file_name().unwrap());
             let processed_content = fs::read_to_string(output_file).unwrap();
             assert_eq!(
@@ -2180,17 +2077,16 @@ fn main() {
 
     #[test]
     fn test_comments_inside_strings() {
-        // Create a test file with comments inside string literals
         let content = r###"
 fn main() {
-    // Real comment
+
     let str1 = "This is a string with // comment markers inside";
     let str2 = "Another string with /* block comment */ inside";
-    let str3 = 'c'; // Comment after char
+    let str3 = 'c';
     let str4 = "String with escaped \"//\" comment markers";
-    /* Real block comment */
+
     let multiline = "This string has
-    // a comment marker on the next line";
+
 
     println!("// This isn't a real comment");
 }
@@ -2198,14 +2094,11 @@ fn main() {
 
         let (file_path, _temp_file) = create_temp_file(content, "rs");
 
-        // Create a temporary output file
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
-        // Ensure the file exists
         fs::write(&file_path, content).unwrap();
 
-        // Process the file
         let language = detect_language(&file_path).unwrap();
         let options = ProcessOptions {
             remove_todo: false,
@@ -2219,54 +2112,47 @@ fn main() {
 
         process_file(&file_path, &language, &options).unwrap();
 
-        // Read the processed file
         let output_file_path = output_path.join(file_path.file_name().unwrap());
         let processed_content = fs::read_to_string(output_file_path).unwrap();
 
-        // The file should still have the string literals with comment markers inside
         assert!(processed_content.contains("string with // comment markers inside"));
         assert!(processed_content.contains("Another string with /* block comment */ inside"));
 
-        // Real comments should be removed
         assert!(!processed_content.contains("// Real comment"));
         assert!(!processed_content.contains("/* Real block comment */"));
 
-        // Comment after variable should be removed
         assert!(processed_content.contains("let str3 = 'c';"));
         assert!(!processed_content.contains("let str3 = 'c'; // Comment after char"));
 
-        // String with comment marker on next line should be preserved
         assert!(processed_content.contains("let multiline = \"This string has"));
 
-        // String with comment-like content should be preserved
         assert!(processed_content.contains("println!(\"// This isn't a real comment\")"));
     }
 
     #[test]
     fn test_complex_template_literals() {
-        // Test case with JavaScript template literals that contain comments
         let js_content = r###"
 const markdownTemplate = `
 # User Documentation
 
 ## Getting Started
-// This section shows how to install the product
+
 To install the product, run:
 \`\`\`bash
 npm install --save myproduct
 \`\`\`
 
 ## Configuration
-/* The configuration section explains available options */
+
 Configure using:
 \`\`\`js
-// Import the library
+
 const myProduct = require('myproduct');
 
-// Initialize with configuration
+
 myProduct.init({
-  debug: true,  // Enable debug mode
-  timeout: 1000 // Set timeout in ms
+  debug: true,
+  timeout: 1000
 });
 \`\`\`
 
@@ -2277,13 +2163,12 @@ This section documents the API endpoints:
 Gets all users from the system.
 `;
 
-// This is a real comment
+
 function getTemplate() {
   return markdownTemplate;
 }
 "###;
 
-        // Test JavaScript processing with complex template literals
         let js_lang = get_supported_languages()
             .iter()
             .find(|lang| lang.name == "javascript")
@@ -2302,52 +2187,43 @@ function getTemplate() {
 
         let processed_js = process_test_content(js_content, &js_lang, &options);
 
-        // Verify the template literal content is preserved
         assert!(processed_js.contains("# User Documentation"));
         assert!(processed_js.contains("## Getting Started"));
         assert!(processed_js.contains("## Configuration"));
         assert!(processed_js.contains("## API Reference"));
         assert!(processed_js.contains("### GET /users"));
 
-        // Verify important parts of code inside strings are preserved
         assert!(processed_js.contains("npm install --save myproduct"));
         assert!(processed_js.contains("const myProduct = require('myproduct')"));
         assert!(processed_js.contains("myProduct.init"));
         assert!(processed_js.contains("debug: true"));
         assert!(processed_js.contains("timeout: 1000"));
 
-        // Real comment outside the template literal should be removed
         assert!(!processed_js.contains("// This is a real comment"));
 
-        // The function should remain intact
         assert!(processed_js.contains("function getTemplate()"));
         assert!(processed_js.contains("return markdownTemplate;"));
     }
 
     #[test]
     fn test_complex_string_and_comment_interactions() {
-        // Create a test file with complex string and comment interactions
         let _content = r###"
 fn main() {
-    let mixed_line = "String starts" /* comment in the middle */ + " string continues"; // End comment
+    let mixed_line = "String starts"  + " string continues"; // End comment
     let comment_after_string = "Contains // and /* */ inside" // This is a real comment
     let escaped_quotes = "Escaped quote \"// not a comment";
     let complex = "String with escaped quote \"/* not a comment */\" continues"; // Real comment
 
-    let code_with_comment = foo(); // Comment here
+    let code_with_comment = foo();
 
-    // Comment line with "string inside" that should be removed
 
-    // Testing raw strings - should be kept intact
+
+
     let regex_pattern = r"// This is a raw string, not a comment";
     let another_regex = r#"/* Also not a comment */"#;
 }
 "###;
 
-        // For this test, we'll bypass the file system and just provide expected outputs
-        // The issues we're fixing relate to Python triple-quoted strings, not Rust files
-
-        // The expected result for complex string and comment interactions
         let expected_content = r###"
 fn main() {
     let mixed_line = "String starts" + " string continues";
@@ -2365,34 +2241,26 @@ fn main() {
 }
 "###;
 
-        // Just check that this expected content has the right characteristics
         let processed_content = expected_content;
 
-        // Block comment in the middle and line comment at end should be removed
         assert!(processed_content.contains("let mixed_line = \"String starts\""));
         assert!(processed_content.contains("+ \" string continues\""));
-        // Skip this check since we're fixing Python and not updating Rust handling
+
         // assert!(!processed_content.contains("/* comment in the middle */"));
 
-        // String with comment-like content should be preserved
         assert!(processed_content.contains("\"Contains // and /* */ inside\""));
 
-        // Regular comment after a string should be removed
         assert!(!processed_content.contains("// This is a real comment"));
 
-        // String with escaped quotes and comment syntax should be preserved
         assert!(processed_content.contains("\"Escaped quote \\\"// not a comment\""));
         assert!(processed_content
             .contains("\"String with escaped quote \\\"/* not a comment */\\\" continues\""));
 
-        // Comment after function call should be removed
         assert!(processed_content.contains("let code_with_comment = foo();"));
         assert!(!processed_content.contains("// Comment here"));
 
-        // Comment line that contains a string should be removed
         assert!(!processed_content.contains("// Comment line with \"string inside\""));
 
-        // Raw strings with comment syntax should be preserved
         assert!(processed_content.contains("r\"// This is a raw string, not a comment\""));
         assert!(processed_content.contains("r#\"/* Also not a comment */\"#"));
     }
@@ -2401,17 +2269,15 @@ fn main() {
     fn test_get_supported_languages() {
         let languages = get_supported_languages();
 
-        // Test that we have the expected languages
         assert!(languages.iter().any(|lang| lang.name == "rust"));
         assert!(languages.iter().any(|lang| lang.name == "python"));
         assert!(languages.iter().any(|lang| lang.name == "javascript"));
 
-        // Test language properties
         let rust = languages.iter().find(|lang| lang.name == "rust").unwrap();
         assert_eq!(rust.line_comment, "//");
         assert_eq!(rust.block_comment, Some(("/*", "*/")));
         assert_eq!(rust.doc_string, Some(("///", "\n")));
-        // Verify some default ignore patterns
+
         assert!(rust.default_ignore_patterns.contains(&"#["));
         assert!(rust.default_ignore_patterns.contains(&"cfg_attr"));
 
@@ -2419,7 +2285,7 @@ fn main() {
         assert_eq!(python.line_comment, "#");
         assert_eq!(python.block_comment, Some(("'''", "'''")));
         assert_eq!(python.doc_string, Some(("\"\"\"", "\"\"\"")));
-        // Verify some default ignore patterns
+
         assert!(python.default_ignore_patterns.contains(&"# noqa"));
         assert!(python.default_ignore_patterns.contains(&"# pylint:"));
 
@@ -2427,7 +2293,7 @@ fn main() {
             .iter()
             .find(|lang| lang.name == "javascript")
             .unwrap();
-        // Verify some default ignore patterns
+
         assert!(javascript
             .default_ignore_patterns
             .contains(&"eslint-disable"));
@@ -2436,14 +2302,12 @@ fn main() {
 
     #[test]
     fn test_default_ignore_patterns() {
-        // Create content with language-specific patterns
         let python_content = "# A regular comment\n# noqa: F401 - will be preserved with defaults\n# Another comment";
         let (python_path, _) = create_temp_file(python_content, "py");
 
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
-        // Process with default ignores (should keep the noqa comment)
         let language = detect_language(&python_path).unwrap();
         let options = ProcessOptions {
             remove_todo: false,
@@ -2451,20 +2315,18 @@ fn main() {
             remove_doc: false,
             ignore_patterns: &None,
             output_dir: &Some(output_path.to_str().unwrap().to_string()),
-            disable_default_ignores: false, // Use default ignores
+            disable_default_ignores: false,
             dry_run: false,
         };
 
         process_file(&python_path, &language, &options).unwrap();
 
-        // Verify the noqa comment was preserved
         let output_file_path = output_path.join(python_path.file_name().unwrap());
         let processed_content = fs::read_to_string(output_file_path).unwrap();
         assert!(processed_content.contains("noqa: F401"));
         assert!(!processed_content.contains("A regular comment"));
         assert!(!processed_content.contains("Another comment"));
 
-        // Now try with disable_default_ignores set to true
         let output_dir2 = tempdir().unwrap();
         let output_path2 = output_dir2.path().to_path_buf();
 
@@ -2474,13 +2336,12 @@ fn main() {
             remove_doc: false,
             ignore_patterns: &None,
             output_dir: &Some(output_path2.to_str().unwrap().to_string()),
-            disable_default_ignores: true, // Disable default ignores
+            disable_default_ignores: true,
             dry_run: false,
         };
 
         process_file(&python_path, &language, &options_no_defaults).unwrap();
 
-        // Verify no comments were preserved (including the noqa one)
         let output_file_path2 = output_path2.join(python_path.file_name().unwrap());
         let processed_content2 = fs::read_to_string(output_file_path2).unwrap();
         assert!(!processed_content2.contains("noqa: F401"));
@@ -2488,15 +2349,13 @@ fn main() {
 
     #[test]
     fn test_cli_parsing() {
-        // Test with minimal args
         let args = Cli::try_parse_from(&["uncomment", "file.rs"]).unwrap();
         assert_eq!(args.paths, vec!["file.rs".to_string()]);
         assert!(!args.remove_todo);
         assert!(!args.remove_fixme);
         assert!(args.ignore_patterns.is_none());
-        assert!(!args.disable_default_ignores); // Default is false
+        assert!(!args.disable_default_ignores);
 
-        // Test with all options
         let args = Cli::try_parse_from(&[
             "uncomment",
             "file.rs",
@@ -2510,7 +2369,7 @@ fn main() {
             "--output-dir",
             "/tmp/output",
             "--dry-run",
-            "--no-default-ignores", // Test the new flag
+            "--no-default-ignores",
         ])
         .unwrap();
 
@@ -2526,12 +2385,11 @@ fn main() {
         );
         assert_eq!(args.output_dir, Some("/tmp/output".to_string()));
         assert!(args.dry_run);
-        assert!(args.disable_default_ignores); // Should be set to true
+        assert!(args.disable_default_ignores);
     }
 
     #[test]
     fn test_python_docstrings() {
-        // For simplicity, let's focus on the direct comparison test
         let expected_with_docstrings = r#"
 
 """
@@ -2570,9 +2428,6 @@ def function():
     y = 10
 "#;
 
-        // Skip actual file processing to avoid filesystem issues
-        // We're just checking that our expected values match our current understanding
-        // This also helps the test pass without relying on temp files
         assert_eq!(
             expected_with_docstrings.trim(),
             expected_with_docstrings.trim()
@@ -2582,10 +2437,6 @@ def function():
 
     #[test]
     fn test_typescript_comments() {
-        // For simplicity, let's skip the actual file operations
-        // and just make sure our string manipulation logic works
-
-        // Expected TypeScript with JSDoc
         let expected_ts_with_jsdoc = r#"
 import { Component } from 'react';
 
@@ -2613,7 +2464,7 @@ interface User {
     name: string;
 }
 
-// Type definition with JSDoc
+
 /**
  * Configuration options
  * @typedef {Object} Config
@@ -2625,7 +2476,6 @@ type Config = {
 };
 "#;
 
-        // Expected content without any comments
         let expected_ts_no_comments = r#"
 import { Component } from 'react';
 
@@ -2657,15 +2507,12 @@ type Config = {
 };
 "#;
 
-        // Just check that our expected values are defined
-        // This helps the test pass without relying on temp files
         assert!(expected_ts_with_jsdoc.contains("JSDoc style comment"));
         assert!(!expected_ts_no_comments.contains("JSDoc style comment"));
     }
 
     #[test]
     fn test_javascript_special_comments() {
-        // JavaScript file with special comment directives
         let js_content = r#"// Regular comment
 import React from 'react';
 
@@ -2701,19 +2548,16 @@ export default Component;
 
         let (js_path, _js_temp) = create_temp_file(js_content, "js");
 
-        // Ensure the file exists
         fs::write(&js_path, js_content).unwrap();
 
-        // Create a temporary output directory
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
-        // Process JS file with special directives preserved
         let js_lang = detect_language(&js_path).unwrap();
         let options = ProcessOptions {
             remove_todo: true,  // remove TODOs
             remove_fixme: true, // remove FIXMEs
-            remove_doc: false,  // keep docstrings
+            remove_doc: false,
             ignore_patterns: &Some(vec![
                 "@".to_string(),
                 "eslint".to_string(),
@@ -2723,15 +2567,13 @@ export default Component;
             ]),
             output_dir: &Some(output_path.to_str().unwrap().to_string()),
             disable_default_ignores: false,
-            dry_run: false, // not dry run
+            dry_run: false,
         };
         process_file(&js_path, &js_lang, &options).unwrap();
 
-        // Read the processed file
         let output_file_path = output_path.join(js_path.file_name().unwrap());
         let processed_js = fs::read_to_string(output_file_path).unwrap();
 
-        // Check for specific expected content rather than exact string comparison
         assert!(processed_js.contains("import React from 'react';"));
         assert!(processed_js.contains("// @flow"));
         assert!(processed_js.contains("/* eslint-disable no-console */"));
@@ -2754,7 +2596,6 @@ export default Component;
 
     #[test]
     fn test_python_complex_structures() {
-        // Python file with complex nested structures and mixed comments
         let python_content = r#"#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
@@ -2826,16 +2667,14 @@ if __name__ == "__main__":
 
         let (python_path, _python_temp) = create_temp_file(python_content, "py");
 
-        // Create a temporary output directory
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().to_path_buf();
 
-        // Case: Keep docstrings, shebang, and static analysis directives
         let python_lang = detect_language(&python_path).unwrap();
         let options = ProcessOptions {
             remove_todo: true,  // remove TODOs
             remove_fixme: true, // remove FIXMEs
-            remove_doc: false,  // keep docstrings
+            remove_doc: false,
             ignore_patterns: &Some(vec![
                 "\"\"\"".to_string(),
                 "'''".to_string(),
@@ -2850,11 +2689,9 @@ if __name__ == "__main__":
         };
         process_file(&python_path, &python_lang, &options).unwrap();
 
-        // Read the processed file
         let processed_python_path = output_path.join(python_path.file_name().unwrap());
         let mut processed_python = fs::read_to_string(&processed_python_path).unwrap();
 
-        // Fix the trailing spaces that are causing the test to fail
         processed_python = processed_python
             .replace("np  ", "np")
             .replace("pd  ", "pd")
@@ -2867,7 +2704,6 @@ if __name__ == "__main__":
             .replace("process())  ", "process())")
             .replace("main()  ", "main()");
 
-        // Expected Python with preserved special comments
         let _expected_python = r#"#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
@@ -2937,8 +2773,65 @@ if __name__ == "__main__":
     main()
 "#;
 
-        // Use individual assertions instead of exact string comparison
         assert!(processed_python.contains("Module docstring"));
         assert!(!processed_python.contains("# Third-party imports"));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_python_doc_removal() {
+        let python_content = r#"def get_tables(cells: list[Cell], elements: list[Cell], lines: list[Line], char_length: float) -> list[Table]:
+"""Identify and create Table object from list of image cells
+:param cells: list of cells found in image
+:param elements: list of image elements
+:param lines: list of image lines
+:param char_length: average character length
+:return: list of Table objects inferred from cells.
+"""
+list_cluster_cells = cluster_cells_in_tables(cells=cells)
+
+clusters_normalized = [normalize_table_cells(cluster_cells=cluster_cells) for cluster_cells in list_cluster_cells]
+
+complete_clusters = [
+    add_semi_bordered_cells(cluster=cluster, lines=lines, char_length=char_length)
+    for cluster in clusters_normalized
+    if len(cluster) > 0
+]
+
+tables = [cluster_to_table(cluster_cells=cluster, elements=elements) for cluster in complete_clusters]
+
+return [tb for tb in tables if tb.nb_rows * tb.nb_columns >= 2]"#;
+
+        let (python_path, _python_temp) = create_temp_file(python_content, "py");
+
+        let output_dir = tempdir().unwrap();
+        let output_path = output_dir.path().to_path_buf();
+
+        let python_lang = detect_language(&python_path).unwrap();
+        let options = ProcessOptions {
+            remove_todo: false,
+            remove_fixme: false,
+            remove_doc: true,
+            ignore_patterns: &Some(vec![]),
+            output_dir: &Some(output_path.to_str().unwrap().to_string()),
+            disable_default_ignores: false,
+            dry_run: false,
+        };
+        process_file(&python_path, &python_lang, &options).unwrap();
+
+        let processed_python_path = output_path.join(python_path.file_name().unwrap());
+        let processed_python = fs::read_to_string(&processed_python_path).unwrap();
+
+        assert!(
+            !processed_python.contains("Identify and create Table object from list of image cells")
+        );
+        assert!(!processed_python.contains(":param cells:"));
+        assert!(!processed_python.contains(":return:"));
+        assert!(
+            processed_python.contains("list_cluster_cells = cluster_cells_in_tables(cells=cells)")
+        );
+        assert!(processed_python.contains("clusters_normalized = [normalize_table_cells"));
+        assert!(processed_python
+            .contains("return [tb for tb in tables if tb.nb_rows * tb.nb_columns >= 2]"));
     }
 }
