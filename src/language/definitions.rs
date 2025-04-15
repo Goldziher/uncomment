@@ -28,6 +28,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             "br##\"[^\"]*\"##",
             "br###\"[^\"]*\"###",
         ],
+        r"\.rs$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -40,6 +41,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             "#elif",
         ],
         vec![r#""(?:\\.|[^"\\])*""#, r#"'(?:\\.|[^'\\])'"#],
+        r"\.(?:c|h)$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -57,6 +59,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             r#"R"(\(.*\))""#,
             r#"""""(?:[^"]|"[^"]|""[^"])*""""#,
         ],
+        r"\.(?:cpp|cc|cxx|hpp|hxx)$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -77,6 +80,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             r#"'(?:\\.|[^'\\])'"#,
             r#"""""(?:[^"]|"[^"]|""[^"])*""""#,
         ],
+        r"\.java$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -103,6 +107,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             r#"`[^`]*`"#,
             r#"`[^`]*\$\{[^\}]*\}[^`]*`"#,
         ],
+        r"\.(?:js|mjs|cjs|jsx)$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -128,6 +133,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             r#"`[^`]*`"#,
             r#"`[^`]*\$\{[^\}]*\}[^`]*`"#,
         ],
+        r"\.(?:ts|tsx|mts|cts|d\.ts|d\.mts|d\.cts)$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -189,6 +195,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             r#"ur"(?:\\.|[^"\\])*""#,
             r#"ru"(?:\\.|[^"\\])*""#,
         ],
+        r"\.(?:py|pyw|pyi)$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -232,6 +239,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             r#"<<[-~]?`\w+`"#,
             r#"<<[-~]?\w+"#,
         ],
+        r"\.(?:rb|rake|gemspec)$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -247,6 +255,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             "//noinspection",
         ],
         vec![r#""(?:\\.|[^"\\])*""#, r#"`[^`]*`"#, r#"'(?:\\.|[^'\\])'"#],
+        r"\.go$",
     ));
 
     languages.insert(SupportedLanguage::new(
@@ -270,6 +279,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             "##\"\"\"[^\"]*\"\"\"##",
             r#"'[^'\\]'"#,
         ],
+        r"\.swift$",
     ));
 
     languages
