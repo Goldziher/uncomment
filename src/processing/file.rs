@@ -157,14 +157,72 @@ pub fn process_file(
     let mut in_docstring = false;
     let mut skip_next_triple_quote = false;
 
+    // Track test context
+    let mut in_test_module = false;
+    let mut in_test_function = false;
+    let mut brace_count_module = 0;
+    let mut brace_count_function = 0;
+
     for (i, line) in original_lines.iter().enumerate() {
+        // Check for test module and function boundaries
+        let trimmed = line.trim();
+
+        // Check for test module start: #[cfg(test)] or mod tests {
+        if !in_test_module
+            && (trimmed.contains("#[cfg(test)]")
+                || (trimmed.starts_with("mod")
+                    && trimmed.contains("tests")
+                    && trimmed.ends_with("{")))
+        {
+            in_test_module = true;
+        }
+
+        // Check for test function: #[test] or fn test_ or any function with "test" in the name
+        if !in_test_function
+            && (trimmed.contains("#[test]")
+                || trimmed.contains("fn test")
+                || (trimmed.starts_with("fn ")
+                    && trimmed.contains("test")
+                    && trimmed.contains("(")
+                    && trimmed.contains(")")))
+        {
+            in_test_function = true;
+        }
+
+        // Track braces to know when we exit a test module or function
+        let open_braces = line.matches('{').count();
+        let close_braces = line.matches('}').count();
+
+        if in_test_function {
+            brace_count_function += open_braces as i32;
+            brace_count_function -= close_braces as i32;
+
+            if brace_count_function <= 0 {
+                in_test_function = false;
+                brace_count_function = 0;
+            }
+        } else if in_test_module {
+            brace_count_module += open_braces as i32;
+            brace_count_module -= close_braces as i32;
+
+            if brace_count_module <= 0 {
+                in_test_module = false;
+                brace_count_module = 0;
+            }
+        }
+
+        // If we're in a test context, preserve the original line
+        if in_test_module || in_test_function {
+            processed_lines.push(line.to_string());
+            continue;
+        }
+
         if language.name == "python" && options.remove_doc {
             let is_func_or_class_start = i > 0
                 && original_lines[i - 1].trim().ends_with(":")
                 && (original_lines[i - 1].contains("def ")
                     || original_lines[i - 1].contains("class "));
 
-            let trimmed = line.trim();
             let has_triple_quotes = trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''");
 
             if has_triple_quotes
