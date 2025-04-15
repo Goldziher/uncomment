@@ -20,14 +20,12 @@ fn create_diff(original: &str, modified: &str, file_path: &str) -> String {
 
     while i < original_lines.len() || j < modified_lines.len() {
         if i >= original_lines.len() {
-            // Extra lines in modified
             diff.push_str(&format!("+ [{}] {}\n", j + 1, modified_lines[j]));
             j += 1;
             continue;
         }
 
         if j >= modified_lines.len() {
-            // Lines removed in modified
             diff.push_str(&format!("- [{}] {}\n", i + 1, original_lines[i]));
             i += 1;
             continue;
@@ -35,7 +33,6 @@ fn create_diff(original: &str, modified: &str, file_path: &str) -> String {
 
         if original_lines[i] != modified_lines[j] {
             if original_lines[i].trim().is_empty() && !modified_lines[j].trim().is_empty() {
-                // Line was empty, now has content
                 diff.push_str(&format!(
                     "~ [{}] (empty) -> [{}] {}\n",
                     i + 1,
@@ -43,7 +40,6 @@ fn create_diff(original: &str, modified: &str, file_path: &str) -> String {
                     modified_lines[j]
                 ));
             } else if !original_lines[i].trim().is_empty() && modified_lines[j].trim().is_empty() {
-                // Line had content, now empty
                 diff.push_str(&format!(
                     "~ [{}] {} -> [{}] (empty)\n",
                     i + 1,
@@ -51,7 +47,6 @@ fn create_diff(original: &str, modified: &str, file_path: &str) -> String {
                     j + 1
                 ));
             } else {
-                // Line was changed
                 diff.push_str(&format!(
                     "~ [{}] {} -> [{}] {}\n",
                     i + 1,
@@ -94,7 +89,6 @@ fn main() -> io::Result<()> {
                 dry_run: cli.dry_run,
             };
 
-            // Read the original content before processing
             let original_content = fs::read_to_string(path)?;
 
             match process_file(path, &language, &options) {
@@ -103,16 +97,12 @@ fn main() -> io::Result<()> {
                     if was_modified {
                         modified_count += 1;
 
-                        // For dry run mode, show the diff
                         if cli.dry_run {
-                            // Read the processed content from the temporary file or construct it
                             let processed_content = if let Some(output_dir) = &cli.output_dir {
                                 let output_path = std::path::PathBuf::from(output_dir)
                                     .join(path.file_name().unwrap());
                                 fs::read_to_string(&output_path)?
                             } else {
-                                // We need to re-process the file to get the processed content
-                                // Create a temporary output directory
                                 let temp_dir = tempfile::tempdir()?;
                                 let temp_output_dir = temp_dir.path().to_string_lossy().to_string();
 
@@ -123,7 +113,7 @@ fn main() -> io::Result<()> {
                                     ignore_patterns: &cli.ignore_patterns,
                                     output_dir: &Some(temp_output_dir.clone()),
                                     disable_default_ignores: cli.disable_default_ignores,
-                                    dry_run: false, // Not dry run so it writes to the temp dir
+                                    dry_run: false,
                                 };
 
                                 process_file(path, &language, &temp_options)?;
@@ -151,7 +141,6 @@ fn main() -> io::Result<()> {
         }
     }
 
-    // Print the diffs if in dry run mode
     if cli.dry_run && !diffs.is_empty() {
         println!("\nDiff Output (showing changes that would be made):");
         println!("================================================");
@@ -169,9 +158,4 @@ fn main() -> io::Result<()> {
     );
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    // Tests are moved to the appropriate modules
 }

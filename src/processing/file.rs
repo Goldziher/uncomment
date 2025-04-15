@@ -157,14 +157,12 @@ pub fn process_file(
     let mut in_docstring = false;
     let mut skip_next_triple_quote = false;
 
-    // Track test context
     let mut in_test_module = false;
     let mut in_test_function = false;
     let mut brace_count_module = 0;
     let mut brace_count_function = 0;
 
     for (i, line) in original_lines.iter().enumerate() {
-        // Check for test module and function boundaries
         let trimmed = line.trim();
 
         // Check for test module start: #[cfg(test)] or mod tests {
