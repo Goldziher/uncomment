@@ -175,6 +175,7 @@ mod tests {
             Some(("/**", "*/")),
             vec!["eslint-disable"],
             vec![],
+            r"\.(?:js|mjs|cjs|jsx)$",
         );
         assert!(should_keep_line_comment(
             javascript_comment,
@@ -284,6 +285,7 @@ mod tests {
             Some(("\"\"\"", "\"\"\"")),
             vec!["pragma:"],
             vec![],
+            r"\.(?:py|pyw|pyi)$",
         );
         assert!(should_keep_block_comment(
             python_comment,

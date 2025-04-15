@@ -8,6 +8,7 @@ pub struct SupportedLanguage {
     pub doc_string: Option<(&'static str, &'static str)>,
     pub default_ignore_patterns: Vec<&'static str>,
     pub string_regex_patterns: Vec<&'static str>,
+    pub extension_regex: &'static str,
 }
 
 impl SupportedLanguage {
@@ -18,6 +19,7 @@ impl SupportedLanguage {
         doc_string: Option<(&'static str, &'static str)>,
         default_ignore_patterns: Vec<&'static str>,
         string_regex_patterns: Vec<&'static str>,
+        extension_regex: &'static str,
     ) -> Self {
         Self {
             name,
@@ -26,6 +28,7 @@ impl SupportedLanguage {
             doc_string,
             default_ignore_patterns,
             string_regex_patterns,
+            extension_regex,
         }
     }
 }
@@ -39,6 +42,7 @@ impl Clone for SupportedLanguage {
             doc_string: self.doc_string,
             default_ignore_patterns: self.default_ignore_patterns.clone(),
             string_regex_patterns: self.string_regex_patterns.clone(),
+            extension_regex: self.extension_regex,
         }
     }
 }
