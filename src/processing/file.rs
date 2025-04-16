@@ -216,6 +216,42 @@ pub fn process_file(
         }
 
         if language.name == "python" && options.remove_doc {
+            // Special handling for TypedDict and similar class definitions
+            if i > 0 {
+                let prev_line_trimmed = original_lines[i - 1].trim();
+                let is_typed_dict = prev_line_trimmed.contains("TypedDict")
+                    && (prev_line_trimmed.contains("class") || prev_line_trimmed.ends_with(":"));
+
+                // If the previous line defines a TypedDict, we should be careful with docstring removal
+                if is_typed_dict && (trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''")) {
+                    // Just preserve the indentation and continue with the next line
+                    let indentation = line
+                        .chars()
+                        .take_while(|c| c.is_whitespace())
+                        .collect::<String>();
+
+                    // Skip until the end of the docstring
+                    let marker = if trimmed.starts_with("\"\"\"") {
+                        "\"\"\""
+                    } else {
+                        "'''"
+                    };
+
+                    // If it's a single line docstring, just handle it here
+                    if trimmed.ends_with(marker) {
+                        processed_lines.push(indentation);
+                        continue;
+                    }
+
+                    // Otherwise, set up to skip until the end marker
+                    in_docstring = true;
+                    multiline_string_marker = marker.to_string();
+                    processed_lines.push(indentation);
+                    continue;
+                }
+            }
+
+            // Check if this line follows a function or class definition
             let is_func_or_class_start = i > 0
                 && original_lines[i - 1].trim().ends_with(":")
                 && (original_lines[i - 1].contains("def ")
@@ -243,16 +279,29 @@ pub fn process_file(
                     && trimmed.starts_with("\"\"\""))
                     || (trimmed.ends_with("'''") && trimmed.starts_with("'''"));
 
+                // Calculate indentation level before removing docstring
+                let indentation = line
+                    .chars()
+                    .take_while(|c| c.is_whitespace())
+                    .collect::<String>();
+
                 if !is_single_line_triple_quote {
+                    // Track docstring boundaries to find the end
                     in_docstring = true;
-                    if trimmed.starts_with("\"\"\"") {
-                        multiline_string_marker = "\"\"\"".to_string();
+                    let marker = if trimmed.starts_with("\"\"\"") {
+                        "\"\"\""
                     } else {
-                        multiline_string_marker = "'''".to_string();
-                    }
+                        "'''"
+                    };
+                    multiline_string_marker = marker.to_string();
+
+                    // Instead of skipping, add an empty line with proper indentation
+                    processed_lines.push(indentation);
                     continue;
                 } else {
+                    // Single line docstring - preserve indentation
                     skip_next_triple_quote = true;
+                    processed_lines.push(indentation);
                     continue;
                 }
             } else {
@@ -263,6 +312,13 @@ pub fn process_file(
         if in_docstring {
             if line.contains(&multiline_string_marker) {
                 in_docstring = false;
+                // If we found the end of a docstring, add an empty line with correct indentation
+                // unless it's already the last line of the docstring
+                let indentation = line
+                    .chars()
+                    .take_while(|c| c.is_whitespace())
+                    .collect::<String>();
+                processed_lines.push(indentation);
             }
             continue;
         }
@@ -282,6 +338,21 @@ pub fn process_file(
         let has_string_markers = is_line_in_string(line, language);
 
         if has_string_markers {
+            // Special handling for Python's type annotations in the form: variable: "Description"
+            if language.name == "python" && options.remove_doc {
+                // Check if this is a type annotation with a docstring that would be mangled
+                let is_type_annotation = line.contains(":")
+                    && (line.contains("\"\"\"") || line.contains("'''"))
+                    && !line.contains("def ")
+                    && !line.contains("class ");
+
+                if is_type_annotation {
+                    // Preserve lines with type annotations to avoid mangling code structure
+                    processed_lines.push(line.to_string());
+                    continue;
+                }
+            }
+
             if line.contains("'''") && line.matches("'''").count() % 2 == 1 {
                 in_multiline_string = true;
                 multiline_string_marker = "'''".to_string();
