@@ -5,8 +5,9 @@ use std::io;
 use uncomment::cli::Cli;
 use uncomment::language::detection::detect_language;
 use uncomment::models::options::ProcessOptions;
-use uncomment::processing::file::process_file;
+use uncomment::processing::file::{process_file, create_gitignore_matcher};
 use uncomment::utils::path::expand_paths;
+use std::path::Path;
 
 fn create_diff(original: &str, modified: &str, file_path: &str) -> String {
     let original_lines: Vec<&str> = original.lines().collect();
@@ -79,6 +80,13 @@ fn main() -> io::Result<()> {
 
     for path in &paths {
         if let Some(language) = detect_language(path) {
+            // Create gitignore matcher for this path's parent directory
+            let gitignore = if let Some(parent) = path.parent() {
+                create_gitignore_matcher(parent)
+            } else {
+                create_gitignore_matcher(Path::new("."))
+            };
+
             let options = ProcessOptions {
                 remove_todo: cli.remove_todo,
                 remove_fixme: cli.remove_fixme,
@@ -91,7 +99,7 @@ fn main() -> io::Result<()> {
 
             let original_content = fs::read_to_string(path)?;
 
-            match process_file(path, &language, &options) {
+            match process_file(path, &language, &options, &gitignore) {
                 Ok(was_modified) => {
                     processed_count += 1;
                     if was_modified {
@@ -116,7 +124,9 @@ fn main() -> io::Result<()> {
                                     dry_run: false,
                                 };
 
-                                process_file(path, &language, &temp_options)?;
+                                // Create gitignore matcher for temp directory too
+                                let temp_gitignore = create_gitignore_matcher(temp_dir.path());
+                                process_file(path, &language, &temp_options, &temp_gitignore)?;
 
                                 let output_path = std::path::PathBuf::from(temp_output_dir)
                                     .join(path.file_name().unwrap());
