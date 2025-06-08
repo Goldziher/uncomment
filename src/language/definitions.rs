@@ -132,6 +132,7 @@ pub fn get_supported_languages() -> HashSet<SupportedLanguage> {
             r#"'(?:\\.|[^'\\])*'"#,
             r#"`[^`]*`"#,
             r#"`[^`]*\$\{[^\}]*\}[^`]*`"#,
+            r#"/(?:\\.|[^/\\])+/[gimyus]*"#, // Add regex literal pattern
         ],
         r"\.(?:ts|tsx|mts|cts|d\.ts|d\.mts|d\.cts)$",
     ));

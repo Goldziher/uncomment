@@ -111,3 +111,37 @@ pub fn is_in_string(line: &str, pos: usize, language: &SupportedLanguage) -> boo
 
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::language::definitions::get_supported_languages;
+
+    #[test]
+    fn test_typescript_regex_detection() {
+        let languages = get_supported_languages();
+        let typescript = languages.iter().find(|l| l.name == "typescript").unwrap();
+
+        // Test regex literal detection
+        let line = "const regex = /test\\//;";
+        let spans = find_string_spans(line, typescript);
+        assert!(!spans.is_empty());
+
+        // Verify the entire regex is captured
+        let regex_span = spans.iter().find(|(start, end)| {
+            line[*start..*end].starts_with("/") && line[*start..*end].ends_with("/")
+        });
+        assert!(regex_span.is_some());
+
+        // Test regex in test context (GitHub issue #8 scenario)
+        let test_line = "expect(wordCount).not.toHaveTextContent(/\\//);";
+        let test_spans = find_string_spans(test_line, typescript);
+        assert!(!test_spans.is_empty());
+
+        // Verify the regex with escaped slash is properly captured
+        let test_regex_span = test_spans.iter().find(|(start, end)| {
+            test_line[*start..*end].starts_with("/") && test_line[*start..*end].contains("\\/")
+        });
+        assert!(test_regex_span.is_some());
+    }
+}
