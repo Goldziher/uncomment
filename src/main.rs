@@ -2,12 +2,12 @@ use clap::Parser;
 use std::fs;
 use std::io;
 
+use std::path::Path;
 use uncomment::cli::Cli;
 use uncomment::language::detection::detect_language;
 use uncomment::models::options::ProcessOptions;
-use uncomment::processing::file::{process_file, create_gitignore_matcher};
+use uncomment::processing::file::{create_gitignore_matcher, process_file};
 use uncomment::utils::path::expand_paths;
-use std::path::Path;
 
 fn create_diff(original: &str, modified: &str, file_path: &str) -> String {
     let original_lines: Vec<&str> = original.lines().collect();

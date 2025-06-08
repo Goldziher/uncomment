@@ -1,8 +1,8 @@
+use crate::processing::file::create_gitignore_matcher;
 use clap::Parser;
 use ignore::gitignore::Gitignore;
-use std::path::{Path, PathBuf};
 use std::fs;
-use crate::processing::file::create_gitignore_matcher;
+use std::path::{Path, PathBuf};
 
 /// Command-line interface for the uncomment tool
 #[derive(Parser, Debug)]
@@ -51,11 +51,15 @@ pub struct Cli {
 /// Collect files to process, respecting .gitignore rules unless disabled
 pub fn collect_files(paths: &[PathBuf], respect_gitignore: bool) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    
+
     for path in paths {
         if path.is_file() {
             // Skip .gitignore files
-            if path.file_name().map(|name| name != ".gitignore").unwrap_or(true) {
+            if path
+                .file_name()
+                .map(|name| name != ".gitignore")
+                .unwrap_or(true)
+            {
                 files.push(path.clone());
             }
         } else if path.is_dir() {
@@ -68,7 +72,7 @@ pub fn collect_files(paths: &[PathBuf], respect_gitignore: bool) -> Vec<PathBuf>
             walk_dir(path, &gitignore, &mut files, respect_gitignore);
         }
     }
-    
+
     files
 }
 
@@ -77,11 +81,17 @@ fn walk_dir(dir: &Path, gitignore: &Gitignore, files: &mut Vec<PathBuf>, respect
         for entry in entries.flatten() {
             let path = entry.path();
             // Skip .gitignore files
-            if path.file_name().map(|name| name == ".gitignore").unwrap_or(false) {
+            if path
+                .file_name()
+                .map(|name| name == ".gitignore")
+                .unwrap_or(false)
+            {
                 continue;
             }
             if let Ok(relative_path) = path.strip_prefix(dir) {
-                if !respect_gitignore || !gitignore.matched(relative_path, path.is_dir()).is_ignore() {
+                if !respect_gitignore
+                    || !gitignore.matched(relative_path, path.is_dir()).is_ignore()
+                {
                     if path.is_dir() {
                         walk_dir(&path, gitignore, files, respect_gitignore);
                     } else if path.is_file() {
@@ -107,24 +117,36 @@ mod tests {
     #[test]
     fn test_collect_files_respects_gitignore() {
         let dir = tempdir().unwrap();
-        
+
         // Create test files
         File::create(dir.path().join("processed.rs")).unwrap();
         File::create(dir.path().join("ignored.rs")).unwrap();
-        
+
         // Create .gitignore
         fs::write(dir.path().join(".gitignore"), "ignored.rs").unwrap();
-        
+
         let paths = vec![dir.path().to_path_buf()];
-        
+
         // Test with gitignore enabled
         let files = collect_files(&paths, true);
-        assert_eq!(files.len(), 1, "Expected 1 file, got {}: {:?}", files.len(), files);
+        assert_eq!(
+            files.len(),
+            1,
+            "Expected 1 file, got {}: {:?}",
+            files.len(),
+            files
+        );
         assert!(files[0].ends_with("processed.rs"));
-        
+
         // Test with gitignore disabled
         let files = collect_files(&paths, false);
-        assert_eq!(files.len(), 2, "Expected 2 files, got {}: {:?}", files.len(), files);
+        assert_eq!(
+            files.len(),
+            2,
+            "Expected 2 files, got {}: {:?}",
+            files.len(),
+            files
+        );
     }
 
     #[test]

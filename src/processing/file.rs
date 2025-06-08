@@ -2,32 +2,33 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use crate::language::regex::{find_string_spans, get_or_compile_regexes, is_in_string};
 use crate::models::language::SupportedLanguage;
 use crate::models::line_segment::LineSegment;
 use crate::models::options::ProcessOptions;
 use crate::processing::comment::{should_keep_block_comment, should_keep_line_comment};
 use crate::processing::line::{process_line_with_block_comments, process_line_with_line_comments};
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 
 /// Creates a gitignore matcher for the given directory
 pub fn create_gitignore_matcher(base_dir: &Path) -> Gitignore {
     let mut builder = GitignoreBuilder::new(base_dir);
-    
+
     // Add global gitignore if exists
-    if let Some(home) = dirs_next::home_dir() {  // dirs_next is the newer fork
+    if let Some(home) = dirs_next::home_dir() {
+        // dirs_next is the newer fork
         let global_gitignore = home.join(".gitignore");
         if global_gitignore.exists() {
             builder.add(&global_gitignore);
         }
     }
-    
+
     // Add local .gitignore if exists
     let local_gitignore = base_dir.join(".gitignore");
     if local_gitignore.exists() {
         builder.add(&local_gitignore);
     }
-    
+
     builder.build().unwrap_or_else(|_| Gitignore::empty())
 }
 

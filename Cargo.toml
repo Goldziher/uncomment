@@ -7,13 +7,13 @@ license = "MIT"
 name = "uncomment"
 readme = "README.md"
 repository = "https://github.com/Goldziher/uncomment"
-version = "1.0.5"
+version = "1.0.6"
 
 [dependencies]
-clap = { version = "4.5.36", features = ["derive"] }
+clap = { version = "4.5.39", features = ["derive"] }
 glob = "0.3.2"
 regex = "1.11.1"
-tempfile = "3.19.1"
+tempfile = "3.20.0"
 ignore = "0.4.23"
 dirs = "6.0.0"
 dirs-next = "2.0.0"
@@ -21,4 +21,3 @@ dirs-next = "2.0.0"
 [[bin]]
 name = "uncomment"
 path = "src/main.rs"
-
