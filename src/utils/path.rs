@@ -1,27 +1,27 @@
+use crate::processing::file::create_gitignore_matcher;
 use glob::glob;
 use std::path::{Path, PathBuf};
-use crate::processing::file::create_gitignore_matcher;
 
 /// Expand glob patterns into a list of file paths while respecting .gitignore
 pub fn expand_paths(patterns: &[String]) -> Vec<PathBuf> {
     let mut paths = Vec::new();
-    
+
     for pattern in patterns {
         // Handle non-glob patterns (direct file/directory paths)
         if !pattern.contains('*') && !pattern.contains('?') && !pattern.contains('[') {
             let path = PathBuf::from(pattern);
-            
+
             // If it's a directory, we'll handle it in collect_files
             if path.exists() {
                 paths.push(path);
                 continue;
             }
         }
-        
+
         // Handle glob patterns
         if let Some(parent) = Path::new(pattern).parent() {
             let gitignore = create_gitignore_matcher(parent);
-            
+
             if let Ok(entries) = glob(pattern) {
                 for entry in entries.flatten() {
                     if !gitignore.matched(&entry, false).is_ignore() {
@@ -36,7 +36,7 @@ pub fn expand_paths(patterns: &[String]) -> Vec<PathBuf> {
             }
         }
     }
-    
+
     paths
 }
 
@@ -55,7 +55,7 @@ mod tests {
         let file1_path = dir_path.join("test1.rs");
         let file2_path = dir_path.join("test2.rs");
         let ignored_path = dir_path.join("ignored.rs");
-        
+
         fs::write(&file1_path, "// test").unwrap();
         fs::write(&file2_path, "// test").unwrap();
         fs::write(&ignored_path, "// test").unwrap();
