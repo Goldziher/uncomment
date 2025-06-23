@@ -38,3 +38,9 @@ vendor/
 
 # Generated documentation
 doc/
+
+# Test repositories and their contents
+/test-repos/
+!/test-repos/logs/
+!/test-repos/*.sh
+!/test-repos/*.md
