@@ -1,7 +1,6 @@
 mod ast;
 mod cli;
 pub mod languages;
-mod output;
 pub mod processor;
 mod rules;
 
