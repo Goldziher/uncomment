@@ -67,24 +67,10 @@ impl<'a> CommentVisitor<'a> {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn get_comments(&self) -> &[CommentInfo] {
-        &self.comments
-    }
-
     pub fn get_comments_to_remove(&self) -> Vec<CommentInfo> {
         self.comments
             .iter()
             .filter(|comment| !comment.should_preserve)
-            .cloned()
-            .collect()
-    }
-
-    #[allow(dead_code)]
-    pub fn get_comments_to_preserve(&self) -> Vec<CommentInfo> {
-        self.comments
-            .iter()
-            .filter(|comment| comment.should_preserve)
             .cloned()
             .collect()
     }
@@ -204,8 +190,7 @@ mod tests {
         assert_eq!(to_remove.len(), 1);
         assert_eq!(to_remove[0].content, "// Remove this");
 
-        let to_preserve = visitor.get_comments_to_preserve();
-        assert_eq!(to_preserve.len(), 1);
-        assert_eq!(to_preserve[0].content, "// TODO: Keep this");
+        // Check that preserved comments are not in the removal list
+        assert!(!to_remove.iter().any(|c| c.content == "// TODO: Keep this"));
     }
 }
