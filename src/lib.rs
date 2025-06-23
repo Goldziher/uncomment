@@ -1,12 +1,43 @@
+pub mod ast;
 pub mod cli;
-pub mod language;
-pub mod models;
-pub mod processing;
-pub mod utils;
+pub mod languages;
+pub mod output;
+pub mod processor;
+pub mod rules;
 
-pub use language::detection::detect_language;
-pub use models::language::SupportedLanguage;
-pub use models::line_segment::LineSegment;
-pub use models::options::ProcessOptions;
-pub use processing::file::process_file;
-pub use utils::path::expand_paths;
+pub use processor::{ProcessingOptions, Processor};
+pub use rules::preservation::PreservationRule;
+
+use std::error::Error;
+use std::fmt;
+
+#[derive(Debug)]
+pub enum UncommentError {
+    Io(std::io::Error),
+    ParseError(String),
+    LanguageNotSupported(String),
+    TreeSitterError(String),
+}
+
+impl fmt::Display for UncommentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UncommentError::Io(err) => write!(f, "IO error: {}", err),
+            UncommentError::ParseError(msg) => write!(f, "Parse error: {}", msg),
+            UncommentError::LanguageNotSupported(lang) => {
+                write!(f, "Language not supported: {}", lang)
+            }
+            UncommentError::TreeSitterError(msg) => write!(f, "Tree-sitter error: {}", msg),
+        }
+    }
+}
+
+impl Error for UncommentError {}
+
+impl From<std::io::Error> for UncommentError {
+    fn from(err: std::io::Error) -> Self {
+        UncommentError::Io(err)
+    }
+}
+
+pub type Result<T> = std::result::Result<T, UncommentError>;
