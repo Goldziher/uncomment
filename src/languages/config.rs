@@ -74,7 +74,7 @@ impl LanguageConfig {
     pub fn python() -> Self {
         Self::new(
             "python",
-            vec!["py", "pyw", "pyi"],
+            vec!["py", "pyw", "pyi", "pyx", "pxd"],
             vec!["comment"],
             vec!["string"], // Python uses strings for docstrings
             || tree_sitter_python::LANGUAGE.into(),
@@ -84,7 +84,7 @@ impl LanguageConfig {
     pub fn javascript() -> Self {
         Self::new(
             "javascript",
-            vec!["js", "mjs", "cjs"],
+            vec!["js", "jsx", "mjs", "cjs"],
             vec!["comment"],
             vec!["comment"], // JSDoc comments are still comments
             || tree_sitter_javascript::LANGUAGE.into(),
@@ -94,10 +94,20 @@ impl LanguageConfig {
     pub fn typescript() -> Self {
         Self::new(
             "typescript",
-            vec!["ts", "tsx"],
+            vec!["ts", "mts", "cts", "d.ts", "d.mts", "d.cts"],
             vec!["comment"],
             vec!["comment"], // TSDoc comments are still comments
             || tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+        )
+    }
+
+    pub fn tsx() -> Self {
+        Self::new(
+            "tsx",
+            vec!["tsx"],
+            vec!["comment"],
+            vec!["comment"], // TSDoc comments are still comments
+            || tree_sitter_typescript::LANGUAGE_TSX.into(),
         )
     }
 

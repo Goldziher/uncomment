@@ -24,6 +24,7 @@ impl LanguageRegistry {
             LanguageConfig::python(),
             LanguageConfig::javascript(),
             LanguageConfig::typescript(),
+            LanguageConfig::tsx(),
             LanguageConfig::go(),
             LanguageConfig::java(),
             LanguageConfig::c(),
@@ -55,8 +56,17 @@ impl LanguageRegistry {
     }
 
     pub fn detect_language(&self, file_path: &Path) -> Option<&LanguageConfig> {
-        let extension = file_path.extension()?.to_str()?.to_lowercase();
+        let file_name = file_path.file_name()?.to_str()?;
 
+        // Special handling for .d.ts files
+        if file_name.ends_with(".d.ts")
+            || file_name.ends_with(".d.mts")
+            || file_name.ends_with(".d.cts")
+        {
+            return self.languages.get("typescript");
+        }
+
+        let extension = file_path.extension()?.to_str()?.to_lowercase();
         let language_name = self.extension_map.get(&extension)?;
         self.languages.get(language_name)
     }
