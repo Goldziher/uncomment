@@ -33,11 +33,21 @@ def get_platform():
     raise RuntimeError(f"Unsupported platform: {system} {machine}")
 
 
+def convert_version_to_git_tag(version):
+    """Convert Python version format to git tag format."""
+    # Convert 2.1.1rc1 to 2.1.1-rc.1
+    if "rc" in version:
+        parts = version.split("rc")
+        return f"{parts[0]}-rc.{parts[1]}"
+    return version
+
+
 def get_binary_url(version):
     """Get the download URL for the binary."""
     platform_name = get_platform()
     ext = ".exe" if platform.system().lower() == "windows" else ""
-    return f"https://github.com/Goldziher/uncomment/releases/download/v{version}/uncomment-{platform_name}{ext}"
+    git_tag_version = convert_version_to_git_tag(version)
+    return f"https://github.com/Goldziher/uncomment/releases/download/v{git_tag_version}/uncomment-{platform_name}{ext}"
 
 
 def download_binary(url, dest_path):
