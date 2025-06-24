@@ -36,6 +36,13 @@ Cargo.lock
 # Dependency directory
 vendor/
 
+# Node.js dependencies in npm package
+npm-package/node_modules/
+npm-package/pnpm-lock.yaml
+
+# Python cache files
+pip-package/uncomment/__pycache__/
+
 # Generated documentation
 doc/
 

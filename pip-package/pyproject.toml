@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uncomment"
-version = "2.1.1rc1"
+version = "2.1.1rc2"
 description = "A fast, accurate comment removal tool using tree-sitter for AST parsing"
 readme = "README.md"
 license = {text = "MIT"}

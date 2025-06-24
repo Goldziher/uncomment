@@ -155,67 +155,92 @@ fn collect_from_pattern(
     files: &mut Vec<PathBuf>,
     options: &processor::ProcessingOptions,
 ) -> Result<()> {
-    for entry in glob(pattern).context("Failed to parse glob pattern")? {
-        match entry {
-            Ok(path) => {
-                if path.is_file() && should_process_file(&path, options)? {
-                    files.push(path);
+    // If we're respecting gitignore, use ignore crate's WalkBuilder for proper gitignore handling
+    if options.respect_gitignore {
+        use ignore::WalkBuilder;
+
+        // Extract the directory from the pattern for WalkBuilder
+        let pattern_path = if pattern.contains("/**/*") {
+            pattern.strip_suffix("/**/*").unwrap_or(".")
+        } else {
+            "."
+        };
+
+        let walker = WalkBuilder::new(pattern_path)
+            .hidden(false) // We want to see hidden files if they match our extensions
+            .git_ignore(true)
+            .git_global(true)
+            .git_exclude(true)
+            .require_git(false) // Work even outside git repos
+            .build();
+
+        for entry in walker {
+            match entry {
+                Ok(entry) => {
+                    let path = entry.path();
+                    if path.is_file() && has_supported_extension(path) {
+                        files.push(path.to_path_buf());
+                    }
                 }
+                Err(e) => eprintln!("Error reading path: {}", e),
             }
-            Err(e) => eprintln!("Error reading path: {}", e),
+        }
+    } else {
+        // Fall back to glob for non-gitignore cases
+        for entry in glob(pattern).context("Failed to parse glob pattern")? {
+            match entry {
+                Ok(path) => {
+                    if path.is_file() && has_supported_extension(&path) {
+                        files.push(path);
+                    }
+                }
+                Err(e) => eprintln!("Error reading path: {}", e),
+            }
         }
     }
     Ok(())
 }
 
-/// Check if a file should be processed
-fn should_process_file(path: &Path, options: &processor::ProcessingOptions) -> Result<bool> {
-    // Check if file has a supported extension
+/// Check if a file has a supported extension
+fn has_supported_extension(path: &Path) -> bool {
     if let Some(ext) = path.extension() {
-        let ext_str = ext.to_string_lossy();
+        let ext_str = ext.to_string_lossy().to_lowercase();
         // Check for supported extensions
         let supported_extensions = [
-            "py", "pyw", "pyi", // Python
+            "py", "pyw", "pyi", "pyx", "pxd", // Python
             "js", "jsx", "mjs", "cjs", // JavaScript
             "ts", "tsx", "mts", "cts",  // TypeScript
             "rs",   // Rust
             "go",   // Go
             "java", // Java
             "c", "h", // C
-            "cpp", "cc", "cxx", // C++
-            "hpp", "hxx", // C++ headers
-            "rb", "rake", // Ruby
-            "json", "jsonc", // JSON
+            "cpp", "cc", "cxx", "hpp", "hxx", "hh", // C++
+            "rb", // Ruby
+            "yml", "yaml", // YAML
+            "hcl", "tf", "tfvars", // HCL/Terraform
         ];
 
-        if !supported_extensions.iter().any(|&e| e == ext_str) {
-            return Ok(false);
-        }
-    } else {
-        return Ok(false);
-    }
-
-    // Check gitignore if needed
-    if options.respect_gitignore {
-        // Use the ignore crate to check gitignore rules
-        use ignore::gitignore::GitignoreBuilder;
-
-        let mut builder = GitignoreBuilder::new(path.parent().unwrap_or(Path::new(".")));
-
-        // Add .gitignore file if it exists
-        let gitignore_path = path.parent().unwrap_or(Path::new(".")).join(".gitignore");
-        if gitignore_path.exists() {
-            builder.add(gitignore_path);
+        // Special handling for .d.ts files
+        if path.to_string_lossy().ends_with(".d.ts") {
+            return true;
         }
 
-        if let Ok(gitignore) = builder.build() {
-            let matched = gitignore.matched(path, path.is_dir());
-            // If the file is ignored, don't process it
-            if matched.is_ignore() {
-                return Ok(false);
+        // Special handling for Makefiles
+        if let Some(filename) = path.file_name() {
+            let filename_str = filename.to_string_lossy().to_lowercase();
+            if filename_str == "makefile" || filename_str.ends_with(".mk") {
+                return true;
             }
         }
-    }
 
-    Ok(true)
+        supported_extensions.iter().any(|&e| e == ext_str)
+    } else {
+        // Check for Makefiles without extension
+        if let Some(filename) = path.file_name() {
+            let filename_str = filename.to_string_lossy().to_lowercase();
+            filename_str == "makefile"
+        } else {
+            false
+        }
+    }
 }
