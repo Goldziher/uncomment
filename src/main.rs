@@ -27,7 +27,7 @@ fn main() -> Result<()> {
 
     if files.is_empty() {
         eprintln!("No supported files found to process in the specified paths.");
-        eprintln!("Supported extensions: .rs, .py, .js, .ts, .java, .go, .c, .cpp, .rb, and more.");
+        eprintln!("Supported extensions: .rs, .py, .js, .jsx, .mjs, .cjs, .ts, .tsx, .mts, .cts, .d.ts, .java, .go, .c, .cpp, .rb, and more.");
         if options.respect_gitignore {
             eprintln!("Tip: Use --no-gitignore to process files ignored by git.");
         }
