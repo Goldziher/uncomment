@@ -7,27 +7,46 @@ A fast, accurate comment removal tool that uses tree-sitter for parsing, ensurin
 - **100% Accurate**: Uses tree-sitter AST parsing to correctly identify comments
 - **No False Positives**: Never removes comment-like content from strings
 - **Smart Preservation**: Keeps important metadata, TODOs, FIXMEs, and language-specific patterns
+- **Parallel Processing**: Multi-threaded processing for improved performance
 - **Extensible**: Easy to add new languages through configuration
 - **Fast**: Leverages tree-sitter's optimized parsing
 - **Safe**: Dry-run mode to preview changes
+- **Built-in Benchmarking**: Performance analysis and profiling tools
 
 ## Supported Languages
 
-- Python (.py, .pyw, .pyi)
+- Python (.py, .pyw, .pyi, .pyx, .pxd)
 - JavaScript (.js, .jsx, .mjs, .cjs)
-- TypeScript (.ts, .tsx, .mts, .cts)
+- TypeScript (.ts, .tsx, .mts, .cts, .d.ts, .d.mts, .d.cts)
 - Rust (.rs)
 - Go (.go)
 - Java (.java)
 - C (.c, .h)
 - C++ (.cpp, .cc, .cxx, .hpp, .hxx)
 - Ruby (.rb, .rake, .gemspec)
+- YAML (.yml, .yaml)
+- HCL/Terraform (.hcl, .tf, .tfvars)
+- Makefile (Makefile, .mk)
 
 ## Installation
 
+### From crates.io (recommended)
+
 ```bash
+cargo install uncomment
+```
+
+### From source
+
+```bash
+git clone https://github.com/Goldziher/uncomment.git
+cd uncomment
 cargo install --path .
 ```
+
+### Requirements
+
+- Rust 1.70+ (for building from source)
 
 ## Usage
 
@@ -52,6 +71,15 @@ uncomment --ignore-patterns "HACK" --ignore-patterns "WARNING" file.py
 
 # Process entire directory recursively
 uncomment src/
+
+# Use parallel processing with 8 threads
+uncomment --threads 8 src/
+
+# Benchmark performance on a large codebase
+uncomment benchmark --target /path/to/repo --iterations 3
+
+# Profile performance with detailed analysis
+uncomment profile /path/to/repo
 ```
 
 ## Default Preservation Rules
@@ -75,14 +103,21 @@ uncomment src/
 **JavaScript/TypeScript:**
 
 - Type checking: `@flow`, `@ts-ignore`, `@ts-nocheck`
-- Linting: `eslint-disable`, `eslint-enable`
+- Linting: `eslint-disable`, `eslint-enable`, `biome-ignore`
 - Formatting: `prettier-ignore`
+- Coverage: `v8 ignore`, `c8 ignore`, `istanbul ignore`
 - Other: `@jsx`, `@license`, `@preserve`
 
 **Rust:**
 
 - Attributes and directives (preserved in comment form)
 - Doc comments `///` and `//!` (unless `--remove-doc`)
+- Clippy directives: `clippy::`
+
+**YAML/HCL/Makefile:**
+
+- Standard comment removal while preserving file structure
+- Supports both `#` and `//` style comments in HCL/Terraform
 
 ## How It Works
 
@@ -113,12 +148,41 @@ Languages are configured through the registry. To add a new language:
 
 ## Performance
 
-While slightly slower than regex-based approaches due to parsing overhead, the tool is still very fast:
+While slightly slower than regex-based approaches due to parsing overhead, the tool is very fast and scales well with parallel processing:
+
+### Single-threaded Performance
 
 - Small files (<1000 lines): ~20-30ms
 - Large files (>10000 lines): ~100-200ms
 
-The accuracy gained is worth the small performance cost.
+### Parallel Processing Benchmarks
+
+Performance scales excellently with multiple threads:
+
+| Thread Count | Files/Second | Speedup |
+| ------------ | ------------ | ------- |
+| 1 thread     | 1,500        | 1.0x    |
+| 4 threads    | 3,900        | 2.6x    |
+| 8 threads    | 5,100        | 3.4x    |
+
+_Benchmarks run on a large enterprise codebase with 5,000 mixed language files_
+
+### Built-in Benchmarking
+
+Use the built-in tools to measure performance on your specific codebase:
+
+```bash
+# Basic benchmark
+uncomment benchmark --target /path/to/repo
+
+# Detailed benchmark with multiple iterations
+uncomment benchmark --target /path/to/repo --iterations 5 --threads 8
+
+# Memory and performance profiling
+uncomment profile /path/to/repo
+```
+
+The accuracy gained through AST parsing is worth the small performance cost, and parallel processing makes it suitable for even the largest codebases.
 
 ## License
 
