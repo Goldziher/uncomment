@@ -67,7 +67,7 @@ impl LanguageConfig {
             vec!["rs"],
             vec!["line_comment", "block_comment"],
             vec!["doc_comment", "inner_doc_comment", "outer_doc_comment"],
-            tree_sitter_rust::language,
+            || tree_sitter_rust::LANGUAGE.into(),
         )
     }
 
@@ -77,7 +77,7 @@ impl LanguageConfig {
             vec!["py", "pyw", "pyi"],
             vec!["comment"],
             vec!["string"], // Python uses strings for docstrings
-            tree_sitter_python::language,
+            || tree_sitter_python::LANGUAGE.into(),
         )
     }
 
@@ -87,7 +87,7 @@ impl LanguageConfig {
             vec!["js", "mjs", "cjs"],
             vec!["comment"],
             vec!["comment"], // JSDoc comments are still comments
-            tree_sitter_javascript::language,
+            || tree_sitter_javascript::LANGUAGE.into(),
         )
     }
 
@@ -97,7 +97,7 @@ impl LanguageConfig {
             vec!["ts", "tsx"],
             vec!["comment"],
             vec!["comment"], // TSDoc comments are still comments
-            tree_sitter_typescript::language_typescript,
+            || tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
         )
     }
 
@@ -107,7 +107,7 @@ impl LanguageConfig {
             vec!["go"],
             vec!["comment"],
             vec!["comment"], // Go doc comments are regular comments
-            tree_sitter_go::language,
+            || tree_sitter_go::LANGUAGE.into(),
         )
     }
 
@@ -117,7 +117,7 @@ impl LanguageConfig {
             vec!["java"],
             vec!["line_comment", "block_comment"],
             vec!["block_comment"], // Javadoc comments
-            tree_sitter_java::language,
+            || tree_sitter_java::LANGUAGE.into(),
         )
     }
 
@@ -127,7 +127,7 @@ impl LanguageConfig {
             vec!["c", "h"],
             vec!["comment"],
             vec!["comment"], // Doxygen comments
-            tree_sitter_c::language,
+            || tree_sitter_c::LANGUAGE.into(),
         )
     }
 
@@ -137,7 +137,7 @@ impl LanguageConfig {
             vec!["cpp", "cxx", "cc", "c++", "hpp", "hxx", "hh", "h++"],
             vec!["comment"],
             vec!["comment"], // Doxygen comments
-            tree_sitter_cpp::language,
+            || tree_sitter_cpp::LANGUAGE.into(),
         )
     }
 
@@ -147,7 +147,7 @@ impl LanguageConfig {
             vec!["rb", "rbw"],
             vec!["comment"],
             vec!["comment"], // YARD documentation comments
-            tree_sitter_ruby::language,
+            || tree_sitter_ruby::LANGUAGE.into(),
         )
     }
 
@@ -157,7 +157,7 @@ impl LanguageConfig {
             vec!["json"],
             vec![], // JSON doesn't support comments officially
             vec![],
-            tree_sitter_json::language,
+            || tree_sitter_json::LANGUAGE.into(),
         )
     }
 
@@ -167,7 +167,7 @@ impl LanguageConfig {
             vec!["jsonc"],
             vec!["comment"], // JSON with Comments
             vec![],
-            tree_sitter_json::language, // Uses same parser as JSON
+            || tree_sitter_json::LANGUAGE.into(), // Uses same parser as JSON
         )
     }
 }
