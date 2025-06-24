@@ -3,7 +3,7 @@ import platform
 import subprocess
 import sys
 import tempfile
-import zipfile
+import tarfile
 from pathlib import Path
 from urllib.request import urlopen, Request
 from urllib.error import URLError
@@ -33,21 +33,50 @@ def get_platform():
     raise RuntimeError(f"Unsupported platform: {system} {machine}")
 
 
+def convert_version_to_git_tag(version):
+    """Convert Python version format to git tag format."""
+    # Convert 2.1.1rc1 to 2.1.1-rc.1
+    if "rc" in version:
+        parts = version.split("rc")
+        return f"{parts[0]}-rc.{parts[1]}"
+    return version
+
+
 def get_binary_url(version):
     """Get the download URL for the binary."""
     platform_name = get_platform()
-    ext = ".exe" if platform.system().lower() == "windows" else ""
-    return f"https://github.com/Goldziher/uncomment/releases/download/v{version}/uncomment-{platform_name}{ext}"
+    git_tag_version = convert_version_to_git_tag(version)
+    return f"https://github.com/Goldziher/uncomment/releases/download/v{git_tag_version}/uncomment-{platform_name}-v{git_tag_version}.tar.gz"
 
 
 def download_binary(url, dest_path):
-    """Download the binary from the given URL."""
+    """Download and extract the binary from the given URL."""
     try:
-        req = Request(url, headers={'User-Agent': 'uncomment-python-wrapper'})
-        with urlopen(req) as response:
-            with open(dest_path, 'wb') as f:
-                f.write(response.read())
-    except URLError as e:
+        import requests
+        response = requests.get(url, headers={'User-Agent': 'uncomment-python-wrapper'}, allow_redirects=True)
+        response.raise_for_status()
+
+        with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp_file:
+            tmp_file.write(response.content)
+            tmp_file.flush()
+
+            # Extract the binary from the tar.gz
+            with tarfile.open(tmp_file.name, 'r:gz') as tar:
+                # Find the binary file in the archive
+                for member in tar.getmembers():
+                    if member.name.endswith('uncomment') or member.name.endswith('uncomment.exe'):
+                        # Extract to destination
+                        with tar.extractfile(member) as binary_file:
+                            with open(dest_path, 'wb') as f:
+                                f.write(binary_file.read())
+                        break
+                else:
+                    raise RuntimeError(f"No binary found in archive from {url}")
+
+            # Clean up temp file
+            os.unlink(tmp_file.name)
+
+    except Exception as e:
         raise RuntimeError(f"Failed to download binary from {url}: {e}")
 
 
@@ -56,9 +85,8 @@ def get_binary_path():
     cache_dir = Path.home() / ".cache" / "uncomment"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    platform_name = get_platform()
     ext = ".exe" if platform.system().lower() == "windows" else ""
-    return cache_dir / f"uncomment-{platform_name}{ext}"
+    return cache_dir / f"uncomment{ext}"
 
 
 def ensure_binary():
