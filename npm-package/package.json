@@ -1,0 +1,42 @@
+{
+  "name": "uncomment",
+  "version": "2.1.1-rc.1",
+  "description": "A fast, accurate comment removal tool using tree-sitter for AST parsing",
+  "main": "index.js",
+  "bin": {
+    "uncomment": "bin/uncomment"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "keywords": [
+    "comments",
+    "cli",
+    "tree-sitter",
+    "ast",
+    "code-cleanup",
+    "rust",
+    "parsing"
+  ],
+  "author": "Na'aman Hirschfeld <nhirschfeld@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Goldziher/uncomment.git"
+  },
+  "homepage": "https://github.com/Goldziher/uncomment#readme",
+  "bugs": {
+    "url": "https://github.com/Goldziher/uncomment/issues"
+  },
+  "dependencies": {
+    "binary-install": "^1.1.0"
+  },
+  "files": [
+    "index.js",
+    "install.js",
+    "bin/"
+  ],
+  "engines": {
+    "node": ">=14"
+  }
+}
