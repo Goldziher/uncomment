@@ -180,6 +180,32 @@ impl LanguageConfig {
             || tree_sitter_json::LANGUAGE.into(), // Uses same parser as JSON
         )
     }
+
+    pub fn yaml() -> Self {
+        Self::new("yaml", vec!["yaml", "yml"], vec!["comment"], vec![], || {
+            tree_sitter_yaml::LANGUAGE.into()
+        })
+    }
+
+    pub fn hcl() -> Self {
+        Self::new(
+            "hcl",
+            vec!["hcl", "tf", "tfvars"],
+            vec!["comment"], // Both # and // style comments
+            vec![],
+            || tree_sitter_hcl::LANGUAGE.into(),
+        )
+    }
+
+    pub fn make() -> Self {
+        Self::new(
+            "make",
+            vec!["mk"], // Will need special handling for Makefile (no extension)
+            vec!["comment"],
+            vec![],
+            || tree_sitter_make::LANGUAGE.into(),
+        )
+    }
 }
 
 #[cfg(test)]

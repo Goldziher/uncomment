@@ -32,6 +32,9 @@ impl LanguageRegistry {
             LanguageConfig::ruby(),
             LanguageConfig::json(),
             LanguageConfig::jsonc(),
+            LanguageConfig::yaml(),
+            LanguageConfig::hcl(),
+            LanguageConfig::make(),
         ];
 
         for config in configs {
@@ -57,6 +60,12 @@ impl LanguageRegistry {
 
     pub fn detect_language(&self, file_path: &Path) -> Option<&LanguageConfig> {
         let file_name = file_path.file_name()?.to_str()?;
+
+        // Special handling for files without extensions
+        match file_name {
+            "Makefile" | "makefile" | "GNUmakefile" => return self.languages.get("make"),
+            _ => {}
+        }
 
         // Special handling for .d.ts files
         if file_name.ends_with(".d.ts")
