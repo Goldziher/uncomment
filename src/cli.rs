@@ -61,6 +61,15 @@ pub struct Cli {
         help = "Traverse into other git repositories (useful for monorepos)"
     )]
     pub traverse_git_repos: bool,
+
+    /// Number of parallel threads (0 = number of CPU cores)
+    #[arg(
+        short = 'j',
+        long = "threads",
+        help = "Number of parallel threads (0 = auto-detect)",
+        default_value = "1"
+    )]
+    pub threads: usize,
 }
 
 impl Cli {

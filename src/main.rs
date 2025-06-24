@@ -8,7 +8,9 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use glob::glob;
 use processor::OutputWriter;
+use rayon::prelude::*;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 fn main() -> Result<()> {
     let cli = cli::Cli::parse();
@@ -32,36 +34,89 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Create processor and output writer
-    let mut processor = processor::Processor::new();
-    let output_writer = OutputWriter::new(options.dry_run, cli.verbose);
+    // Configure thread pool
+    let num_threads = if cli.threads == 0 {
+        num_cpus::get()
+    } else {
+        cli.threads
+    };
+
+    if cli.verbose && num_threads > 1 {
+        println!("🔧 Using {} parallel threads", num_threads);
+    }
+
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build_global()
+        .unwrap();
+
+    // Create output writer
+    let output_writer = Arc::new(OutputWriter::new(options.dry_run, cli.verbose));
 
     // Process files
-    let mut total_files = 0;
-    let mut modified_files = 0;
+    let total_files = files.len();
+    let results = Arc::new(Mutex::new(Vec::new()));
+    let modified_count = Arc::new(Mutex::new(0usize));
 
-    for file_path in files {
-        match processor.process_file(&file_path, &options) {
-            Ok(mut processed_file) => {
-                processed_file.modified =
-                    processed_file.original_content != processed_file.processed_content;
+    if num_threads == 1 {
+        // Single-threaded processing
+        let mut processor = processor::Processor::new();
 
-                if processed_file.modified {
-                    modified_files += 1;
+        for file_path in files {
+            match processor.process_file(&file_path, &options) {
+                Ok(mut processed_file) => {
+                    processed_file.modified =
+                        processed_file.original_content != processed_file.processed_content;
+
+                    if processed_file.modified {
+                        *modified_count.lock().unwrap() += 1;
+                    }
+
+                    output_writer.write_file(&processed_file)?;
                 }
-
-                output_writer.write_file(&processed_file)?;
-                total_files += 1;
-            }
-            Err(e) => {
-                eprintln!("Error processing {}: {}", file_path.display(), e);
-                if cli.verbose {
-                    eprintln!("  Full error: {:?}", e);
+                Err(e) => {
+                    eprintln!("Error processing {}: {}", file_path.display(), e);
+                    if cli.verbose {
+                        eprintln!("  Full error: {:?}", e);
+                    }
                 }
             }
         }
+    } else {
+        // Parallel processing
+        files.par_iter().for_each(|file_path| {
+            // Each thread gets its own processor
+            let mut processor = processor::Processor::new();
+
+            match processor.process_file(file_path, &options) {
+                Ok(mut processed_file) => {
+                    processed_file.modified =
+                        processed_file.original_content != processed_file.processed_content;
+
+                    if processed_file.modified {
+                        *modified_count.lock().unwrap() += 1;
+                    }
+
+                    // Collect results for sequential output
+                    results.lock().unwrap().push(processed_file);
+                }
+                Err(e) => {
+                    eprintln!("Error processing {}: {}", file_path.display(), e);
+                    if cli.verbose {
+                        eprintln!("  Full error: {:?}", e);
+                    }
+                }
+            }
+        });
+
+        // Write results sequentially to maintain output order
+        let results = Arc::try_unwrap(results).unwrap().into_inner().unwrap();
+        for processed_file in results {
+            output_writer.write_file(&processed_file)?;
+        }
     }
 
+    let modified_files = *modified_count.lock().unwrap();
     output_writer.print_summary(total_files, modified_files);
 
     Ok(())
@@ -130,6 +185,7 @@ fn should_process_file(path: &Path, options: &processor::ProcessingOptions) -> R
             "cpp", "cc", "cxx", // C++
             "hpp", "hxx", // C++ headers
             "rb", "rake", // Ruby
+            "json", "jsonc", // JSON
         ];
 
         if !supported_extensions.iter().any(|&e| e == ext_str) {

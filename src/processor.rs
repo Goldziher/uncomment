@@ -74,8 +74,9 @@ impl Processor {
         options: &ProcessingOptions,
     ) -> Result<(String, usize)> {
         // Set the parser language
+        let language = language_config.tree_sitter_language();
         self.parser
-            .set_language(language_config.tree_sitter_language())
+            .set_language(&language)
             .context("Failed to set parser language")?;
 
         // Parse the content
@@ -143,6 +144,21 @@ impl Processor {
             return content.to_string();
         }
 
+        // Convert byte positions to char positions once, before any modifications
+        let char_positions: Vec<usize> = content
+            .char_indices()
+            .map(|(byte_pos, _)| byte_pos)
+            .collect();
+        let total_chars = content.chars().count();
+
+        // Helper function to convert byte position to char position
+        let byte_to_char = |byte_pos: usize| -> usize {
+            match char_positions.binary_search(&byte_pos) {
+                Ok(char_pos) => char_pos,
+                Err(char_pos) => char_pos.min(total_chars),
+            }
+        };
+
         let mut chars: Vec<char> = content.chars().collect();
 
         // Sort comments by start position in reverse order to avoid offset issues
@@ -150,51 +166,29 @@ impl Processor {
         sorted_comments.sort_by(|a, b| b.start_byte.cmp(&a.start_byte));
 
         for comment in sorted_comments {
-            let start_byte = comment.start_byte;
-            let end_byte = comment.end_byte;
-
-            // Convert byte positions to char positions
-            let mut start_char = 0;
-            let mut end_char = 0;
-            let mut current_byte = 0;
-
-            for (char_idx, ch) in content.chars().enumerate() {
-                if current_byte == start_byte {
-                    start_char = char_idx;
-                }
-                if current_byte == end_byte {
-                    end_char = char_idx;
-                    break;
-                }
-                current_byte += ch.len_utf8();
-            }
+            let start_char = byte_to_char(comment.start_byte);
+            let end_char = byte_to_char(comment.end_byte);
 
             // Handle inline vs standalone comments
             if self.is_inline_comment(content, &comment) {
                 // For inline comments, just remove the comment part
-                chars.drain(start_char..end_char);
+                if start_char < chars.len() && end_char <= chars.len() && start_char <= end_char {
+                    chars.drain(start_char..end_char);
+                }
             } else {
                 // For standalone comments, remove the entire line
-                let line_start = self.find_line_start(content, start_byte);
-                let line_end = self.find_line_end(content, end_byte);
+                let line_start = self.find_line_start(content, comment.start_byte);
+                let line_end = self.find_line_end(content, comment.end_byte);
 
-                // Convert to char positions
-                let mut line_start_char = 0;
-                let mut line_end_char = content.chars().count();
-                let mut current_byte = 0;
+                let line_start_char = byte_to_char(line_start);
+                let line_end_char = byte_to_char(line_end);
 
-                for (char_idx, ch) in content.chars().enumerate() {
-                    if current_byte == line_start {
-                        line_start_char = char_idx;
-                    }
-                    if current_byte >= line_end {
-                        line_end_char = char_idx;
-                        break;
-                    }
-                    current_byte += ch.len_utf8();
+                if line_start_char < chars.len()
+                    && line_end_char <= chars.len()
+                    && line_start_char <= line_end_char
+                {
+                    chars.drain(line_start_char..line_end_char);
                 }
-
-                chars.drain(line_start_char..line_end_char);
             }
         }
 

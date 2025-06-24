@@ -219,7 +219,7 @@ mod tests {
             vec!["cst"],
             vec!["comment"],
             vec!["doc_comment"],
-            tree_sitter_rust::language, // Just use rust parser for testing
+            || tree_sitter_rust::LANGUAGE.into(), // Just use rust parser for testing
         );
 
         registry.register_language(custom_config);
