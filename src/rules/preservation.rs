@@ -123,38 +123,43 @@ impl PreservationRule {
             Self::pattern("PERFORMANCE"),
             Self::pattern("SECURITY"),
             Self::pattern("DEPRECATED"),
-            // JSDoc/Documentation patterns
-            Self::pattern("@param"),
-            Self::pattern("@return"),
-            Self::pattern("@throws"),
-            Self::pattern("@author"),
-            Self::pattern("@since"),
-            Self::pattern("@version"),
-            // TypeScript directives
-            Self::pattern("@ts-expect-error"),
-            Self::pattern("@ts-ignore"),
-            Self::pattern("@ts-nocheck"),
-            Self::pattern("@ts-check"),
+            // JavaScript/TypeScript linting and tooling
             // ESLint directives
             Self::pattern("eslint-disable"),
             Self::pattern("eslint-enable"),
             Self::pattern("eslint-disable-next-line"),
             Self::pattern("eslint-disable-line"),
+            // Biome directives
+            Self::pattern("biome-ignore"),
+            // Oxlint directives (when available)
+            Self::pattern("oxlint-ignore"),
+            // TypeScript directives
+            Self::pattern("@ts-expect-error"),
+            Self::pattern("@ts-ignore"),
+            Self::pattern("@ts-nocheck"),
+            Self::pattern("@ts-check"),
             // Prettier directives
             Self::pattern("prettier-ignore"),
-            // Python type checking
-            Self::pattern("type:"),
+            // Coverage ignore patterns
+            Self::pattern("v8 ignore"),
+            Self::pattern("c8 ignore"),
+            Self::pattern("istanbul ignore"),
+            Self::pattern("node:coverage"),
+            Self::pattern("@preserve"),
+            // Python linting and tooling
+            Self::pattern("type: ignore"),
             Self::pattern("mypy:"),
             Self::pattern("pyright:"),
             Self::pattern("ruff:"),
             Self::pattern("noqa"),
             Self::pattern("pragma:"),
-            Self::pattern("pylint:"),
+            Self::pattern("pylint: disable"),
+            Self::pattern("pylint: enable"),
             Self::pattern("flake8:"),
-            // Go directives
-            Self::pattern("//go:"),
-            Self::pattern("nolint"),
-            Self::pattern("lint:ignore"),
+            Self::pattern("black:"),
+            Self::pattern("fmt: off"),
+            Self::pattern("fmt: on"),
+            Self::pattern("bandit:"),
             // Rust directives
             Self::pattern("#["),
             Self::pattern("allow("),
@@ -164,13 +169,40 @@ impl PreservationRule {
             Self::pattern("expect("),
             Self::pattern("cfg("),
             Self::pattern("#!["),
+            Self::pattern("clippy::"),
+            // Go directives
+            Self::pattern("//go:"),
+            Self::pattern("nolint"),
+            Self::pattern("lint:ignore"),
+            Self::pattern("gosec:"),
+            Self::pattern("gocyclo:"),
             // Ruby directives
             Self::pattern("rubocop:"),
-            // Java annotations
+            Self::pattern("rubocop:disable"),
+            Self::pattern("rubocop:enable"),
+            // Java/C/C++ annotations and directives
             Self::pattern("@Override"),
             Self::pattern("@SuppressWarnings"),
             Self::pattern("@Deprecated"),
             Self::pattern("@Generated"),
+            Self::pattern("@SuppressFBWarnings"),
+            Self::pattern("#pragma"),
+            Self::pattern("NOLINT"),
+            Self::pattern("NOLINTNEXTLINE"),
+            // JSDoc/Documentation patterns
+            Self::pattern("@param"),
+            Self::pattern("@return"),
+            Self::pattern("@throws"),
+            Self::pattern("@author"),
+            Self::pattern("@since"),
+            Self::pattern("@version"),
+            Self::pattern("@see"),
+            Self::pattern("@example"),
+            Self::pattern("@deprecated"),
+            Self::pattern("@internal"),
+            Self::pattern("@public"),
+            Self::pattern("@private"),
+            Self::pattern("@protected"),
         ]);
         rules
     }
@@ -269,6 +301,77 @@ mod tests {
         for rules in [&default, &comprehensive] {
             let matches = rules.iter().any(|rule| rule.matches(&todo_comment));
             assert!(matches, "TODO should be preserved by all rule presets");
+        }
+    }
+
+    #[test]
+    fn test_linting_ignore_patterns() {
+        let rules = PreservationRule::comprehensive_rules();
+
+        // Test JavaScript/TypeScript linting patterns
+        let test_cases = vec![
+            ("// eslint-disable-next-line no-console", "line_comment"),
+            (
+                "// biome-ignore lint/suspicious/noExplicitAny",
+                "line_comment",
+            ),
+            ("// @ts-ignore", "line_comment"),
+            ("/* v8 ignore next */", "block_comment"),
+            ("# noqa: F401", "comment"),
+            ("# pylint: disable=unused-import", "comment"),
+            ("# rubocop:disable Metrics/LineLength", "comment"),
+            ("#[allow(clippy::too_many_arguments)]", "line_comment"),
+            ("//nolint:gocyclo", "line_comment"),
+            ("// @SuppressWarnings(\"unchecked\")", "line_comment"),
+        ];
+
+        for (content, node_type) in test_cases {
+            let comment = create_test_comment(content, node_type, 5);
+            let matches = rules.iter().any(|rule| rule.matches(&comment));
+            assert!(
+                matches,
+                "Linting ignore pattern should be preserved: {}",
+                content
+            );
+        }
+    }
+
+    #[test]
+    fn test_coverage_ignore_patterns() {
+        let rules = PreservationRule::comprehensive_rules();
+
+        let coverage_patterns = vec![
+            "/* v8 ignore next 3 */",
+            "/* istanbul ignore next */",
+            "/* c8 ignore start */",
+            "// @preserve",
+        ];
+
+        for pattern in coverage_patterns {
+            let comment = create_test_comment(pattern, "block_comment", 5);
+            let matches = rules.iter().any(|rule| rule.matches(&comment));
+            assert!(
+                matches,
+                "Coverage ignore pattern should be preserved: {}",
+                pattern
+            );
+        }
+    }
+
+    #[test]
+    fn test_formatter_ignore_patterns() {
+        let rules = PreservationRule::comprehensive_rules();
+
+        let formatter_patterns = vec!["// prettier-ignore", "# fmt: off", "# black: off"];
+
+        for pattern in formatter_patterns {
+            let comment = create_test_comment(pattern, "line_comment", 5);
+            let matches = rules.iter().any(|rule| rule.matches(&comment));
+            assert!(
+                matches,
+                "Formatter ignore pattern should be preserved: {}",
+                pattern
+            );
         }
     }
 }

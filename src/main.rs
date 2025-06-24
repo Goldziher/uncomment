@@ -14,11 +14,21 @@ fn main() -> Result<()> {
     let cli = cli::Cli::parse();
     let options = cli.processing_options();
 
+    // Validate input paths
+    if cli.paths.is_empty() {
+        eprintln!("Error: No input paths specified. Use 'uncomment --help' for usage information.");
+        std::process::exit(1);
+    }
+
     // Collect all files to process
-    let files = collect_files(&cli.paths, options.respect_gitignore)?;
+    let files = collect_files(&cli.paths, &options)?;
 
     if files.is_empty() {
-        eprintln!("No files found to process");
+        eprintln!("No supported files found to process in the specified paths.");
+        eprintln!("Supported extensions: .rs, .py, .js, .ts, .java, .go, .c, .cpp, .rb, and more.");
+        if options.respect_gitignore {
+            eprintln!("Tip: Use --no-gitignore to process files ignored by git.");
+        }
         return Ok(());
     }
 
@@ -45,6 +55,9 @@ fn main() -> Result<()> {
             }
             Err(e) => {
                 eprintln!("Error processing {}: {}", file_path.display(), e);
+                if cli.verbose {
+                    eprintln!("  Full error: {:?}", e);
+                }
             }
         }
     }
@@ -55,7 +68,7 @@ fn main() -> Result<()> {
 }
 
 /// Collect all files to process based on paths and patterns
-fn collect_files(paths: &[String], respect_gitignore: bool) -> Result<Vec<PathBuf>> {
+fn collect_files(paths: &[String], options: &processor::ProcessingOptions) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     for path_pattern in paths {
@@ -67,10 +80,10 @@ fn collect_files(paths: &[String], respect_gitignore: bool) -> Result<Vec<PathBu
         } else if path.is_dir() {
             // Directory - expand to recursive pattern
             let pattern = format!("{}/**/*", path.display());
-            collect_from_pattern(&pattern, &mut files, respect_gitignore)?;
+            collect_from_pattern(&pattern, &mut files, options)?
         } else {
             // Treat as glob pattern
-            collect_from_pattern(path_pattern, &mut files, respect_gitignore)?;
+            collect_from_pattern(path_pattern, &mut files, options)?
         }
     }
 
@@ -85,12 +98,12 @@ fn collect_files(paths: &[String], respect_gitignore: bool) -> Result<Vec<PathBu
 fn collect_from_pattern(
     pattern: &str,
     files: &mut Vec<PathBuf>,
-    respect_gitignore: bool,
+    options: &processor::ProcessingOptions,
 ) -> Result<()> {
     for entry in glob(pattern).context("Failed to parse glob pattern")? {
         match entry {
             Ok(path) => {
-                if path.is_file() && should_process_file(&path, respect_gitignore)? {
+                if path.is_file() && should_process_file(&path, options)? {
                     files.push(path);
                 }
             }
@@ -101,14 +114,22 @@ fn collect_from_pattern(
 }
 
 /// Check if a file should be processed
-fn should_process_file(path: &Path, respect_gitignore: bool) -> Result<bool> {
+fn should_process_file(path: &Path, options: &processor::ProcessingOptions) -> Result<bool> {
     // Check if file has a supported extension
     if let Some(ext) = path.extension() {
         let ext_str = ext.to_string_lossy();
-        // Quick check for common extensions
+        // Check for supported extensions
         let supported_extensions = [
-            "py", "pyw", "pyi", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "rs", "go",
-            "java", "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "rb", "rake",
+            "py", "pyw", "pyi", // Python
+            "js", "jsx", "mjs", "cjs", // JavaScript
+            "ts", "tsx", "mts", "cts",  // TypeScript
+            "rs",   // Rust
+            "go",   // Go
+            "java", // Java
+            "c", "h", // C
+            "cpp", "cc", "cxx", // C++
+            "hpp", "hxx", // C++ headers
+            "rb", "rake", // Ruby
         ];
 
         if !supported_extensions.iter().any(|&e| e == ext_str) {
@@ -119,20 +140,25 @@ fn should_process_file(path: &Path, respect_gitignore: bool) -> Result<bool> {
     }
 
     // Check gitignore if needed
-    if respect_gitignore {
+    if options.respect_gitignore {
         // Use the ignore crate to check gitignore rules
-        use ignore::WalkBuilder;
-        let walker = WalkBuilder::new(path.parent().unwrap_or(Path::new(".")))
-            .max_depth(Some(0))
-            .hidden(false)
-            .build();
+        use ignore::gitignore::GitignoreBuilder;
 
-        for entry in walker.flatten() {
-            if entry.path() == path {
-                return Ok(true);
+        let mut builder = GitignoreBuilder::new(path.parent().unwrap_or(Path::new(".")));
+
+        // Add .gitignore file if it exists
+        let gitignore_path = path.parent().unwrap_or(Path::new(".")).join(".gitignore");
+        if gitignore_path.exists() {
+            builder.add(gitignore_path);
+        }
+
+        if let Ok(gitignore) = builder.build() {
+            let matched = gitignore.matched(path, path.is_dir());
+            // If the file is ignored, don't process it
+            if matched.is_ignore() {
+                return Ok(false);
             }
         }
-        return Ok(false);
     }
 
     Ok(true)
