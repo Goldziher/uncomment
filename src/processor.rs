@@ -14,6 +14,7 @@ pub struct ProcessingOptions {
     pub use_default_ignores: bool,
     pub dry_run: bool,
     pub respect_gitignore: bool,
+    pub traverse_git_repos: bool,
 }
 
 pub struct Processor {
@@ -251,12 +252,16 @@ impl OutputWriter {
 
         if !modified {
             if self.verbose {
-                println!("No changes needed for: {}", processed_file.path.display());
+                println!("✓ No changes needed: {}", processed_file.path.display());
             }
             return Ok(());
         }
 
         if self.dry_run {
+            println!("[DRY RUN] Would modify: {}", processed_file.path.display());
+            if self.verbose {
+                println!("  Removed {} comment(s)", processed_file.comments_removed);
+            }
             self.show_diff(processed_file)?;
         } else {
             std::fs::write(&processed_file.path, &processed_file.processed_content).with_context(
@@ -264,7 +269,13 @@ impl OutputWriter {
             )?;
 
             if self.verbose {
-                println!("Processed: {}", processed_file.path.display());
+                println!(
+                    "✓ Modified: {} (removed {} comment(s))",
+                    processed_file.path.display(),
+                    processed_file.comments_removed
+                );
+            } else {
+                println!("Modified: {}", processed_file.path.display());
             }
         }
 
@@ -300,9 +311,20 @@ impl OutputWriter {
     }
 
     pub fn print_summary(&self, total_files: usize, modified_files: usize) {
-        println!(
-            "Processed {} files, modified {} files",
-            total_files, modified_files
-        );
+        if self.dry_run {
+            println!(
+                "\n[DRY RUN] Summary: {} files processed, {} would be modified",
+                total_files, modified_files
+            );
+        } else {
+            println!(
+                "\nSummary: {} files processed, {} modified",
+                total_files, modified_files
+            );
+        }
+
+        if total_files > 0 && modified_files == 0 {
+            println!("All files were already comment-free or only contained preserved comments.");
+        }
     }
 }

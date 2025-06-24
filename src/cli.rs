@@ -4,43 +4,63 @@ use clap::Parser;
 #[command(
     name = "uncomment",
     version = "2.0.0",
-    about = "Remove comments from code files using tree-sitter parsing."
+    about = "Remove comments from code files using tree-sitter parsing",
+    long_about = "A fast, accurate CLI tool that removes comments from source code files using tree-sitter AST parsing. Automatically preserves important comments like linting directives, documentation, and metadata."
 )]
 pub struct Cli {
-    /// Paths to files or directories to process
+    /// Files or directories to process (supports glob patterns)
+    #[arg(help = "Files, directories, or glob patterns to process")]
     pub paths: Vec<String>,
 
-    /// Remove TODO comments
-    #[arg(short = 'r', long, default_value_t = false)]
+    /// Remove TODO comments (normally preserved)
+    #[arg(short = 'r', long, help = "Remove TODO comments (normally preserved)")]
     pub remove_todo: bool,
 
-    /// Remove FIXME comments
-    #[arg(short = 'f', long, default_value_t = false)]
+    /// Remove FIXME comments (normally preserved)
+    #[arg(short = 'f', long, help = "Remove FIXME comments (normally preserved)")]
     pub remove_fixme: bool,
 
-    /// Remove documentation comments
-    #[arg(short = 'd', long, default_value_t = false)]
+    /// Remove documentation comments (normally preserved)
+    #[arg(
+        short = 'd',
+        long,
+        help = "Remove documentation comments and docstrings"
+    )]
     pub remove_doc: bool,
 
-    /// Patterns to ignore (comments containing these patterns will be kept)
-    #[arg(short = 'i', long)]
+    /// Additional patterns to preserve (beyond defaults)
+    #[arg(
+        short = 'i',
+        long = "ignore",
+        help = "Additional patterns to preserve (can be used multiple times)"
+    )]
     pub ignore_patterns: Vec<String>,
 
-    /// Disable default ignore patterns for each language
-    #[arg(long = "no-default-ignores", default_value_t = false)]
+    /// Disable automatic preservation of linting directives
+    #[arg(
+        long = "no-default-ignores",
+        help = "Disable built-in preservation patterns (ESLint, Clippy, etc.)"
+    )]
     pub no_default_ignores: bool,
 
-    /// Perform a dry run (don't modify files)
-    #[arg(short = 'n', long, default_value_t = false)]
+    /// Show what would be changed without modifying files
+    #[arg(short = 'n', long, help = "Show changes without modifying files")]
     pub dry_run: bool,
 
-    /// Enable verbose output
-    #[arg(short = 'v', long, default_value_t = false)]
+    /// Show detailed processing information
+    #[arg(short = 'v', long, help = "Show detailed processing information")]
     pub verbose: bool,
 
-    /// Disable .gitignore file processing
-    #[arg(long = "no-gitignore", default_value_t = false)]
+    /// Ignore .gitignore rules when finding files
+    #[arg(long = "no-gitignore", help = "Process files ignored by .gitignore")]
     pub no_gitignore: bool,
+
+    /// Process files in nested git repositories
+    #[arg(
+        long = "traverse-git-repos",
+        help = "Traverse into other git repositories (useful for monorepos)"
+    )]
+    pub traverse_git_repos: bool,
 }
 
 impl Cli {
@@ -53,6 +73,7 @@ impl Cli {
             use_default_ignores: !self.no_default_ignores,
             dry_run: self.dry_run,
             respect_gitignore: !self.no_gitignore,
+            traverse_git_repos: self.traverse_git_repos,
         }
     }
 }
