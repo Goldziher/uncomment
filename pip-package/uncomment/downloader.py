@@ -46,7 +46,7 @@ def get_binary_url(version):
     """Get the download URL for the binary."""
     platform_name = get_platform()
     git_tag_version = convert_version_to_git_tag(version)
-    return f"https://github.com/Goldziher/uncomment/releases/download/v{git_tag_version}/uncomment-{platform_name}-v{git_tag_version}.tar.gz"
+    return f"https://github.com/Goldziher/uncomment/releases/download/v{git_tag_version}/uncomment-{platform_name}.tar.gz"
 
 
 def download_binary(url, dest_path):
