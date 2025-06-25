@@ -43,13 +43,11 @@ The tool processes files to remove comments while preserving:
 1. **Tree-sitter AST Parsing**: Uses tree-sitter parsers for accurate comment identification
 
 2. **Comment Processing Pipeline**:
-
    - File → Language Detection → AST Parsing → Comment Node Identification → Removal → Output
    - AST visitor pattern traverses syntax tree to find comment nodes
    - 100% accurate - no false positives with strings or other constructs
 
 3. **Edge Cases Handled**:
-
    - Comments within strings are automatically preserved (AST understands context)
    - No regex false positives
    - Language-specific comment types properly identified
@@ -126,20 +124,17 @@ Key implementation details:
 1. **Package Naming**: Always check npm/PyPI for name availability before choosing names
 
 2. **Binary Distribution**:
-
    - npm uses custom `install.js` script to download platform-specific binaries
    - PyPI uses `uncomment.downloader` module with requests library
    - Both must handle HTTP redirects (GitHub releases redirect to S3)
    - Add `.npmignore` to exclude bin/ folder from npm package
 
 3. **Version Format Differences**:
-
    - Cargo/npm use `2.1.1-rc.2` format
    - PyPI uses `2.1.1rc2` format (no hyphen/dot)
    - Publish workflow handles conversion automatically
 
 4. **GitHub Actions Gotchas**:
-
    - Release workflow builds binaries using `taiki-e/upload-rust-binary-action`
    - Publish workflow only triggers on manual releases (not bot-created ones)
    - Uses dynamic versioning from Git tags - no hardcoded versions
