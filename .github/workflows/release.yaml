@@ -39,5 +39,5 @@ jobs:
           target: ${{ matrix.target }}
           tar: unix
           zip: windows
-          archive: uncomment-${{ matrix.target }}-${{ github.ref_name }}
+          archive: uncomment-${{ matrix.target }}
           token: ${{ secrets.GITHUB_TOKEN }}
