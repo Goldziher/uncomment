@@ -1,0 +1,5 @@
+bin/
+*.tar.gz
+*.zip
+test_*.js
+test_*.py
