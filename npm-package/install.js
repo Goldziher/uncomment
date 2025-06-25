@@ -32,7 +32,7 @@ function getPlatform() {
 function getBinaryUrl() {
   const platform = getPlatform();
   const baseUrl = `https://github.com/Goldziher/uncomment/releases/download/v${version}`;
-  return `${baseUrl}/uncomment-${platform}-v${version}.tar.gz`;
+  return `${baseUrl}/uncomment-${platform}.tar.gz`;
 }
 
 function downloadWithRedirects(url, dest, maxRedirects = 5) {

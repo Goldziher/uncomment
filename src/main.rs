@@ -163,7 +163,7 @@ fn collect_from_pattern(
         let pattern_path = if pattern.contains("/**/*") {
             pattern.strip_suffix("/**/*").unwrap_or(".")
         } else {
-            "."
+            pattern
         };
 
         let walker = WalkBuilder::new(pattern_path)
@@ -171,6 +171,7 @@ fn collect_from_pattern(
             .git_ignore(true)
             .git_global(true)
             .git_exclude(true)
+            .parents(true) // Look for .gitignore in parent directories
             .require_git(false) // Work even outside git repos
             .build();
 
