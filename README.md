@@ -30,10 +30,24 @@ A fast, accurate comment removal tool that uses tree-sitter for parsing, ensurin
 
 ## Installation
 
-### From crates.io (recommended)
+### Via Package Managers
+
+#### Cargo (Rust)
 
 ```bash
 cargo install uncomment
+```
+
+#### npm (Node.js)
+
+```bash
+npm install -g uncomment-cli
+```
+
+#### pip (Python)
+
+```bash
+pip install uncomment
 ```
 
 ### From source
@@ -46,7 +60,8 @@ cargo install --path .
 
 ### Requirements
 
-- Rust 1.70+ (for building from source)
+- For building from source: Rust 1.70+
+- For npm/pip packages: Pre-built binaries are downloaded automatically
 
 ## Usage
 
