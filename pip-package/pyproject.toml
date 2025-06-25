@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "uncomment"
 version = "2.1.1"
-description = "A fast, accurate comment removal tool using tree-sitter for AST parsing"
+description = "A fast Rust-based CLI tool for removing comments from source code"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Text Processing",
     "Environment :: Console"
 ]
-keywords = ["comments", "cli", "tree-sitter", "ast", "code-cleanup", "rust", "parsing"]
+keywords = ["comments", "cli", "rust", "remove-comments", "code-cleanup", "ai-generated-code", "formatting", "uncomment"]
 requires-python = ">=3.8"
 dependencies = [
     "requests>=2.20.0"

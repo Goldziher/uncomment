@@ -1,9 +1,17 @@
-# uncomment
+# uncomment-cli
 
-[![npm version](https://badge.fury.io/js/uncomment.svg)](https://badge.fury.io/js/uncomment)
+[![npm version](https://badge.fury.io/js/uncomment-cli.svg)](https://badge.fury.io/js/uncomment-cli)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Goldziher/uncomment/blob/main/LICENSE)
 
-A fast, accurate comment removal tool using tree-sitter for AST parsing. Perfect for cleaning up AI-generated code with excessive comments.
+A blazing fast Rust-based command-line tool that removes comments from your source code. Perfect for cleaning up AI-generated code that comes with excessive explanations.
+
+## Why Use This?
+
+- 🚀 **Lightning Fast** - Built in Rust for maximum performance
+- 🎯 **100% Accurate** - Never accidentally removes code that looks like comments
+- 🛡️ **Safe by Default** - Preview changes before applying them
+- 🌍 **Multi-language** - Supports 12+ programming languages
+- 🔧 **Zero Dependencies** - Downloads a self-contained binary
 
 ## Installation
 
@@ -11,80 +19,82 @@ A fast, accurate comment removal tool using tree-sitter for AST parsing. Perfect
 npm install -g uncomment-cli
 ```
 
-> **Note**: This npm package downloads and wraps the native Rust binary, providing fast performance without requiring Rust to be installed.
+The installer will automatically download the appropriate pre-compiled Rust binary for your platform (Windows, macOS, or Linux).
 
 ## Quick Start
 
+Remove comments from a single file:
+
 ```bash
-# Remove comments from a single file
-uncomment src/app.js
-
-# Process entire directory with 8 parallel threads
-uncomment --threads 8 src/
-
-# Preview changes without modifying files
-uncomment --dry-run src/
-
-# Remove TODO/FIXME comments too
-uncomment --remove-todo --remove-fixme src/
-
-# Remove documentation comments
-uncomment --remove-doc src/
+uncomment main.py
 ```
 
-## Supported Languages
+Preview changes without modifying files:
 
-- **Python** (.py, .pyw, .pyi, .pyx, .pxd)
-- **JavaScript** (.js, .jsx, .mjs, .cjs)
-- **TypeScript** (.ts, .tsx, .mts, .cts, .d.ts)
-- **Rust** (.rs)
-- **Go** (.go)
-- **Java** (.java)
-- **C/C++** (.c, .h, .cpp, .hpp, .cc, .hh)
-- **Ruby** (.rb)
-- **YAML** (.yml, .yaml)
-- **HCL/Terraform** (.hcl, .tf, .tfvars)
-- **Makefile** (Makefile, .mk)
+```bash
+uncomment --dry-run src/
+```
 
-## Features
+Process all Python files in a directory:
 
-- **100% Accurate**: Uses tree-sitter AST parsing - never removes comment-like content from strings
-- **Smart Preservation**: Automatically keeps important metadata:
-  - Linting directives (ESLint, Biome, Pylint, etc.)
-  - Type annotations and coverage ignores
-  - TODO/FIXME comments (optional)
-  - Documentation comments (optional)
-- **High Performance**: Multi-threaded processing with up to 3.4x speedup
-- **Safe**: Dry-run mode to preview changes before applying
-- **Cross-platform**: Works on Windows, macOS, and Linux
+```bash
+uncomment "src/**/*.py"
+```
 
-## Why Use This?
+## Key Features
 
-Perfect for:
+### Smart Comment Detection
 
-- Cleaning up AI-generated code with excessive explanatory comments
-- Preparing code for production by removing development comments
-- Batch processing large codebases
-- Maintaining clean, professional code without manual comment removal
+Unlike simple regex-based tools, `uncomment` understands your code's structure:
+
+```python
+# This comment will be removed
+code = "# But this won't - it's in a string!"
+```
+
+### Preserves Important Comments
+
+Keeps what matters:
+
+- `TODO` and `FIXME` comments (configurable)
+- License headers and copyright notices
+- Linting directives (`eslint-disable`, `@ts-ignore`, etc.)
+- Documentation strings and JSDoc comments (configurable)
+
+### Supported Languages
+
+Python, JavaScript, TypeScript, Rust, Go, Java, C/C++, Ruby, YAML, Terraform/HCL, Makefile, and more!
+
+## Common Use Cases
+
+**Clean up AI-generated code:**
+
+```bash
+uncomment generated_code.js
+```
+
+**Remove all comments including TODOs:**
+
+```bash
+uncomment --remove-todo --remove-fixme src/
+```
+
+**Remove documentation comments:**
+
+```bash
+uncomment --remove-doc api.ts
+```
+
+**Use multiple threads for large codebases:**
+
+```bash
+uncomment --threads 8 entire_project/
+```
 
 ## Documentation
 
-- **Full Documentation**: [https://github.com/Goldziher/uncomment](https://github.com/Goldziher/uncomment)
-- **Issues & Support**: [https://github.com/Goldziher/uncomment/issues](https://github.com/Goldziher/uncomment/issues)
-- **Changelog**: [https://github.com/Goldziher/uncomment/releases](https://github.com/Goldziher/uncomment/releases)
-
-## Alternative Installation Methods
-
-```bash
-# Rust/Cargo
-cargo install uncomment
-
-# Python/pip
-pip install uncomment
-
-# Direct download
-# See GitHub releases for pre-built binaries
-```
+For detailed documentation, advanced options, and examples, visit:
+[https://github.com/Goldziher/uncomment](https://github.com/Goldziher/uncomment)
 
 ## License
 
