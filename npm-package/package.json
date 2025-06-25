@@ -1,5 +1,5 @@
 {
-  "name": "uncomment-ast",
+  "name": "uncomment-cli",
   "version": "2.1.1",
   "description": "A fast, accurate comment removal tool using tree-sitter for AST parsing",
   "main": "index.js",

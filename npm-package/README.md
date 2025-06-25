@@ -8,7 +8,7 @@ A fast, accurate comment removal tool using tree-sitter for AST parsing. Perfect
 ## Installation
 
 ```bash
-npm install -g uncomment-ast
+npm install -g uncomment-cli
 ```
 
 > **Note**: This npm package downloads and wraps the native Rust binary, providing fast performance without requiring Rust to be installed.
