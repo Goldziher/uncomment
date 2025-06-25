@@ -3,7 +3,15 @@
 [![PyPI version](https://badge.fury.io/py/uncomment.svg)](https://badge.fury.io/py/uncomment)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Goldziher/uncomment/blob/main/LICENSE)
 
-A fast, accurate comment removal tool using tree-sitter for AST parsing. Perfect for cleaning up AI-generated code with excessive comments.
+A blazing fast Rust-based command-line tool that removes comments from your source code. Perfect for cleaning up AI-generated code that comes with excessive explanations.
+
+## Why Use This?
+
+- 🚀 **Lightning Fast** - Built in Rust for maximum performance
+- 🎯 **100% Accurate** - Never accidentally removes code that looks like comments
+- 🛡️ **Safe by Default** - Preview changes before applying them
+- 🌍 **Multi-language** - Supports Python, JS, TS, Rust, Go, Java, C/C++, and more
+- 🔧 **Zero Dependencies** - Downloads a self-contained binary
 
 ## Installation
 
@@ -11,80 +19,96 @@ A fast, accurate comment removal tool using tree-sitter for AST parsing. Perfect
 pip install uncomment
 ```
 
-> **Note**: This Python package downloads and wraps the native Rust binary, providing fast performance without requiring Rust to be installed.
+The installer will automatically download the appropriate pre-compiled Rust binary for your platform (Windows, macOS, or Linux).
 
 ## Quick Start
 
+Remove comments from a single file:
+
 ```bash
-# Remove comments from a single file
-uncomment src/app.py
+uncomment main.py
+```
 
-# Process entire directory with 8 parallel threads
-uncomment --threads 8 src/
+Preview changes without modifying files:
 
-# Preview changes without modifying files
+```bash
 uncomment --dry-run src/
+```
 
-# Remove TODO/FIXME comments too
-uncomment --remove-todo --remove-fixme src/
+Process all Python files in a directory:
 
-# Remove documentation comments
-uncomment --remove-doc src/
+```bash
+uncomment "src/**/*.py"
+```
+
+## Key Features
+
+### Smart Comment Detection
+
+Unlike simple regex-based tools, `uncomment` understands your code's structure:
+
+```python
+# This comment will be removed
+code = "# But this won't - it's in a string!"
+```
+
+### Preserves Important Comments
+
+Keeps what matters:
+
+- `TODO` and `FIXME` comments (configurable)
+- License headers and copyright notices
+- Linting directives (`# noqa`, `# type: ignore`, etc.)
+- Docstrings (configurable)
+
+### Perfect for Python Projects
+
+- Handles all Python comment styles
+- Preserves type hints and annotations
+- Respects `# pylint:`, `# flake8:`, and other linter directives
+- Works with `.py`, `.pyw`, `.pyi`, `.pyx`, and `.pxd` files
+
+## Common Use Cases
+
+**Clean up AI-generated code:**
+
+```bash
+uncomment generated_script.py
+```
+
+**Remove all comments including TODOs:**
+
+```bash
+uncomment --remove-todo --remove-fixme module.py
+```
+
+**Remove docstrings:**
+
+```bash
+uncomment --remove-doc api.py
+```
+
+**Process entire packages:**
+
+```bash
+uncomment my_package/
+```
+
+**Use multiple threads for large codebases:**
+
+```bash
+uncomment --threads 8 entire_project/
 ```
 
 ## Supported Languages
 
-- **Python** (.py, .pyw, .pyi, .pyx, .pxd)
-- **JavaScript** (.js, .jsx, .mjs, .cjs)
-- **TypeScript** (.ts, .tsx, .mts, .cts, .d.ts)
-- **Rust** (.rs)
-- **Go** (.go)
-- **Java** (.java)
-- **C/C++** (.c, .h, .cpp, .hpp, .cc, .hh)
-- **Ruby** (.rb)
-- **YAML** (.yml, .yaml)
-- **HCL/Terraform** (.hcl, .tf, .tfvars)
-- **Makefile** (Makefile, .mk)
-
-## Features
-
-- **100% Accurate**: Uses tree-sitter AST parsing - never removes comment-like content from strings
-- **Smart Preservation**: Automatically keeps important metadata:
-  - Linting directives (ESLint, Biome, Pylint, etc.)
-  - Type annotations and coverage ignores
-  - TODO/FIXME comments (optional)
-  - Documentation comments (optional)
-- **High Performance**: Multi-threaded processing with up to 3.4x speedup
-- **Safe**: Dry-run mode to preview changes before applying
-- **Cross-platform**: Works on Windows, macOS, and Linux
-
-## Why Use This?
-
-Perfect for:
-
-- Cleaning up AI-generated code with excessive explanatory comments
-- Preparing code for production by removing development comments
-- Batch processing large codebases
-- Maintaining clean, professional code without manual comment removal
+While this tool works great for Python, it also supports:
+JavaScript, TypeScript, Rust, Go, Java, C/C++, Ruby, YAML, Terraform/HCL, Makefile, and more!
 
 ## Documentation
 
-- **Full Documentation**: [https://github.com/Goldziher/uncomment](https://github.com/Goldziher/uncomment)
-- **Issues & Support**: [https://github.com/Goldziher/uncomment/issues](https://github.com/Goldziher/uncomment/issues)
-- **Changelog**: [https://github.com/Goldziher/uncomment/releases](https://github.com/Goldziher/uncomment/releases)
-
-## Alternative Installation Methods
-
-```bash
-# Rust/Cargo
-cargo install uncomment
-
-# Node.js/npm
-npm install -g uncomment
-
-# Direct download
-# See GitHub releases for pre-built binaries
-```
+For detailed documentation, advanced options, and examples, visit:
+[https://github.com/Goldziher/uncomment](https://github.com/Goldziher/uncomment)
 
 ## License
 
