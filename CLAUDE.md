@@ -25,9 +25,10 @@ The tool processes files to remove comments while preserving:
 - Comments marked with `~keep`
 - Comments inside strings (100% accurate with AST)
 
-### Supported Languages (9 total + partial JSON)
+### Supported Languages (12+ total)
 
 - Rust, C, C++, Java, JavaScript, TypeScript, Python, Ruby, Go
+- YAML, HCL/Terraform, Makefile
 - Partial support: JSON/JSONC
 
 ### Testing & Quality
@@ -94,10 +95,12 @@ When modifying the tool:
 
 ### Release Process
 
-1. Update version in `Cargo.toml`
-2. Run full test suite
-3. Build release binary: `cargo build --release`
-4. Binary location: `target/release/uncomment`
+1. Update version in `Cargo.toml`, `npm-package/package.json`, `pip-package/pyproject.toml`, and `pip-package/uncomment/__init__.py`
+2. Commit and push changes
+3. Create and push Git tag: `git tag v2.2.0 && git push origin v2.2.0`
+4. Wait for Release workflow to build binaries
+5. Create GitHub release manually to trigger Publish workflow
+6. Packages automatically published to crates.io, npm, and PyPI
 
 ## AI Assistant Guidelines
 
@@ -109,3 +112,50 @@ When working on this project:
 - The tree-sitter approach guarantees accuracy - focus on features, not edge cases
 - Performance is acceptable - accuracy is more important than speed
 - Use the visitor pattern when adding new analysis features
+
+### Multi-Platform Distribution Learnings
+
+The project supports distribution via:
+
+- **Cargo**: Direct Rust installation
+- **npm**: Package name is `uncomment-cli` (not `uncomment` which is taken)
+- **PyPI**: Package name is `uncomment`
+
+Key implementation details:
+
+1. **Package Naming**: Always check npm/PyPI for name availability before choosing names
+
+2. **Binary Distribution**:
+
+   - npm uses custom `install.js` script to download platform-specific binaries
+   - PyPI uses `uncomment.downloader` module with requests library
+   - Both must handle HTTP redirects (GitHub releases redirect to S3)
+   - Add `.npmignore` to exclude bin/ folder from npm package
+
+3. **Version Format Differences**:
+
+   - Cargo/npm use `2.1.1-rc.2` format
+   - PyPI uses `2.1.1rc2` format (no hyphen/dot)
+   - Publish workflow handles conversion automatically
+
+4. **GitHub Actions Gotchas**:
+
+   - Release workflow builds binaries using `taiki-e/upload-rust-binary-action`
+   - Publish workflow only triggers on manual releases (not bot-created ones)
+   - Uses dynamic versioning from Git tags - no hardcoded versions
+   - npm version command fails if version already set - check first
+
+5. **Critical Bug Fixes Applied**:
+   - Use `WalkBuilder` from ignore crate for proper .gitignore handling
+   - Implement HTTP redirect following in download scripts
+   - Handle multi-byte UTF-8 characters in file processing
+
+### Testing Distribution
+
+When testing RC releases:
+
+- Use sequential RC numbers (rc.1, rc.2, etc.)
+- Delete failed releases/tags before retrying
+- Watch workflow logs for specific errors
+- Verify packages published: `npm view`, `pip index`, `cargo search`
+- Test actual installation after publishing
