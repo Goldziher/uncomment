@@ -58,7 +58,10 @@ jobs:
 
           # Update npm package.json
           cd npm-package
-          npm version --no-git-tag-version $version
+          current_version=$(node -p "require('./package.json').version")
+          if [ "$current_version" != "$version" ]; then
+            npm version --no-git-tag-version $version
+          fi
           cd ..
 
           # Update Python package
