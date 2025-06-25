@@ -161,6 +161,38 @@ Languages are configured through the registry. To add a new language:
 3. Define comment node types and preservation patterns
 4. That's it! No other code changes needed
 
+## Git Hooks
+
+### Pre-commit
+
+Add to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/Goldziher/uncomment
+    rev: v2.2.0
+    hooks:
+      - id: uncomment
+```
+
+### Lefthook
+
+Add to your `lefthook.yml`:
+
+```yaml
+pre-commit:
+  commands:
+    uncomment:
+      run: uncomment {staged_files}
+      stage_fixed: true
+```
+
+For both hooks, install uncomment via pip:
+
+```bash
+pip install uncomment
+```
+
 ## Performance
 
 While slightly slower than regex-based approaches due to parsing overhead, the tool is very fast and scales well with parallel processing:
