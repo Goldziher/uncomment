@@ -122,5 +122,5 @@ jobs:
           echo ""
           echo "📦 Installation commands:"
           echo "  cargo install uncomment --version $version"
-          echo "  npm install -g uncomment@$version"
+          echo "  npm install -g @goldziher/uncomment@$version"
           echo "  pip install uncomment==$python_version"
