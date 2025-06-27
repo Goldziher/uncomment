@@ -35,6 +35,7 @@ walkdir = "2.5"
 rayon = "1.10"
 num_cpus = "1.17"
 tree-sitter-zig = { git = "https://github.com/Abdulrasheed1729/tree-sitter-zig", branch = "doc-comment-node" }
+tree-sitter-haskell = "0.23.1"
 
 [dev-dependencies]
 tempfile = "3.20"
