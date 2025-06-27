@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔄 Iterations: {}", cli.iterations);
 
     if let Some(lang) = &cli.language {
-        println!("🗣️  Language filter: {}", lang);
+        println!("🗣️  Language filter: {lang}");
     }
 
     if cli.memory_profile {
@@ -116,11 +116,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .sum::<usize>()
             / results.len();
 
-        println!("⏱️  Average duration: {:.2}s", avg_duration);
-        println!("🚀 Average files/sec: {:.1}", avg_files_per_sec);
-        println!("💬 Average comments/sec: {:.1}", avg_comments_per_sec);
-        println!("📂 Total files: {}", total_files);
-        println!("🗑️  Avg comments removed: {}", total_comments);
+        println!("⏱️  Average duration: {avg_duration:.2}s");
+        println!("🚀 Average files/sec: {avg_files_per_sec:.1}");
+        println!("💬 Average comments/sec: {avg_comments_per_sec:.1}");
+        println!("📂 Total files: {total_files}");
+        println!("🗑️  Avg comments removed: {total_comments}");
 
         // Calculate consistency
         let durations: Vec<f64> = results.iter().map(|r| r.duration.as_secs_f64()).collect();
@@ -128,7 +128,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let max_duration = durations.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
         let variance = (max_duration - min_duration) / avg_duration * 100.0;
 
-        println!("📈 Performance variance: {:.1}%", variance);
+        println!("📈 Performance variance: {variance:.1}%");
         println!(
             "⏰ Total benchmark time: {:.2}s",
             total_duration.as_secs_f64()
