@@ -291,12 +291,12 @@ impl OutputWriter {
 
             if original_line != processed_line {
                 if i < original_lines.len() && i >= processed_lines.len() {
-                    println!("-{}", original_line);
+                    println!("-{original_line}");
                 } else if i >= original_lines.len() && i < processed_lines.len() {
-                    println!("+{}", processed_line);
+                    println!("+{processed_line}");
                 } else if original_line != processed_line {
-                    println!("-{}", original_line);
-                    println!("+{}", processed_line);
+                    println!("-{original_line}");
+                    println!("+{processed_line}");
                 }
             }
         }
@@ -307,13 +307,11 @@ impl OutputWriter {
     pub fn print_summary(&self, total_files: usize, modified_files: usize) {
         if self.dry_run {
             println!(
-                "\n[DRY RUN] Summary: {} files processed, {} would be modified",
-                total_files, modified_files
+                "\n[DRY RUN] Summary: {total_files} files processed, {modified_files} would be modified"
             );
         } else {
             println!(
-                "\nSummary: {} files processed, {} modified",
-                total_files, modified_files
+                "\nSummary: {total_files} files processed, {modified_files} modified"
             );
         }
 
