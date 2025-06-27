@@ -40,7 +40,7 @@ impl BenchmarkResult {
         if self.duration.as_secs() > 0 {
             let mb_per_sec =
                 (self.processed_files as f64 * 5.0) / 1024.0 / self.duration.as_secs_f64(); // Assume ~5KB avg file
-            println!("  • Est. ~{:.1} MB/sec", mb_per_sec);
+            println!("  • Est. ~{mb_per_sec:.1} MB/sec");
         }
     }
 }
@@ -70,7 +70,7 @@ pub fn run_benchmark<P: AsRef<Path>>(
     }
 
     if let Some(limit) = sample_size {
-        println!("📏 Sample size: {} files", limit);
+        println!("📏 Sample size: {limit} files");
     }
 
     println!("🚀 Running benchmark...\n");

@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n📊 File type breakdown:");
     for (ext, count) in type_counts.iter() {
-        println!("   • .{}: {} files", ext, count);
+        println!("   • .{ext}: {count} files");
     }
 
     // Calculate total size
@@ -116,17 +116,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📈 PERFORMANCE RESULTS");
     println!("=====================");
     println!("⏱️  Timing:");
-    println!("   • Average: {:.3}s", avg_duration);
-    println!("   • Min: {:.3}s", min_duration);
-    println!("   • Max: {:.3}s", max_duration);
+    println!("   • Average: {avg_duration:.3}s");
+    println!("   • Min: {min_duration:.3}s");
+    println!("   • Max: {max_duration:.3}s");
     println!(
         "   • Variance: {:.1}%",
         (max_duration - min_duration) / avg_duration * 100.0
     );
 
     println!("\n🚀 Throughput:");
-    println!("   • Files/sec: {:.1}", files_per_second);
-    println!("   • MB/sec: {:.2}", mb_per_second);
+    println!("   • Files/sec: {files_per_second:.1}");
+    println!("   • MB/sec: {mb_per_second:.2}");
     println!(
         "   • μs/file: {:.1}",
         avg_duration * 1_000_000.0 / files.len() as f64
