@@ -21,12 +21,12 @@ pub enum UncommentError {
 impl fmt::Display for UncommentError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UncommentError::Io(err) => write!(f, "IO error: {}", err),
-            UncommentError::ParseError(msg) => write!(f, "Parse error: {}", msg),
+            UncommentError::Io(err) => write!(f, "IO error: {err}"),
+            UncommentError::ParseError(msg) => write!(f, "Parse error: {msg}"),
             UncommentError::LanguageNotSupported(lang) => {
-                write!(f, "Language not supported: {}", lang)
+                write!(f, "Language not supported: {lang}")
             }
-            UncommentError::TreeSitterError(msg) => write!(f, "Tree-sitter error: {}", msg),
+            UncommentError::TreeSitterError(msg) => write!(f, "Tree-sitter error: {msg}"),
         }
     }
 }

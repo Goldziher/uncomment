@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     };
 
     if cli.verbose && num_threads > 1 {
-        println!("🔧 Using {} parallel threads", num_threads);
+        println!("🔧 Using {num_threads} parallel threads");
     }
 
     rayon::ThreadPoolBuilder::new()
@@ -77,7 +77,7 @@ fn main() -> Result<()> {
                 Err(e) => {
                     eprintln!("Error processing {}: {}", file_path.display(), e);
                     if cli.verbose {
-                        eprintln!("  Full error: {:?}", e);
+                        eprintln!("  Full error: {e:?}");
                     }
                 }
             }
@@ -103,7 +103,7 @@ fn main() -> Result<()> {
                 Err(e) => {
                     eprintln!("Error processing {}: {}", file_path.display(), e);
                     if cli.verbose {
-                        eprintln!("  Full error: {:?}", e);
+                        eprintln!("  Full error: {e:?}");
                     }
                 }
             }
@@ -183,7 +183,7 @@ fn collect_from_pattern(
                         files.push(path.to_path_buf());
                     }
                 }
-                Err(e) => eprintln!("Error reading path: {}", e),
+                Err(e) => eprintln!("Error reading path: {e}"),
             }
         }
     } else {
@@ -195,7 +195,7 @@ fn collect_from_pattern(
                         files.push(path);
                     }
                 }
-                Err(e) => eprintln!("Error reading path: {}", e),
+                Err(e) => eprintln!("Error reading path: {e}"),
             }
         }
     }
