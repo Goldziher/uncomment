@@ -37,6 +37,7 @@ impl LanguageRegistry {
             LanguageConfig::make(),
             LanguageConfig::zig(),
             LanguageConfig::shell(),
+            LanguageConfig::haskell(),
         ];
 
         for config in configs {
@@ -155,6 +156,11 @@ mod tests {
         assert!(detected.is_some());
         assert_eq!(detected.unwrap().name, "zig");
 
+        let haskell_file = PathBuf::from("scratch.hs");
+        let detected = registry.detect_language(&haskell_file);
+        assert!(detected.is_some());
+        assert_eq!(detected.unwrap().name, "haskell");
+
         let unknown_file = PathBuf::from("file.unknown");
         let detected = registry.detect_language(&unknown_file);
         assert!(detected.is_none());
@@ -201,6 +207,11 @@ mod tests {
             "shell"
         );
 
+        assert_eq!(
+            registry.detect_language_by_extension("hs").unwrap().name,
+            "haskell"
+        );
+
         assert!(registry.detect_language_by_extension("unknown").is_none());
     }
 
@@ -220,6 +231,7 @@ mod tests {
         assert!(languages.contains(&"ruby".to_string()));
         assert!(languages.contains(&"zig".to_string()));
         assert!(languages.contains(&"shell".to_string()));
+        assert!(languages.contains(&"haskell".to_string()));
     }
 
     #[test]
@@ -239,7 +251,7 @@ mod tests {
         assert!(registry.is_supported_extension("sh"));
         assert!(registry.is_supported_extension("bash"));
         assert!(registry.is_supported_extension("zsh"));
-
+        assert!(registry.is_supported_extension("hs"));
         assert!(!registry.is_supported_extension("unknown"));
     }
 
@@ -300,6 +312,9 @@ mod tests {
         let zig_extensions = registry.extensions_for_language("zig").unwrap();
         assert_eq!(zig_extensions, vec!["zig"]);
 
+        let zig_extensions = registry.extensions_for_language("haskell").unwrap();
+        assert_eq!(zig_extensions, vec!["hs"]);
+
         let python_extensions = registry.extensions_for_language("python").unwrap();
         assert!(python_extensions.contains(&"py".to_string()));
         assert!(python_extensions.contains(&"pyw".to_string()));
@@ -317,5 +332,6 @@ mod tests {
         assert!(all_languages.iter().any(|(name, _)| *name == "rust"));
         assert!(all_languages.iter().any(|(name, _)| *name == "python"));
         assert!(all_languages.iter().any(|(name, _)| *name == "zig"));
+        assert!(all_languages.iter().any(|(name, _)| *name == "haskell"));
     }
 }
