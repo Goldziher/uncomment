@@ -227,6 +227,15 @@ impl LanguageConfig {
         )
     }
 
+    pub fn haskell() -> Self {
+        Self::new(
+            "haskell",
+            vec!["hs"],
+            vec!["comment"],
+            vec!["haddock"],
+            || tree_sitter_haskell::LANGUAGE.into(),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -290,6 +299,7 @@ mod tests {
             LanguageConfig::cpp(),
             LanguageConfig::ruby(),
             LanguageConfig::shell(),
+            LanguageConfig::haskell(),
         ];
 
         for lang in languages {
