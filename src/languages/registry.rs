@@ -36,6 +36,7 @@ impl LanguageRegistry {
             LanguageConfig::hcl(),
             LanguageConfig::make(),
             LanguageConfig::zig(),
+            LanguageConfig::shell(),
         ];
 
         for config in configs {
@@ -185,6 +186,21 @@ mod tests {
             "zig"
         );
 
+        assert_eq!(
+            registry.detect_language_by_extension("sh").unwrap().name,
+            "shell"
+        );
+
+        assert_eq!(
+            registry.detect_language_by_extension("bash").unwrap().name,
+            "shell"
+        );
+
+        assert_eq!(
+            registry.detect_language_by_extension("zsh").unwrap().name,
+            "shell"
+        );
+
         assert!(registry.detect_language_by_extension("unknown").is_none());
     }
 
@@ -203,6 +219,7 @@ mod tests {
         assert!(languages.contains(&"cpp".to_string()));
         assert!(languages.contains(&"ruby".to_string()));
         assert!(languages.contains(&"zig".to_string()));
+        assert!(languages.contains(&"shell".to_string()));
     }
 
     #[test]
@@ -219,6 +236,9 @@ mod tests {
         assert!(registry.is_supported_extension("cpp"));
         assert!(registry.is_supported_extension("rb"));
         assert!(registry.is_supported_extension("zig"));
+        assert!(registry.is_supported_extension("sh"));
+        assert!(registry.is_supported_extension("bash"));
+        assert!(registry.is_supported_extension("zsh"));
 
         assert!(!registry.is_supported_extension("unknown"));
     }

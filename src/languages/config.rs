@@ -217,6 +217,16 @@ impl LanguageConfig {
         )
     }
 
+    pub fn shell() -> Self {
+        Self::new(
+            "shell",
+            vec!["sh", "bash", "zsh"],
+            vec!["comment"],
+            vec!["comment"],
+            || tree_sitter_bash::LANGUAGE.into(),
+        )
+    }
+
 }
 
 #[cfg(test)]
@@ -279,6 +289,7 @@ mod tests {
             LanguageConfig::c(),
             LanguageConfig::cpp(),
             LanguageConfig::ruby(),
+            LanguageConfig::shell(),
         ];
 
         for lang in languages {
