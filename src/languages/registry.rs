@@ -79,6 +79,14 @@ impl LanguageRegistry {
             return self.languages.get("typescript");
         }
 
+        // Special handling for .bashrc, bashrc, .zshrc, zshrc, etc files.
+        match file_name {
+            "bashrc" | ".bashrc" | "zshrc" | ".zshrc" | "zshenv" | ".zshenv" => {
+                return self.languages.get("shell")
+            }
+            _ => {}
+        }
+
         let extension = file_path.extension()?.to_str()?.to_lowercase();
         let language_name = self.extension_map.get(&extension)?;
         self.languages.get(language_name)
@@ -210,7 +218,7 @@ mod tests {
 
         assert_eq!(
             registry.detect_language_by_extension("hs").unwrap().name,
-            "haskell" 
+            "haskell"
         );
 
         assert_eq!(
