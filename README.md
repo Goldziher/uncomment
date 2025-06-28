@@ -136,6 +136,11 @@ uncomment profile /path/to/repo
 - Doc comments: `///` (unless `--remove-doc`)
 - Top-level Doc comments: `//!`
 
+**Haskell:**
+
+- Comments: `--` 
+- Haddock: `-- |`, `{-^ ... -}`, `{-| ... -}` (unless `--remove-doc`)
+
 **YAML/HCL/Makefile:**
 
 - Standard comment removal while preserving file structure
