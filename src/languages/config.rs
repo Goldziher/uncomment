@@ -236,6 +236,7 @@ impl LanguageConfig {
             || tree_sitter_haskell::LANGUAGE.into(),
         )
     }
+
 }
 
 #[cfg(test)]
@@ -300,6 +301,7 @@ mod tests {
             LanguageConfig::ruby(),
             LanguageConfig::shell(),
             LanguageConfig::haskell(),
+            LanguageConfig::shell(),
         ];
 
         for lang in languages {
