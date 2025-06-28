@@ -24,6 +24,8 @@ tree-sitter-json = "0.24"
 tree-sitter-yaml = "0.7"
 tree-sitter-hcl = "1.1"
 tree-sitter-make = "1.1"
+tree-sitter-zig = { git = "https://github.com/Abdulrasheed1729/tree-sitter-zig", branch = "doc-comment-node" }
+tree-sitter-haskell = "0.23.1"
 toml = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 glob = "0.3"

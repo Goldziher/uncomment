@@ -206,6 +206,27 @@ impl LanguageConfig {
             || tree_sitter_make::LANGUAGE.into(),
         )
     }
+
+    pub fn zig() -> Self {
+        Self::new(
+            "zig",
+            vec!["zig"],
+            vec!["comment"],
+            vec!["doc_comment", "container_doc_comment"],
+            || tree_sitter_zig::LANGUAGE.into(),
+        )
+    }
+
+    pub fn haskell() -> Self {
+        Self::new(
+            "haskell",
+            vec!["hs"],
+            vec!["comment"],
+            vec!["haddock"],
+            || tree_sitter_haskell::LANGUAGE.into(),
+        )
+    }
+
 }
 
 #[cfg(test)]
@@ -268,6 +289,7 @@ mod tests {
             LanguageConfig::c(),
             LanguageConfig::cpp(),
             LanguageConfig::ruby(),
+            LanguageConfig::haskell(),
         ];
 
         for lang in languages {
