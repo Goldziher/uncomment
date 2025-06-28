@@ -27,6 +27,7 @@ A fast, accurate comment removal tool that uses tree-sitter for parsing, ensurin
 - YAML (.yml, .yaml)
 - HCL/Terraform (.hcl, .tf, .tfvars)
 - Makefile (Makefile, .mk)
+- Zig (.zig)
 
 ## Installation
 
@@ -128,6 +129,17 @@ uncomment profile /path/to/repo
 - Attributes and directives (preserved in comment form)
 - Doc comments `///` and `//!` (unless `--remove-doc`)
 - Clippy directives: `clippy::`
+
+**Zig:**
+
+- Line Comments: `//` 
+- Doc comments: `///` (unless `--remove-doc`)
+- Top-level Doc comments: `//!`
+
+**Haskell:**
+
+- Comments: `--` 
+- Haddock: `-- |`, `{-^ ... -}`, `{-| ... -}` (unless `--remove-doc`)
 
 **YAML/HCL/Makefile:**
 

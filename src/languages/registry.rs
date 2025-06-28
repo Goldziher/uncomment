@@ -35,6 +35,8 @@ impl LanguageRegistry {
             LanguageConfig::yaml(),
             LanguageConfig::hcl(),
             LanguageConfig::make(),
+            LanguageConfig::zig(),
+            LanguageConfig::haskell(),
         ];
 
         for config in configs {
@@ -148,6 +150,16 @@ mod tests {
         assert!(detected.is_some());
         assert_eq!(detected.unwrap().name, "python");
 
+        let zig_file = PathBuf::from("scratch.zig");
+        let detected = registry.detect_language(&zig_file);
+        assert!(detected.is_some());
+        assert_eq!(detected.unwrap().name, "zig");
+
+        let haskell_file = PathBuf::from("scratch.hs");
+        let detected = registry.detect_language(&haskell_file);
+        assert!(detected.is_some());
+        assert_eq!(detected.unwrap().name, "haskell");
+
         let unknown_file = PathBuf::from("file.unknown");
         let detected = registry.detect_language(&unknown_file);
         assert!(detected.is_none());
@@ -174,6 +186,16 @@ mod tests {
             "typescript"
         );
 
+        assert_eq!(
+            registry.detect_language_by_extension("zig").unwrap().name,
+            "zig"
+        );
+
+        assert_eq!(
+            registry.detect_language_by_extension("hs").unwrap().name,
+            "haskell"
+        );
+
         assert!(registry.detect_language_by_extension("unknown").is_none());
     }
 
@@ -191,6 +213,8 @@ mod tests {
         assert!(languages.contains(&"c".to_string()));
         assert!(languages.contains(&"cpp".to_string()));
         assert!(languages.contains(&"ruby".to_string()));
+        assert!(languages.contains(&"zig".to_string()));
+        assert!(languages.contains(&"haskell".to_string()));
     }
 
     #[test]
@@ -206,6 +230,8 @@ mod tests {
         assert!(registry.is_supported_extension("c"));
         assert!(registry.is_supported_extension("cpp"));
         assert!(registry.is_supported_extension("rb"));
+        assert!(registry.is_supported_extension("zig"));
+        assert!(registry.is_supported_extension("hs"));
 
         assert!(!registry.is_supported_extension("unknown"));
     }
@@ -221,6 +247,11 @@ mod tests {
         assert_eq!(
             registry.detect_language_by_extension("PY").unwrap().name,
             "python"
+        );
+
+        assert_eq!(
+            registry.detect_language_by_extension("ZIG").unwrap().name,
+            "zig"
         );
 
         assert!(registry.is_supported_extension("RS"));
@@ -259,6 +290,12 @@ mod tests {
         let rust_extensions = registry.extensions_for_language("rust").unwrap();
         assert_eq!(rust_extensions, vec!["rs"]);
 
+        let zig_extensions = registry.extensions_for_language("zig").unwrap();
+        assert_eq!(zig_extensions, vec!["zig"]);
+
+        let zig_extensions = registry.extensions_for_language("haskell").unwrap();
+        assert_eq!(zig_extensions, vec!["hs"]);
+
         let python_extensions = registry.extensions_for_language("python").unwrap();
         assert!(python_extensions.contains(&"py".to_string()));
         assert!(python_extensions.contains(&"pyw".to_string()));
@@ -275,5 +312,7 @@ mod tests {
         assert!(!all_languages.is_empty());
         assert!(all_languages.iter().any(|(name, _)| *name == "rust"));
         assert!(all_languages.iter().any(|(name, _)| *name == "python"));
+        assert!(all_languages.iter().any(|(name, _)| *name == "zig"));
+        assert!(all_languages.iter().any(|(name, _)| *name == "haskell"));
     }
 }
