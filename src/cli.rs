@@ -1,4 +1,5 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -8,6 +9,30 @@ use clap::Parser;
     long_about = "A fast, accurate CLI tool that removes comments from source code files using tree-sitter AST parsing. Automatically preserves important comments like linting directives, documentation, and metadata."
 )]
 pub struct Cli {
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+
+    #[command(flatten)]
+    pub args: ProcessArgs,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Initialize a configuration file in the current directory
+    #[command(about = "Create a template configuration file")]
+    Init {
+        /// Output file name
+        #[arg(short, long, default_value = ".uncommentrc.toml")]
+        output: PathBuf,
+
+        /// Overwrite existing file
+        #[arg(short, long)]
+        force: bool,
+    },
+}
+
+#[derive(Parser, Debug)]
+pub struct ProcessArgs {
     /// Files or directories to process (supports glob patterns)
     #[arg(help = "Files, directories, or glob patterns to process")]
     pub paths: Vec<String>,
@@ -70,9 +95,17 @@ pub struct Cli {
         default_value = "1"
     )]
     pub threads: usize,
+
+    /// Path to configuration file
+    #[arg(
+        short = 'c',
+        long = "config",
+        help = "Path to configuration file (overrides automatic discovery)"
+    )]
+    pub config: Option<PathBuf>,
 }
 
-impl Cli {
+impl ProcessArgs {
     pub fn processing_options(&self) -> crate::processor::ProcessingOptions {
         crate::processor::ProcessingOptions {
             remove_todo: self.remove_todo,
@@ -84,5 +117,25 @@ impl Cli {
             respect_gitignore: !self.no_gitignore,
             traverse_git_repos: self.traverse_git_repos,
         }
+    }
+}
+
+impl Cli {
+    /// Handle the init command
+    pub fn handle_init_command(output: &PathBuf, force: bool) -> anyhow::Result<()> {
+        if output.exists() && !force {
+            return Err(anyhow::anyhow!(
+                "Configuration file already exists: {}. Use --force to overwrite.",
+                output.display()
+            ));
+        }
+
+        let template = crate::config::Config::template();
+        std::fs::write(output, template)?;
+
+        println!("Created configuration file: {}", output.display());
+        println!("Edit this file to customize uncomment behavior for your project.");
+
+        Ok(())
     }
 }
