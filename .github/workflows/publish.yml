@@ -3,6 +3,12 @@ name: Publish Packages
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g., v2.3.1)'
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -11,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -34,7 +42,13 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          tag=${GITHUB_REF#refs/tags/}
+          # Handle both release events and manual triggers
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ github.event.inputs.tag }}"
+          else
+            tag=${GITHUB_REF#refs/tags/}
+          fi
+
           version=${tag#v}  # Remove 'v' prefix
 
           # Convert version for Python (2.1.1-rc.2 -> 2.1.1rc2)
