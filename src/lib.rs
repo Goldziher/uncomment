@@ -1,10 +1,12 @@
 pub mod ast;
 pub mod cli;
 pub mod config;
+pub mod grammar;
 pub mod languages;
 pub mod processor;
 pub mod rules;
 
+pub use grammar::GrammarManager;
 pub use processor::{ProcessingOptions, Processor};
 pub use rules::preservation::PreservationRule;
 
