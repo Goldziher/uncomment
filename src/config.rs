@@ -480,12 +480,58 @@ impl ConfigManager {
     /// Get the resolved configuration for a specific file path
     pub fn get_config_for_file<P: AsRef<Path>>(&self, file_path: P) -> ResolvedConfig {
         let file_path = file_path.as_ref();
-        let dir_path = file_path.parent().unwrap_or(file_path);
+
+        // Convert to absolute path if it's relative
+        let absolute_file_path = if file_path.is_absolute() {
+            file_path.to_path_buf()
+        } else {
+            std::env::current_dir().unwrap_or_default().join(file_path)
+        };
+
+        let dir_path = absolute_file_path.parent().unwrap_or(&absolute_file_path);
 
         self.path_configs
             .get(dir_path)
             .cloned()
             .unwrap_or_else(|| self.resolve_config_for_path(dir_path))
+    }
+
+    /// Get the resolved configuration for a specific file with language-specific overrides
+    pub fn get_config_for_file_with_language<P: AsRef<Path>>(
+        &self,
+        file_path: P,
+        language_name: &str,
+    ) -> ResolvedConfig {
+        let mut config = self.get_config_for_file(file_path);
+
+        // Apply language-specific overrides
+        if let Some(lang_config) = self.get_language_config(language_name) {
+            // Override global settings with language-specific ones
+            if let Some(remove_todos) = lang_config.remove_todos {
+                config.remove_todos = remove_todos;
+            }
+            if let Some(remove_fixme) = lang_config.remove_fixme {
+                config.remove_fixme = remove_fixme;
+            }
+            if let Some(remove_docs) = lang_config.remove_docs {
+                config.remove_docs = remove_docs;
+            }
+            if let Some(use_default_ignores) = lang_config.use_default_ignores {
+                config.use_default_ignores = use_default_ignores;
+            }
+
+            // Merge preserve patterns
+            config
+                .preserve_patterns
+                .extend(lang_config.preserve_patterns.clone());
+            config.preserve_patterns.sort();
+            config.preserve_patterns.dedup();
+
+            // Set the language config
+            config.language_config = Some(lang_config);
+        }
+
+        config
     }
 
     /// Get language configuration by name
