@@ -207,16 +207,6 @@ impl LanguageConfig {
         )
     }
 
-    pub fn zig() -> Self {
-        Self::new(
-            "zig",
-            vec!["zig"],
-            vec!["comment"],
-            vec!["doc_comment", "container_doc_comment"],
-            || tree_sitter_zig::LANGUAGE.into(),
-        )
-    }
-
     pub fn shell() -> Self {
         Self::new(
             "shell",

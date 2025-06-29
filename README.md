@@ -130,12 +130,6 @@ uncomment profile /path/to/repo
 - Doc comments `///` and `//!` (unless `--remove-doc`)
 - Clippy directives: `clippy::`
 
-**Zig:**
-
-- Line Comments: `//`
-- Doc comments: `///` (unless `--remove-doc`)
-- Top-level Doc comments: `//!`
-
 **Haskell:**
 
 - Comments: `--`
