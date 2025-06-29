@@ -132,13 +132,13 @@ uncomment profile /path/to/repo
 
 **Zig:**
 
-- Line Comments: `//` 
+- Line Comments: `//`
 - Doc comments: `///` (unless `--remove-doc`)
 - Top-level Doc comments: `//!`
 
 **Haskell:**
 
-- Comments: `--` 
+- Comments: `--`
 - Haddock: `-- |`, `{-^ ... -}`, `{-| ... -}` (unless `--remove-doc`)
 
 **YAML/HCL/Makefile:**
