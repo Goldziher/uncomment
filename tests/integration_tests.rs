@@ -39,8 +39,8 @@ fn test_gitignore_from_subdirectory() {
 
     // Initialize git repo
     Command::new("git")
-        .current_dir(&root)
-        .args(&["init"])
+        .current_dir(root)
+        .args(["init"])
         .output()
         .unwrap();
 
@@ -56,7 +56,7 @@ fn test_gitignore_from_subdirectory() {
     // Run uncomment from subfolder with dry-run
     let output = Command::new(&uncomment_path)
         .current_dir(&subfolder)
-        .args(&[".", "--dry-run"])
+        .args([".", "--dry-run"])
         .output()
         .unwrap();
 
@@ -116,8 +116,8 @@ fn test_gitignore_with_no_gitignore_flag() {
 
     // Initialize git repo
     Command::new("git")
-        .current_dir(&root)
-        .args(&["init"])
+        .current_dir(root)
+        .args(["init"])
         .output()
         .unwrap();
 
@@ -133,7 +133,7 @@ fn test_gitignore_with_no_gitignore_flag() {
     // Run uncomment from subfolder with --no-gitignore flag
     let output = Command::new(&uncomment_path)
         .current_dir(&subfolder)
-        .args(&[".", "--dry-run", "--no-gitignore"])
+        .args([".", "--dry-run", "--no-gitignore"])
         .output()
         .unwrap();
 
