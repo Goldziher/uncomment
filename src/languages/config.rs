@@ -226,7 +226,7 @@ impl LanguageConfig {
             || tree_sitter_bash::LANGUAGE.into(),
         )
     }
-  
+
     pub fn haskell() -> Self {
         Self::new(
             "haskell",
@@ -236,7 +236,6 @@ impl LanguageConfig {
             || tree_sitter_haskell::LANGUAGE.into(),
         )
     }
-
 }
 
 #[cfg(test)]

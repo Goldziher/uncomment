@@ -310,9 +310,7 @@ impl OutputWriter {
                 "\n[DRY RUN] Summary: {total_files} files processed, {modified_files} would be modified"
             );
         } else {
-            println!(
-                "\nSummary: {total_files} files processed, {modified_files} modified"
-            );
+            println!("\nSummary: {total_files} files processed, {modified_files} modified");
         }
 
         if total_files > 0 && modified_files == 0 {
