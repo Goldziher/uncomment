@@ -743,17 +743,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "tree-sitter-zig"
-version = "1.1.2"
-source = "git+https://github.com/Abdulrasheed1729/tree-sitter-zig?branch=doc-comment-node#4871daf801831266282b9eff3f8e2238f4aa0d0d"
-dependencies = [
- "cc",
- "tree-sitter-language",
-]
-
-[[package]]
 name = "uncomment"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -783,7 +774,6 @@ dependencies = [
  "tree-sitter-rust",
  "tree-sitter-typescript",
  "tree-sitter-yaml",
- "tree-sitter-zig",
  "walkdir",
 ]
 

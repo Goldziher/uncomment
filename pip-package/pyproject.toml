@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uncomment"
-version = "2.3.0"
+version = "2.3.1"
 description = "A fast Rust-based CLI tool for removing comments from source code"
 readme = "README.md"
 license = {text = "MIT"}
