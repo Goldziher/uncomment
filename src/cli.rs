@@ -28,6 +28,17 @@ pub enum Commands {
         /// Overwrite existing file
         #[arg(short, long)]
         force: bool,
+
+        /// Generate configuration for all supported languages
+        #[arg(
+            long,
+            help = "Generate comprehensive config with all supported languages"
+        )]
+        comprehensive: bool,
+
+        /// Interactive mode to select languages
+        #[arg(short, long, help = "Interactive mode to select languages and options")]
+        interactive: bool,
     },
 }
 
@@ -122,7 +133,12 @@ impl ProcessArgs {
 
 impl Cli {
     /// Handle the init command
-    pub fn handle_init_command(output: &PathBuf, force: bool) -> anyhow::Result<()> {
+    pub fn handle_init_command(
+        output: &PathBuf,
+        force: bool,
+        comprehensive: bool,
+        interactive: bool,
+    ) -> anyhow::Result<()> {
         if output.exists() && !force {
             return Err(anyhow::anyhow!(
                 "Configuration file already exists: {}. Use --force to overwrite.",
@@ -130,11 +146,28 @@ impl Cli {
             ));
         }
 
-        let template = crate::config::Config::template();
+        let template = if comprehensive {
+            crate::config::Config::comprehensive_template()
+        } else if interactive {
+            crate::config::Config::interactive_template()?
+        } else {
+            // Smart template based on detected files in current directory
+            let current_dir =
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            crate::config::Config::smart_template(&current_dir)?
+        };
+
         std::fs::write(output, template)?;
 
         println!("Created configuration file: {}", output.display());
-        println!("Edit this file to customize uncomment behavior for your project.");
+        if comprehensive {
+            println!("Generated comprehensive config with all supported languages.");
+        } else if interactive {
+            println!("Generated customized config based on your selections.");
+        } else {
+            println!("Generated smart config based on detected files in your project.");
+        }
+        println!("Edit this file to further customize uncomment behavior.");
 
         Ok(())
     }
