@@ -36,14 +36,23 @@ pub struct CommentVisitor<'a> {
     source: &'a str,
     preservation_rules: &'a [PreservationRule],
     comments: Vec<CommentInfo>,
+    comment_node_types: Vec<String>,
+    doc_comment_node_types: Vec<String>,
 }
 
 impl<'a> CommentVisitor<'a> {
-    pub fn new(source: &'a str, preservation_rules: &'a [PreservationRule]) -> Self {
+    pub fn new_with_language_config(
+        source: &'a str,
+        preservation_rules: &'a [PreservationRule],
+        comment_node_types: Vec<String>,
+        doc_comment_node_types: Vec<String>,
+    ) -> Self {
         Self {
             source,
             preservation_rules,
             comments: Vec::new(),
+            comment_node_types,
+            doc_comment_node_types,
         }
     }
 
@@ -77,16 +86,8 @@ impl<'a> CommentVisitor<'a> {
 
     fn is_comment_node(&self, node: &Node) -> bool {
         let kind = node.kind();
-        matches!(
-            kind,
-            "comment"
-                | "line_comment"
-                | "block_comment"
-                | "doc_comment"
-                | "documentation_comment"
-                | "multiline_comment"
-                | "single_line_comment"
-        )
+        self.comment_node_types.contains(&kind.to_string())
+            || self.doc_comment_node_types.contains(&kind.to_string())
     }
 
     fn should_preserve_comment(&self, comment: &CommentInfo) -> bool {
@@ -135,7 +136,10 @@ mod tests {
     fn test_visitor_creation() {
         let source = "// Test\nfn main() {}";
         let rules = vec![PreservationRule::Pattern("TODO".to_string())];
-        let visitor = CommentVisitor::new(source, &rules);
+        let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
+        let doc_types = vec!["doc_comment".to_string()];
+        let visitor =
+            CommentVisitor::new_with_language_config(source, &rules, comment_types, doc_types);
         assert_eq!(visitor.source, source);
         assert_eq!(visitor.comments.len(), 0);
     }
@@ -144,7 +148,10 @@ mod tests {
     fn test_is_comment_node() {
         let source = "// Test";
         let rules = vec![];
-        let _visitor = CommentVisitor::new(source, &rules);
+        let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
+        let doc_types = vec!["doc_comment".to_string()];
+        let _visitor =
+            CommentVisitor::new_with_language_config(source, &rules, comment_types, doc_types);
 
         // We can't easily create tree-sitter nodes in tests without parsing,
         // so we'll test the string matching logic separately
@@ -161,7 +168,10 @@ mod tests {
             PreservationRule::Pattern("TODO".to_string()),
             PreservationRule::Pattern("FIXME".to_string()),
         ];
-        let visitor = CommentVisitor::new(source, &rules);
+        let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
+        let doc_types = vec!["doc_comment".to_string()];
+        let visitor =
+            CommentVisitor::new_with_language_config(source, &rules, comment_types, doc_types);
 
         let todo_comment = create_mock_comment("// TODO: Fix this", "line_comment");
         let fixme_comment = create_mock_comment("// FIXME: Bug here", "line_comment");
@@ -176,7 +186,10 @@ mod tests {
     fn test_get_comments_to_remove() {
         let source = "// Test";
         let rules = vec![PreservationRule::Pattern("TODO".to_string())];
-        let mut visitor = CommentVisitor::new(source, &rules);
+        let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
+        let doc_types = vec!["doc_comment".to_string()];
+        let mut visitor =
+            CommentVisitor::new_with_language_config(source, &rules, comment_types, doc_types);
 
         // Manually add comments for testing
         visitor.comments.push(
