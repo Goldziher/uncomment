@@ -158,6 +158,7 @@ fn collect_from_pattern(
     // If we're respecting gitignore, use ignore crate's WalkBuilder for proper gitignore handling
     if options.respect_gitignore {
         use ignore::WalkBuilder;
+        use std::path::PathBuf;
 
         // Extract the directory from the pattern for WalkBuilder
         let pattern_path = if pattern.contains("/**/*") {
@@ -166,7 +167,43 @@ fn collect_from_pattern(
             pattern
         };
 
-        let walker = WalkBuilder::new(pattern_path)
+        // Convert pattern to a PathBuf for manipulation
+        let pattern_path_buf = PathBuf::from(pattern_path);
+        let absolute_pattern = if pattern_path_buf.is_absolute() {
+            pattern_path_buf.clone()
+        } else {
+            std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join(&pattern_path_buf)
+        };
+
+        // Find git repository root if we're in one
+        let mut git_root = None;
+        let mut current = absolute_pattern.as_path();
+        while let Some(parent) = current.parent() {
+            if parent.join(".git").exists() {
+                git_root = Some(parent.to_path_buf());
+                break;
+            }
+            current = parent;
+        }
+
+        // If we found a git root and our pattern is within it, start walking from the git root
+        // but filter results to only include files under our target directory
+        let (walk_root, filter_prefix) = if let Some(root) = git_root {
+            if absolute_pattern.starts_with(&root) {
+                // Walk from git root, but we'll filter to only include files under our target
+                (root, Some(absolute_pattern.clone()))
+            } else {
+                // Pattern is outside git repo, use pattern directly
+                (absolute_pattern.clone(), None)
+            }
+        } else {
+            // No git repo, use pattern directly
+            (absolute_pattern.clone(), None)
+        };
+
+        let walker = WalkBuilder::new(walk_root)
             .hidden(false) // We want to see hidden files if they match our extensions
             .git_ignore(true)
             .git_global(true)
@@ -179,6 +216,14 @@ fn collect_from_pattern(
             match entry {
                 Ok(entry) => {
                     let path = entry.path();
+
+                    // If we have a filter prefix, only include files under that directory
+                    if let Some(ref prefix) = filter_prefix {
+                        if !path.starts_with(prefix) {
+                            continue;
+                        }
+                    }
+
                     if path.is_file() && has_supported_extension(path) {
                         files.push(path.to_path_buf());
                     }
