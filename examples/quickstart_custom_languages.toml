@@ -1,0 +1,35 @@
+# Quick Start: Adding Custom Languages to Uncomment
+# This minimal example shows how to add languages not included as builtins
+
+[global]
+remove_todos = false
+remove_fixme = false
+
+# Example 1: Add Ruby support (was removed from builtins)
+[languages.ruby]
+name = "Ruby"
+extensions = ["rb"]
+comment_nodes = ["comment"]
+
+[languages.ruby.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-ruby" }
+
+# Example 2: Add Vue.js support
+[languages.vue]
+name = "Vue"
+extensions = ["vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+
+[languages.vue.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
+
+# Example 3: Add Swift support
+[languages.swift]
+name = "Swift"
+extensions = ["swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+[languages.swift.grammar]
+source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }

@@ -51,6 +51,55 @@ pub struct GlobalConfig {
     pub traverse_git_repos: bool,
 }
 
+/// Tree-sitter grammar configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GrammarConfig {
+    /// Grammar source type
+    #[serde(default)]
+    pub source: GrammarSource,
+
+    /// Version or commit hash (for git sources)
+    pub version: Option<String>,
+
+    /// Local path to compiled grammar library
+    pub library_path: Option<PathBuf>,
+
+    /// Custom compilation flags
+    #[serde(default)]
+    pub compile_flags: Vec<String>,
+}
+
+/// Grammar source specification
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum GrammarSource {
+    /// Use built-in static grammar (default)
+    #[default]
+    Builtin,
+
+    /// Load from Git repository
+    Git {
+        /// Repository URL
+        url: String,
+        /// Branch or tag (defaults to main/master)
+        branch: Option<String>,
+        /// Subdirectory containing grammar.js (if not root)
+        path: Option<String>,
+    },
+
+    /// Load from local directory
+    Local {
+        /// Path to directory containing grammar.js
+        path: PathBuf,
+    },
+
+    /// Load pre-compiled library
+    Library {
+        /// Path to compiled .so/.dll/.dylib file
+        path: PathBuf,
+    },
+}
+
 /// Language-specific configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LanguageConfig {
@@ -83,11 +132,9 @@ pub struct LanguageConfig {
     /// Override global use_default_ignores setting
     pub use_default_ignores: Option<bool>,
 
-    /// Path to custom parser library (for dynamic loading)
-    pub parser_path: Option<PathBuf>,
-
-    /// Git repository for grammar (future use)
-    pub grammar_repo: Option<String>,
+    /// Tree-sitter grammar configuration
+    #[serde(default)]
+    pub grammar: GrammarConfig,
 }
 
 /// Pattern-based configuration (e.g., for specific file patterns)
@@ -121,6 +168,7 @@ pub struct ResolvedConfig {
     pub respect_gitignore: bool,
     pub traverse_git_repos: bool,
     pub language_config: Option<LanguageConfig>,
+    pub grammar_config: Option<GrammarConfig>,
 }
 
 /// Configuration manager that handles nested configs and path resolution
@@ -195,17 +243,6 @@ impl Config {
                     lang_name
                 ));
             }
-
-            // Validate parser path if specified
-            if let Some(ref parser_path) = lang_config.parser_path {
-                if !parser_path.exists() {
-                    return Err(anyhow::anyhow!(
-                        "Parser path for language '{}' does not exist: {}",
-                        lang_name,
-                        parser_path.display()
-                    ));
-                }
-            }
         }
 
         Ok(())
@@ -255,14 +292,53 @@ extensions = [".ts", ".tsx", ".mts", ".cts", ".d.ts"]
 comment_nodes = ["comment"]
 preserve_patterns = ["@ts-expect-error", "@ts-ignore"]
 
-# Custom language example (fully user-defined)
-[languages.my_custom_lang]
-name = "MyCustomLang"
-extensions = [".mycl", ".custom"]
-comment_nodes = ["comment", "line_comment"]
-doc_comment_nodes = ["doc_comment"]
-preserve_patterns = ["CUSTOM_TODO"]
-# parser_path = "/path/to/libtree-sitter-mycustomlang.so"
+# Example: Add Ruby support (not included in builtins)
+[languages.ruby]
+name = "Ruby"
+extensions = ["rb", "rbw", "gemspec", "rake"]
+comment_nodes = ["comment"]
+preserve_patterns = ["rubocop:", "frozen_string_literal:"]
+
+[languages.ruby.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-ruby", branch = "master" }
+
+# Example: Add Vue.js support
+[languages.vue]
+name = "Vue"
+extensions = ["vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+
+[languages.vue.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
+
+# Example: Add Swift support
+[languages.swift]
+name = "Swift"
+extensions = ["swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+[languages.swift.grammar]
+source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
+
+# Example: Use a local grammar directory
+# [languages.custom]
+# name = "Custom Language"
+# extensions = ["cst"]
+# comment_nodes = ["comment"]
+#
+# [languages.custom.grammar]
+# source = { type = "local", path = "/path/to/grammar-dir" }
+
+# Example: Use a pre-compiled grammar library
+# [languages.proprietary]
+# name = "Proprietary"
+# extensions = ["prop"]
+# comment_nodes = ["comment"]
+#
+# [languages.proprietary.grammar]
+# source = { type = "library", path = "/usr/local/lib/libtree-sitter-proprietary.so" }
 
 # Pattern-based rules for specific file patterns
 [patterns."tests/**/*.py"]
@@ -473,6 +549,7 @@ impl ConfigManager {
             respect_gitignore: base_config.global.respect_gitignore,
             traverse_git_repos: base_config.global.traverse_git_repos,
             language_config: None, // Will be set when language is determined
+            grammar_config: None,  // Will be set when language is determined
         }
     }
 
@@ -526,7 +603,8 @@ impl ConfigManager {
             config.preserve_patterns.sort();
             config.preserve_patterns.dedup();
 
-            // Set the language config
+            // Set the language config and grammar config
+            config.grammar_config = Some(lang_config.grammar.clone());
             config.language_config = Some(lang_config);
         }
 
@@ -591,12 +669,158 @@ mod tests {
                 remove_fixme: None,
                 remove_docs: None,
                 use_default_ignores: None,
-                parser_path: None,
-                grammar_repo: None,
+                grammar: GrammarConfig::default(),
             },
         );
 
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_grammar_config_integration() {
+        let mut config = Config::default();
+
+        // Add a language with custom grammar configuration
+        let language_config = LanguageConfig {
+            name: "test_lang".to_string(),
+            extensions: vec!["test".to_string()],
+            comment_nodes: vec!["comment".to_string()],
+            doc_comment_nodes: vec!["doc_comment".to_string()],
+            preserve_patterns: vec![],
+            remove_todos: None,
+            remove_fixme: None,
+            remove_docs: None,
+            use_default_ignores: None,
+            grammar: GrammarConfig {
+                source: GrammarSource::Git {
+                    url: "https://github.com/test/test-grammar".to_string(),
+                    branch: Some("main".to_string()),
+                    path: None,
+                },
+                version: Some("1.0.0".to_string()),
+                library_path: None,
+                compile_flags: vec!["--optimize".to_string()],
+            },
+        };
+
+        config
+            .languages
+            .insert("test_lang".to_string(), language_config);
+
+        // Validate the configuration
+        assert!(config.validate().is_ok());
+
+        // Test that we can access the grammar configuration
+        let lang_config = config.languages.get("test_lang").unwrap();
+        assert!(matches!(
+            lang_config.grammar.source,
+            GrammarSource::Git { .. }
+        ));
+        assert_eq!(lang_config.grammar.version, Some("1.0.0".to_string()));
+        assert_eq!(lang_config.grammar.compile_flags, vec!["--optimize"]);
+    }
+
+    #[test]
+    fn test_grammar_config_defaults() {
+        let default_config = GrammarConfig::default();
+        assert!(matches!(default_config.source, GrammarSource::Builtin));
+        assert!(default_config.version.is_none());
+        assert!(default_config.library_path.is_none());
+        assert!(default_config.compile_flags.is_empty());
+    }
+
+    #[test]
+    fn test_grammar_source_serialization() {
+        // Test Git source
+        let git_source = GrammarSource::Git {
+            url: "https://github.com/test/grammar".to_string(),
+            branch: Some("main".to_string()),
+            path: Some("grammar".to_string()),
+        };
+
+        let serialized = toml::to_string(&git_source).unwrap();
+        let deserialized: GrammarSource = toml::from_str(&serialized).unwrap();
+        assert!(matches!(deserialized, GrammarSource::Git { .. }));
+
+        // Test Local source
+        let local_source = GrammarSource::Local {
+            path: "/path/to/grammar".into(),
+        };
+
+        let serialized = toml::to_string(&local_source).unwrap();
+        let deserialized: GrammarSource = toml::from_str(&serialized).unwrap();
+        assert!(matches!(deserialized, GrammarSource::Local { .. }));
+
+        // Test Library source
+        let library_source = GrammarSource::Library {
+            path: "/path/to/lib.so".into(),
+        };
+
+        let serialized = toml::to_string(&library_source).unwrap();
+        let deserialized: GrammarSource = toml::from_str(&serialized).unwrap();
+        assert!(matches!(deserialized, GrammarSource::Library { .. }));
+
+        // Test Builtin source
+        let builtin_source = GrammarSource::Builtin;
+        let serialized = toml::to_string(&builtin_source).unwrap();
+        let deserialized: GrammarSource = toml::from_str(&serialized).unwrap();
+        assert!(matches!(deserialized, GrammarSource::Builtin));
+    }
+
+    #[test]
+    fn test_config_manager_with_grammar_configs() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("uncomment.toml");
+
+        // Test a simpler approach - inline grammar config
+        let config_content = r#"
+[global]
+remove_docs = false
+
+[languages.swift]
+name = "Swift"
+extensions = ["swift"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["doc_comment"]
+remove_docs = true
+
+[languages.swift.grammar]
+source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
+version = "1.0.0"
+"#;
+
+        std::fs::write(&config_path, config_content).unwrap();
+
+        let manager = ConfigManager::new(temp_dir.path()).unwrap();
+
+        // Test grammar config resolution
+        let resolved =
+            manager.get_config_for_file_with_language(temp_dir.path().join("test.swift"), "swift");
+
+        assert!(resolved.grammar_config.is_some());
+        let grammar_config = resolved.grammar_config.unwrap();
+        assert!(matches!(grammar_config.source, GrammarSource::Git { .. }));
+        assert_eq!(grammar_config.version, Some("1.0.0".to_string()));
+        assert!(resolved.remove_docs); // Language-specific override
+
+        // Test language without grammar config falls back to default
+        let resolved_default =
+            manager.get_config_for_file_with_language(temp_dir.path().join("test.rs"), "rust");
+
+        assert!(resolved_default.grammar_config.is_none());
+    }
+
+    #[test]
+    fn test_resolved_config_grammar_integration() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let manager = ConfigManager::new(temp_dir.path()).unwrap();
+
+        // Test that resolved config includes grammar_config field
+        let resolved = manager.get_config_for_file(temp_dir.path().join("test.rs"));
+        assert!(resolved.grammar_config.is_none()); // No language-specific config
+
+        // The grammar_config field should be properly initialized
+        let _: Option<GrammarConfig> = resolved.grammar_config;
     }
 
     #[test]
