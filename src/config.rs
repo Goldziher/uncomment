@@ -367,9 +367,8 @@ impl ConfigManager {
                         }
                         Err(e) => {
                             eprintln!(
-                                "Warning: Failed to load config file {}: {}",
-                                path.display(),
-                                e
+                                "Warning: Failed to load config file {}: {e}",
+                                path.display()
                             );
                         }
                     }
@@ -385,7 +384,7 @@ impl ConfigManager {
                         configs.push((global_config_path, config));
                     }
                     Err(e) => {
-                        eprintln!("Warning: Failed to load global config: {}", e);
+                        eprintln!("Warning: Failed to load global config: {e}");
                     }
                 }
             }
