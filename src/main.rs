@@ -22,7 +22,12 @@ fn main() -> Result<()> {
     // Handle subcommands
     if let Some(command) = &cli.command {
         return match command {
-            Commands::Init { output, force } => Cli::handle_init_command(output, *force),
+            Commands::Init {
+                output,
+                force,
+                comprehensive,
+                interactive,
+            } => Cli::handle_init_command(output, *force, *comprehensive, *interactive),
         };
     }
 
