@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(
     name = "uncomment",
-    version = "2.0.0",
+    version,
     about = "Remove comments from code files using tree-sitter parsing",
     long_about = "A fast, accurate CLI tool that removes comments from source code files using tree-sitter AST parsing. Automatically preserves important comments like linting directives, documentation, and metadata."
 )]
