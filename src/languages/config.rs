@@ -217,6 +217,16 @@ impl LanguageConfig {
         )
     }
 
+    pub fn shell() -> Self {
+        Self::new(
+            "shell",
+            vec!["sh", "bash", "zsh"],
+            vec!["comment"],
+            vec!["comment"],
+            || tree_sitter_bash::LANGUAGE.into(),
+        )
+    }
+  
     pub fn haskell() -> Self {
         Self::new(
             "haskell",
@@ -289,6 +299,7 @@ mod tests {
             LanguageConfig::c(),
             LanguageConfig::cpp(),
             LanguageConfig::ruby(),
+            LanguageConfig::shell(),
             LanguageConfig::haskell(),
         ];
 

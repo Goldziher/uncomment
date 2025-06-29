@@ -36,6 +36,7 @@ impl LanguageRegistry {
             LanguageConfig::hcl(),
             LanguageConfig::make(),
             LanguageConfig::zig(),
+            LanguageConfig::shell(),
             LanguageConfig::haskell(),
         ];
 
@@ -75,6 +76,14 @@ impl LanguageRegistry {
             || file_name.ends_with(".d.cts")
         {
             return self.languages.get("typescript");
+        }
+
+        // Special handling for .bashrc, bashrc, .zshrc, zshrc, etc files.
+        match file_name {
+            "bashrc" | ".bashrc" | "zshrc" | ".zshrc" | "zshenv" | ".zshenv" => {
+                return self.languages.get("shell")
+            }
+            _ => {}
         }
 
         let extension = file_path.extension()?.to_str()?.to_lowercase();
@@ -192,6 +201,21 @@ mod tests {
         );
 
         assert_eq!(
+            registry.detect_language_by_extension("sh").unwrap().name,
+            "shell"
+        );
+
+        assert_eq!(
+            registry.detect_language_by_extension("bash").unwrap().name,
+            "shell"
+        );
+
+        assert_eq!(
+            registry.detect_language_by_extension("zsh").unwrap().name,
+            "shell"
+        );
+
+        assert_eq!(
             registry.detect_language_by_extension("hs").unwrap().name,
             "haskell"
         );
@@ -214,6 +238,7 @@ mod tests {
         assert!(languages.contains(&"cpp".to_string()));
         assert!(languages.contains(&"ruby".to_string()));
         assert!(languages.contains(&"zig".to_string()));
+        assert!(languages.contains(&"shell".to_string()));
         assert!(languages.contains(&"haskell".to_string()));
     }
 
@@ -231,6 +256,9 @@ mod tests {
         assert!(registry.is_supported_extension("cpp"));
         assert!(registry.is_supported_extension("rb"));
         assert!(registry.is_supported_extension("zig"));
+        assert!(registry.is_supported_extension("sh"));
+        assert!(registry.is_supported_extension("bash"));
+        assert!(registry.is_supported_extension("zsh"));
         assert!(registry.is_supported_extension("hs"));
 
         assert!(!registry.is_supported_extension("unknown"));
