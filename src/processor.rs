@@ -1,4 +1,5 @@
 use crate::ast::visitor::{CommentInfo, CommentVisitor};
+use crate::config::{ConfigManager, ResolvedConfig};
 use crate::languages::registry::LanguageRegistry;
 use crate::rules::preservation::PreservationRule;
 use anyhow::{Context, Result};
@@ -36,7 +37,44 @@ impl Processor {
         }
     }
 
-    /// Process a single file
+    /// Process a single file with configuration manager
+    pub fn process_file_with_config(
+        &mut self,
+        path: &Path,
+        config_manager: &ConfigManager,
+    ) -> Result<ProcessedFile> {
+        // Read file content
+        let content = std::fs::read_to_string(path)
+            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+
+        // Get language configuration first
+        let language_config = self
+            .registry
+            .detect_language(path)
+            .with_context(|| format!("Unsupported file type: {}", path.display()))?
+            .clone();
+
+        // Get the language name for configuration lookup
+        let language_name = language_config.name.to_lowercase();
+
+        // Get resolved configuration for this file with language-specific overrides
+        let resolved_config =
+            config_manager.get_config_for_file_with_language(path, &language_name);
+
+        // Process the content
+        let (processed_content, comments_removed) =
+            self.process_content_with_config(&content, &language_config, &resolved_config)?;
+
+        Ok(ProcessedFile {
+            path: path.to_path_buf(),
+            original_content: content,
+            processed_content,
+            modified: false, // Will be set by the caller after comparison
+            comments_removed,
+        })
+    }
+
+    /// Process a single file (legacy method for backward compatibility)
     pub fn process_file(
         &mut self,
         path: &Path,
@@ -66,6 +104,46 @@ impl Processor {
         })
     }
 
+    /// Process file content with resolved configuration
+    fn process_content_with_config(
+        &mut self,
+        content: &str,
+        language_config: &crate::languages::config::LanguageConfig,
+        resolved_config: &ResolvedConfig,
+    ) -> Result<(String, usize)> {
+        // Set the parser language
+        let language = language_config.tree_sitter_language();
+        self.parser
+            .set_language(&language)
+            .context("Failed to set parser language")?;
+
+        // Parse the content
+        let tree = self
+            .parser
+            .parse(content, None)
+            .context("Failed to parse source code")?;
+
+        // Create preservation rules based on resolved config
+        let preservation_rules = self.create_preservation_rules_from_config(resolved_config);
+
+        // Collect comments using the language-aware visitor
+        let mut visitor = CommentVisitor::new_with_language_config(
+            content,
+            &preservation_rules,
+            language_config.comment_types.clone(),
+            language_config.doc_comment_types.clone(),
+        );
+        visitor.visit_node(tree.root_node());
+
+        let comments_to_remove = visitor.get_comments_to_remove();
+        let comments_removed = comments_to_remove.len();
+
+        // Generate output by removing comments
+        let output = self.remove_comments_from_content(content, &comments_to_remove);
+
+        Ok((output, comments_removed))
+    }
+
     /// Process file content and return (processed_content, comments_removed_count)
     fn process_content(
         &mut self,
@@ -88,8 +166,13 @@ impl Processor {
         // Create preservation rules based on options
         let preservation_rules = self.create_preservation_rules(options);
 
-        // Collect comments using the visitor
-        let mut visitor = CommentVisitor::new(content, &preservation_rules);
+        // Collect comments using the language-aware visitor
+        let mut visitor = CommentVisitor::new_with_language_config(
+            content,
+            &preservation_rules,
+            language_config.comment_types.clone(),
+            language_config.doc_comment_types.clone(),
+        );
         visitor.visit_node(tree.root_node());
 
         let comments_to_remove = visitor.get_comments_to_remove();
@@ -99,6 +182,61 @@ impl Processor {
         let output = self.remove_comments_from_content(content, &comments_to_remove);
 
         Ok((output, comments_removed))
+    }
+
+    fn create_preservation_rules_from_config(
+        &self,
+        config: &ResolvedConfig,
+    ) -> Vec<PreservationRule> {
+        let mut rules = Vec::new();
+
+        // Always preserve ~keep
+        rules.push(PreservationRule::pattern("~keep"));
+
+        // Preserve TODO/FIXME unless explicitly removed
+        if !config.remove_todos {
+            rules.push(PreservationRule::pattern("TODO"));
+            rules.push(PreservationRule::pattern("todo"));
+        }
+        if !config.remove_fixme {
+            rules.push(PreservationRule::pattern("FIXME"));
+            rules.push(PreservationRule::pattern("fixme"));
+        }
+
+        // Preserve documentation unless explicitly removed
+        if !config.remove_docs {
+            rules.push(PreservationRule::documentation());
+        }
+
+        // Add configured patterns
+        for pattern in &config.preserve_patterns {
+            rules.push(PreservationRule::pattern(pattern));
+        }
+
+        // Add default ignores if enabled
+        if config.use_default_ignores {
+            let mut comprehensive_rules = PreservationRule::comprehensive_rules();
+
+            // Remove TODO/FIXME rules if they should be removed according to config
+            if config.remove_todos {
+                comprehensive_rules
+                    .retain(|rule| !rule.pattern_matches("TODO") && !rule.pattern_matches("todo"));
+            }
+            if config.remove_fixme {
+                comprehensive_rules.retain(|rule| {
+                    !rule.pattern_matches("FIXME") && !rule.pattern_matches("fixme")
+                });
+            }
+
+            // Remove documentation rules if docs should be removed
+            if config.remove_docs {
+                comprehensive_rules.retain(|rule| !matches!(rule, PreservationRule::Documentation));
+            }
+
+            rules.extend(comprehensive_rules);
+        }
+
+        rules
     }
 
     fn create_preservation_rules(&self, options: &ProcessingOptions) -> Vec<PreservationRule> {
