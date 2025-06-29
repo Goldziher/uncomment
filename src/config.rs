@@ -3,6 +3,25 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// Helper function to prompt for boolean input
+fn prompt_bool(prompt: &str, default: bool) -> Result<bool> {
+    use std::io::{self, Write};
+
+    print!("{} [{}]: ", prompt, if default { "Y/n" } else { "y/N" });
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim().to_lowercase();
+
+    Ok(match input.as_str() {
+        "y" | "yes" => true,
+        "n" | "no" => false,
+        "" => default, // Use default if user just presses enter
+        _ => default,  // Use default for invalid input
+    })
+}
+
 /// Main configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
@@ -358,6 +377,690 @@ remove_todos = true
 preserve_patterns = []
 "#
         .to_string()
+    }
+
+    /// Create a comprehensive configuration template with many supported languages
+    pub fn comprehensive_template() -> String {
+        r#"# Comprehensive Uncomment Configuration File
+# Generated with all supported languages from tree-sitter-language-pack
+# https://github.com/Goldziher/uncomment
+
+[global]
+# Global settings that apply to all files
+remove_todos = false        # Remove TODO comments
+remove_fixme = false        # Remove FIXME comments
+remove_docs = false         # Remove documentation comments
+preserve_patterns = [       # Additional patterns to preserve
+    "HACK",
+    "WORKAROUND",
+    "NOTE",
+    "XXX",
+    "FIXME",
+    "TODO"
+]
+use_default_ignores = true  # Use built-in ignore patterns
+respect_gitignore = true    # Respect .gitignore files
+traverse_git_repos = false # Traverse into nested git repos
+
+# Language-specific configurations with custom grammars
+# These languages use dynamic tree-sitter grammars from the internet
+
+# Web Development Languages
+[languages.vue]
+name = "Vue"
+extensions = ["vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+
+[languages.vue.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
+
+[languages.svelte]
+name = "Svelte"
+extensions = ["svelte"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "prettier-ignore"]
+
+[languages.svelte.grammar]
+source = { type = "git", url = "https://github.com/Himujjal/tree-sitter-svelte", branch = "master" }
+
+[languages.astro]
+name = "Astro"
+extensions = ["astro"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "prettier-ignore"]
+
+[languages.astro.grammar]
+source = { type = "git", url = "https://github.com/virchau13/tree-sitter-astro", branch = "master" }
+
+# Mobile Development
+[languages.swift]
+name = "Swift"
+extensions = ["swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+[languages.swift.grammar]
+source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
+
+[languages.kotlin]
+name = "Kotlin"
+extensions = ["kt", "kts"]
+comment_nodes = ["line_comment", "multiline_comment"]
+preserve_patterns = ["@Suppress", "ktlint:"]
+
+[languages.kotlin.grammar]
+source = { type = "git", url = "https://github.com/fwcd/tree-sitter-kotlin" }
+
+[languages.dart]
+name = "Dart"
+extensions = ["dart"]
+comment_nodes = ["comment"]
+preserve_patterns = ["ignore:", "ignore_for_file:"]
+
+[languages.dart.grammar]
+source = { type = "git", url = "https://github.com/UserNobody14/tree-sitter-dart", branch = "master" }
+
+# Systems Programming
+[languages.zig]
+name = "Zig"
+extensions = ["zig"]
+comment_nodes = ["line_comment"]
+preserve_patterns = ["zig fmt:"]
+
+[languages.zig.grammar]
+source = { type = "git", url = "https://github.com/maxxnino/tree-sitter-zig" }
+
+[languages.nim]
+name = "Nim"
+extensions = ["nim", "nims"]
+comment_nodes = ["comment"]
+preserve_patterns = ["pragma:"]
+
+[languages.nim.grammar]
+source = { type = "git", url = "https://github.com/alaviss/tree-sitter-nim" }
+
+# Functional Programming
+[languages.haskell]
+name = "Haskell"
+extensions = ["hs", "lhs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]
+
+[languages.haskell.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-haskell", branch = "master" }
+
+[languages.elixir]
+name = "Elixir"
+extensions = ["ex", "exs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@doc", "@moduledoc"]
+
+[languages.elixir.grammar]
+source = { type = "git", url = "https://github.com/elixir-lang/tree-sitter-elixir" }
+
+[languages.elm]
+name = "Elm"
+extensions = ["elm"]
+comment_nodes = ["line_comment", "block_comment"]
+
+[languages.elm.grammar]
+source = { type = "git", url = "https://github.com/razzeee/tree-sitter-elm" }
+
+[languages.clojure]
+name = "Clojure"
+extensions = ["clj", "cljs", "cljc", "edn"]
+comment_nodes = ["comment"]
+
+[languages.clojure.grammar]
+source = { type = "git", url = "https://github.com/sogaiu/tree-sitter-clojure", branch = "master" }
+
+# Data Science & ML
+[languages.r]
+name = "R"
+extensions = ["r", "R"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@param", "@return", "@export"]
+
+[languages.r.grammar]
+source = { type = "git", url = "https://github.com/r-lib/tree-sitter-r" }
+
+[languages.julia]
+name = "Julia"
+extensions = ["jl"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@doc", "@inline", "@noinline"]
+
+[languages.julia.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-julia", branch = "master" }
+
+# DevOps & Configuration
+[languages.dockerfile]
+name = "Dockerfile"
+extensions = ["dockerfile"]
+comment_nodes = ["comment"]
+
+[languages.dockerfile.grammar]
+source = { type = "git", url = "https://github.com/camdencheek/tree-sitter-dockerfile" }
+
+[languages.nix]
+name = "Nix"
+extensions = ["nix"]
+comment_nodes = ["comment"]
+
+[languages.nix.grammar]
+source = { type = "git", url = "https://github.com/nix-community/tree-sitter-nix", branch = "master" }
+
+[languages.lua]
+name = "Lua"
+extensions = ["lua"]
+comment_nodes = ["comment"]
+
+[languages.lua.grammar]
+source = { type = "git", url = "https://github.com/MunifTanjim/tree-sitter-lua" }
+
+# Shell Scripting
+[languages.fish]
+name = "Fish"
+extensions = ["fish"]
+comment_nodes = ["comment"]
+
+[languages.fish.grammar]
+source = { type = "git", url = "https://github.com/ram02z/tree-sitter-fish", branch = "master" }
+
+# Override built-in languages with custom settings
+[languages.python]
+name = "Python"
+extensions = ["py", "pyw", "pyi"]
+comment_nodes = ["comment"]
+preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:", "pylint:"]
+remove_docs = false  # Keep docstrings by default
+
+[languages.javascript]
+name = "JavaScript"
+extensions = ["js", "jsx", "mjs", "cjs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "webpack", "eslint-"]
+
+[languages.typescript]
+name = "TypeScript"
+extensions = ["ts", "tsx", "mts", "cts", "d.ts"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "eslint-"]
+
+[languages.rust]
+name = "Rust"
+extensions = ["rs"]
+comment_nodes = ["line_comment", "block_comment"]
+doc_comment_nodes = ["doc_comment"]
+preserve_patterns = ["clippy:", "allow", "deny", "warn"]
+remove_docs = false  # Keep doc comments by default
+
+# Pattern-based rules for different file types
+[patterns."tests/**/*.py"]
+# More aggressive with test files
+remove_docs = true
+remove_todos = true
+
+[patterns."src/**/*.spec.ts"]
+# TypeScript test files
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.generated.*"]
+# Be aggressive with generated files
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+
+[patterns."docs/**/*"]
+# Preserve everything in documentation
+remove_docs = false
+remove_todos = false
+remove_fixme = false
+"#
+        .to_string()
+    }
+
+    /// Create a smart configuration template based on detected files
+    pub fn smart_template<P: AsRef<Path>>(project_dir: P) -> Result<String> {
+        use walkdir::WalkDir;
+
+        let mut detected_languages = HashMap::new();
+        let mut file_count = 0;
+
+        // Define supported extensions
+        let supported_extensions = [
+            "py", "pyw", "pyi", "pyx", "pxd", // Python
+            "js", "jsx", "mjs", "cjs", // JavaScript
+            "ts", "tsx", "mts", "cts",  // TypeScript
+            "rs",   // Rust
+            "go",   // Go
+            "java", // Java
+            "c", "h", // C
+            "cpp", "cc", "cxx", "hpp", "hxx", "hh", // C++
+            "rb", // Ruby
+            "yml", "yaml", // YAML
+            "hcl", "tf", "tfvars", // HCL/Terraform
+            "vue", "svelte", "astro", // Web frameworks
+            "swift", "kt", "kts", "dart", // Mobile
+            "zig", "nim", "hs", "lhs", // Systems/functional
+            "ex", "exs", "elm", "clj", "cljs", "cljc", "edn", // Functional
+            "r", "jl", // Data science
+            "nix", "lua", "fish", // Scripting/config
+        ];
+
+        // Walk the project directory to detect languages
+        for entry in WalkDir::new(project_dir.as_ref())
+            .max_depth(3) // Don't go too deep to avoid slow scanning
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            if entry.file_type().is_file() {
+                if let Some(ext) = entry.path().extension() {
+                    let ext_str = ext.to_string_lossy().to_lowercase();
+                    // Only count supported extensions
+                    if supported_extensions.contains(&ext_str.as_str()) {
+                        *detected_languages.entry(ext_str).or_insert(0) += 1;
+                        file_count += 1;
+                    }
+                }
+
+                // Special handling for files without extensions
+                if let Some(filename) = entry.path().file_name() {
+                    let filename_str = filename.to_string_lossy().to_lowercase();
+                    if filename_str == "dockerfile" {
+                        *detected_languages
+                            .entry("dockerfile".to_string())
+                            .or_insert(0) += 1;
+                        file_count += 1;
+                    } else if filename_str == "makefile" || filename_str.ends_with(".mk") {
+                        *detected_languages.entry("make".to_string()).or_insert(0) += 1;
+                        file_count += 1;
+                    }
+                }
+            }
+        }
+
+        if file_count == 0 {
+            // No files detected, return basic template
+            return Ok(Self::template());
+        }
+
+        // Generate config based on detected languages
+        let mut config = String::from(
+            r#"# Smart Uncomment Configuration
+# Generated based on detected files in your project
+# https://github.com/Goldziher/uncomment
+
+[global]
+remove_todos = false
+remove_fixme = false
+remove_docs = false
+preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+use_default_ignores = true
+respect_gitignore = true
+traverse_git_repos = false
+
+# Detected languages in your project:
+"#,
+        );
+
+        // Language mapping from extensions to our configurations
+        let language_configs = Self::get_language_mappings();
+
+        for (ext, count) in &detected_languages {
+            if *count > 0 {
+                config.push_str(&format!("# Found {} {} files\n", count, ext));
+            }
+        }
+        config.push('\n');
+
+        // Add language configurations for detected languages
+        for ext in detected_languages.keys() {
+            if let Some(lang_config) = language_configs.get(ext) {
+                config.push_str(lang_config);
+                config.push('\n');
+            }
+        }
+
+        // Add common pattern-based rules
+        config.push_str(
+            r#"
+# Pattern-based rules
+[patterns."tests/**/*"]
+# More aggressive with test files
+remove_todos = true
+
+[patterns."**/*.spec.*"]
+# Test specification files
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.generated.*"]
+# Generated files
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+"#,
+        );
+
+        Ok(config)
+    }
+
+    /// Create an interactive configuration template
+    pub fn interactive_template() -> Result<String> {
+        use std::io::{self, Write};
+
+        println!("🚀 Welcome to Uncomment Interactive Configuration!");
+        println!("I'll help you create a customized configuration file.\n");
+
+        // Ask about global settings
+        let remove_todos = prompt_bool("Remove TODO comments by default? (y/n)", false)?;
+        let remove_fixme = prompt_bool("Remove FIXME comments by default? (y/n)", false)?;
+        let remove_docs = prompt_bool("Remove documentation comments by default? (y/n)", false)?;
+
+        println!("\n📋 Available languages with grammar support:");
+        let available_languages = vec![
+            ("vue", "Vue.js single-file components"),
+            ("svelte", "Svelte components"),
+            ("swift", "Swift (iOS/macOS development)"),
+            ("kotlin", "Kotlin (Android/JVM development)"),
+            ("dart", "Dart (Flutter development)"),
+            ("zig", "Zig systems language"),
+            ("haskell", "Haskell functional language"),
+            ("elixir", "Elixir/Phoenix development"),
+            ("r", "R statistical computing"),
+            ("julia", "Julia scientific computing"),
+            ("nix", "Nix package manager"),
+            ("lua", "Lua scripting"),
+        ];
+
+        for (i, (name, desc)) in available_languages.iter().enumerate() {
+            println!("  {}. {} - {}", i + 1, name, desc);
+        }
+
+        println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
+        print!("> ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim();
+
+        let mut selected_languages = Vec::new();
+
+        if input == "all" {
+            selected_languages = available_languages.iter().map(|(name, _)| *name).collect();
+        } else if input != "skip" {
+            for num_str in input.split(',') {
+                if let Ok(num) = num_str.trim().parse::<usize>() {
+                    if num > 0 && num <= available_languages.len() {
+                        selected_languages.push(available_languages[num - 1].0);
+                    }
+                }
+            }
+        }
+
+        // Generate the configuration
+        let mut config = format!(
+            r#"# Interactive Uncomment Configuration
+# Generated through interactive setup
+# https://github.com/Goldziher/uncomment
+
+[global]
+remove_todos = {}
+remove_fixme = {}
+remove_docs = {}
+preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+use_default_ignores = true
+respect_gitignore = true
+traverse_git_repos = false
+
+"#,
+            remove_todos, remove_fixme, remove_docs
+        );
+
+        // Add selected language configurations
+        let language_configs = Self::get_extended_language_mappings();
+        for lang in &selected_languages {
+            if let Some(lang_config) = language_configs.get(*lang) {
+                config.push_str(lang_config);
+                config.push('\n');
+            }
+        }
+
+        if !selected_languages.is_empty() {
+            println!(
+                "\n✅ Generated configuration with {} languages!",
+                selected_languages.len()
+            );
+        }
+
+        Ok(config)
+    }
+
+    /// Get language mappings for common extensions
+    fn get_language_mappings() -> std::collections::HashMap<String, &'static str> {
+        let mut map = std::collections::HashMap::new();
+
+        map.insert(
+            "py".to_string(),
+            r#"[languages.python]
+name = "Python"
+extensions = ["py", "pyw", "pyi"]
+comment_nodes = ["comment"]
+preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:", "pylint:"]
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "js".to_string(),
+            r#"[languages.javascript]
+name = "JavaScript"
+extensions = ["js", "jsx", "mjs", "cjs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "webpack", "eslint-"]"#,
+        );
+
+        map.insert(
+            "ts".to_string(),
+            r#"[languages.typescript]
+name = "TypeScript"
+extensions = ["ts", "tsx", "mts", "cts", "d.ts"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "eslint-"]"#,
+        );
+
+        map.insert(
+            "rs".to_string(),
+            r#"[languages.rust]
+name = "Rust"
+extensions = ["rs"]
+comment_nodes = ["line_comment", "block_comment"]
+doc_comment_nodes = ["doc_comment"]
+preserve_patterns = ["clippy:", "allow", "deny", "warn"]
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "go".to_string(),
+            r#"[languages.go]
+name = "Go"
+extensions = ["go"]
+comment_nodes = ["comment"]
+preserve_patterns = ["go:generate", "nolint"]"#,
+        );
+
+        map.insert(
+            "java".to_string(),
+            r#"[languages.java]
+name = "Java"
+extensions = ["java"]
+comment_nodes = ["line_comment", "block_comment"]
+doc_comment_nodes = ["doc_comment"]
+preserve_patterns = ["@SuppressWarnings", "@Override"]
+remove_docs = false"#,
+        );
+
+        map.insert("vue".to_string(), r#"[languages.vue]
+name = "Vue"
+extensions = ["vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+
+[languages.vue.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }"#);
+
+        map.insert(
+            "dockerfile".to_string(),
+            r#"[languages.dockerfile]
+name = "Dockerfile"
+extensions = ["dockerfile"]
+comment_nodes = ["comment"]
+
+[languages.dockerfile.grammar]
+source = { type = "git", url = "https://github.com/camdencheek/tree-sitter-dockerfile" }"#,
+        );
+
+        map.insert("swift".to_string(), r#"[languages.swift]
+name = "Swift"
+extensions = ["swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+[languages.swift.grammar]
+source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }"#);
+
+        map
+    }
+
+    /// Get extended language mappings for interactive mode
+    fn get_extended_language_mappings() -> std::collections::HashMap<&'static str, &'static str> {
+        let mut map = std::collections::HashMap::new();
+
+        map.insert("vue", r#"[languages.vue]
+name = "Vue"
+extensions = ["vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+
+[languages.vue.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }"#);
+
+        map.insert("svelte", r#"[languages.svelte]
+name = "Svelte"
+extensions = ["svelte"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "prettier-ignore"]
+
+[languages.svelte.grammar]
+source = { type = "git", url = "https://github.com/Himujjal/tree-sitter-svelte", branch = "master" }"#);
+
+        map.insert("swift", r#"[languages.swift]
+name = "Swift"
+extensions = ["swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+[languages.swift.grammar]
+source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }"#);
+
+        map.insert(
+            "kotlin",
+            r#"[languages.kotlin]
+name = "Kotlin"
+extensions = ["kt", "kts"]
+comment_nodes = ["line_comment", "multiline_comment"]
+preserve_patterns = ["@Suppress", "ktlint:"]
+
+[languages.kotlin.grammar]
+source = { type = "git", url = "https://github.com/fwcd/tree-sitter-kotlin" }"#,
+        );
+
+        map.insert("dart", r#"[languages.dart]
+name = "Dart"
+extensions = ["dart"]
+comment_nodes = ["comment"]
+preserve_patterns = ["ignore:", "ignore_for_file:"]
+
+[languages.dart.grammar]
+source = { type = "git", url = "https://github.com/UserNobody14/tree-sitter-dart", branch = "master" }"#);
+
+        map.insert(
+            "zig",
+            r#"[languages.zig]
+name = "Zig"
+extensions = ["zig"]
+comment_nodes = ["line_comment"]
+preserve_patterns = ["zig fmt:"]
+
+[languages.zig.grammar]
+source = { type = "git", url = "https://github.com/maxxnino/tree-sitter-zig" }"#,
+        );
+
+        map.insert("haskell", r#"[languages.haskell]
+name = "Haskell"
+extensions = ["hs", "lhs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]
+
+[languages.haskell.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-haskell", branch = "master" }"#);
+
+        map.insert(
+            "elixir",
+            r#"[languages.elixir]
+name = "Elixir"
+extensions = ["ex", "exs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@doc", "@moduledoc"]
+
+[languages.elixir.grammar]
+source = { type = "git", url = "https://github.com/elixir-lang/tree-sitter-elixir" }"#,
+        );
+
+        map.insert(
+            "r",
+            r#"[languages.r]
+name = "R"
+extensions = ["r", "R"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@param", "@return", "@export"]
+
+[languages.r.grammar]
+source = { type = "git", url = "https://github.com/r-lib/tree-sitter-r" }"#,
+        );
+
+        map.insert("julia", r#"[languages.julia]
+name = "Julia"
+extensions = ["jl"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@doc", "@inline", "@noinline"]
+
+[languages.julia.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-julia", branch = "master" }"#);
+
+        map.insert("nix", r#"[languages.nix]
+name = "Nix"
+extensions = ["nix"]
+comment_nodes = ["comment"]
+
+[languages.nix.grammar]
+source = { type = "git", url = "https://github.com/nix-community/tree-sitter-nix", branch = "master" }"#);
+
+        map.insert(
+            "lua",
+            r#"[languages.lua]
+name = "Lua"
+extensions = ["lua"]
+comment_nodes = ["comment"]
+
+[languages.lua.grammar]
+source = { type = "git", url = "https://github.com/MunifTanjim/tree-sitter-lua" }"#,
+        );
+
+        map
     }
 
     /// Merge this config with another, giving precedence to the other config
