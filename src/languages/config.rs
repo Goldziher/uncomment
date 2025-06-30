@@ -226,6 +226,16 @@ impl LanguageConfig {
             || tree_sitter_haskell::LANGUAGE.into(),
         )
     }
+
+    pub fn scala() -> Self {
+        Self::new(
+            "scala",
+            vec!["scala"],
+            vec!["comment", "block_comment"],
+            vec!["block_comment"],
+            || tree_sitter_scala::LANGUAGE.into(),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -290,6 +300,7 @@ mod tests {
             LanguageConfig::ruby(),
             LanguageConfig::shell(),
             LanguageConfig::haskell(),
+            LanguageConfig::scala(),
         ];
 
         for lang in languages {

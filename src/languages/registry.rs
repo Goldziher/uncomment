@@ -37,6 +37,7 @@ impl LanguageRegistry {
             LanguageConfig::make(),
             LanguageConfig::shell(),
             LanguageConfig::haskell(),
+            LanguageConfig::scala(),
         ];
 
         for config in configs {
@@ -163,6 +164,11 @@ mod tests {
         assert!(detected.is_some());
         assert_eq!(detected.unwrap().name, "haskell");
 
+        let scala_file = PathBuf::from("hello.scala");
+        let detected = registry.detect_language(&scala_file);
+        assert!(detected.is_some());
+        assert_eq!(detected.unwrap().name, "scala");
+
         let unknown_file = PathBuf::from("file.unknown");
         let detected = registry.detect_language(&unknown_file);
         assert!(detected.is_none());
@@ -208,6 +214,11 @@ mod tests {
             registry.detect_language_by_extension("hs").unwrap().name,
             "haskell"
         );
+        
+        assert_eq!(
+            registry.detect_language_by_extension("scala").unwrap().name,
+            "scala"
+        );
 
         assert!(registry.detect_language_by_extension("unknown").is_none());
     }
@@ -228,6 +239,7 @@ mod tests {
         assert!(languages.contains(&"ruby".to_string()));
         assert!(languages.contains(&"shell".to_string()));
         assert!(languages.contains(&"haskell".to_string()));
+        assert!(languages.contains(&"scala".to_string()));
     }
 
     #[test]
@@ -247,6 +259,7 @@ mod tests {
         assert!(registry.is_supported_extension("bash"));
         assert!(registry.is_supported_extension("zsh"));
         assert!(registry.is_supported_extension("hs"));
+        assert!(registry.is_supported_extension("scala"));
 
         assert!(!registry.is_supported_extension("unknown"));
     }
@@ -320,5 +333,6 @@ mod tests {
         assert!(all_languages.iter().any(|(name, _)| *name == "rust"));
         assert!(all_languages.iter().any(|(name, _)| *name == "python"));
         assert!(all_languages.iter().any(|(name, _)| *name == "haskell"));
+        assert!(all_languages.iter().any(|(name, _)| *name == "scala"));
     }
 }
