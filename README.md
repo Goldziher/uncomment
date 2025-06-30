@@ -27,7 +27,9 @@ A fast, accurate comment removal tool that uses tree-sitter for parsing, ensurin
 - YAML (.yml, .yaml)
 - HCL/Terraform (.hcl, .tf, .tfvars)
 - Makefile (Makefile, .mk)
-- Zig (.zig)
+- Haskell (.hs)
+- Shell (.sh, .bash, .zsh)
+- Haskell (.hs)
 
 ## Installation
 
