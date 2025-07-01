@@ -40,6 +40,21 @@ impl Processor {
         }
     }
 
+    /// Create a new processor with configured languages from a configuration manager
+    pub fn new_with_config(config_manager: &ConfigManager) -> Self {
+        let mut registry = LanguageRegistry::new();
+
+        // Register configured languages
+        let all_languages = config_manager.get_all_languages();
+        registry.register_configured_languages(&all_languages);
+
+        Self {
+            parser: Parser::new(),
+            registry,
+            grammar_manager: GrammarManager::new().expect("Failed to initialize GrammarManager"),
+        }
+    }
+
     /// Process a single file with configuration manager
     pub fn process_file_with_config(
         &mut self,
@@ -144,11 +159,12 @@ impl Processor {
         let preservation_rules = self.create_preservation_rules_from_config(resolved_config);
 
         // Collect comments using the language-aware visitor
-        let mut visitor = CommentVisitor::new_with_language_config(
+        let mut visitor = CommentVisitor::new_with_language(
             content,
             &preservation_rules,
             language_config.comment_types.clone(),
             language_config.doc_comment_types.clone(),
+            language_config.name.clone(),
         );
         visitor.visit_node(tree.root_node());
 
@@ -184,11 +200,12 @@ impl Processor {
         let preservation_rules = self.create_preservation_rules(options);
 
         // Collect comments using the language-aware visitor
-        let mut visitor = CommentVisitor::new_with_language_config(
+        let mut visitor = CommentVisitor::new_with_language(
             content,
             &preservation_rules,
             language_config.comment_types.clone(),
             language_config.doc_comment_types.clone(),
+            language_config.name.clone(),
         );
         visitor.visit_node(tree.root_node());
 

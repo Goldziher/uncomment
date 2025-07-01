@@ -146,28 +146,48 @@ impl Cli {
             ));
         }
 
-        let template = if comprehensive {
-            crate::config::Config::comprehensive_template()
+        let (template, detected_info) = if comprehensive {
+            (crate::config::Config::comprehensive_template_clean(), None)
         } else if interactive {
-            crate::config::Config::interactive_template()?
+            (crate::config::Config::interactive_template_clean()?, None)
         } else {
             // Smart template based on detected files in current directory
             let current_dir =
                 std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-            crate::config::Config::smart_template(&current_dir)?
+            let (template, info) = crate::config::Config::smart_template_with_info(&current_dir)?;
+            (template, Some(info))
         };
 
         std::fs::write(output, template)?;
 
-        println!("Created configuration file: {}", output.display());
+        println!("✓ Created configuration file: {}", output.display());
+
         if comprehensive {
-            println!("Generated comprehensive config with all supported languages.");
+            println!("📦 Generated comprehensive config with 15+ language configurations");
         } else if interactive {
-            println!("Generated customized config based on your selections.");
+            println!("🎯 Generated customized config based on your selections");
+        } else if let Some(info) = detected_info {
+            if !info.detected_languages.is_empty() {
+                println!(
+                    "🔍 Detected {} file types in your project:",
+                    info.detected_languages.len()
+                );
+                for (lang, count) in &info.detected_languages {
+                    println!("   {} ({} files)", lang, count);
+                }
+                println!(
+                    "📝 Configured {} languages with appropriate settings",
+                    info.configured_languages
+                );
+            } else {
+                println!("📝 No supported files detected, generated basic template");
+            }
+            if info.total_files > 0 {
+                println!("📊 Scanned {} files total", info.total_files);
+            }
         } else {
-            println!("Generated smart config based on detected files in your project.");
+            println!("📝 Generated smart config based on detected files in your project");
         }
-        println!("Edit this file to further customize uncomment behavior.");
 
         Ok(())
     }

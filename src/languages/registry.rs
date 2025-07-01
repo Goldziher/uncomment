@@ -44,18 +44,22 @@ impl LanguageRegistry {
 
     pub fn register_language(&mut self, config: LanguageConfig) {
         let name = config.name.clone();
+        let name_lower = name.to_lowercase();
 
-        // Map all extensions to this language
+        // Map all extensions to this language (use lowercase name)
         for extension in &config.extensions {
+            // Normalize extension: remove leading dots and convert to lowercase
+            let normalized_ext = extension.trim_start_matches('.').to_lowercase();
             self.extension_map
-                .insert(extension.to_lowercase(), name.clone());
+                .insert(normalized_ext, name_lower.clone());
         }
 
-        self.languages.insert(name, config);
+        // Store language with lowercase name for consistency
+        self.languages.insert(name_lower, config);
     }
 
     pub fn get_language(&self, name: &str) -> Option<&LanguageConfig> {
-        self.languages.get(name)
+        self.languages.get(&name.to_lowercase())
     }
 
     pub fn detect_language(&self, file_path: &Path) -> Option<&LanguageConfig> {
@@ -89,7 +93,9 @@ impl LanguageRegistry {
     }
 
     pub fn detect_language_by_extension(&self, extension: &str) -> Option<&LanguageConfig> {
-        let language_name = self.extension_map.get(&extension.to_lowercase())?;
+        // Normalize extension: remove leading dots and convert to lowercase
+        let normalized_ext = extension.trim_start_matches('.').to_lowercase();
+        let language_name = self.extension_map.get(&normalized_ext)?;
         self.languages.get(language_name)
     }
 
@@ -102,25 +108,61 @@ impl LanguageRegistry {
     }
 
     pub fn is_supported_extension(&self, extension: &str) -> bool {
-        self.extension_map.contains_key(&extension.to_lowercase())
+        let normalized_ext = extension.trim_start_matches('.').to_lowercase();
+        self.extension_map.contains_key(&normalized_ext)
     }
 
     pub fn is_supported_language(&self, name: &str) -> bool {
-        self.languages.contains_key(name)
+        self.languages.contains_key(&name.to_lowercase())
     }
 
     pub fn language_for_extension(&self, extension: &str) -> Option<String> {
-        self.extension_map.get(&extension.to_lowercase()).cloned()
+        let normalized_ext = extension.trim_start_matches('.').to_lowercase();
+        self.extension_map.get(&normalized_ext).cloned()
     }
 
     pub fn extensions_for_language(&self, name: &str) -> Option<Vec<String>> {
-        self.languages
-            .get(name)
+        self.get_language(name)
             .map(|config| config.extensions.clone())
     }
 
     pub fn get_all_languages(&self) -> impl Iterator<Item = (&String, &LanguageConfig)> {
         self.languages.iter()
+    }
+
+    /// Register configured languages from a configuration manager
+    pub fn register_configured_languages(
+        &mut self,
+        config_languages: &std::collections::HashMap<String, crate::config::LanguageConfig>,
+    ) {
+        for config in config_languages.values() {
+            // Check if this is overriding a built-in language
+            let name_lower = config.name.to_lowercase();
+            if let Some(existing_config) = self.languages.get(&name_lower).cloned() {
+                // Update the existing language config with the new settings
+                let updated_config = LanguageConfig {
+                    name: config.name.clone(),
+                    extensions: config.extensions.clone(),
+                    comment_types: config.comment_nodes.clone(),
+                    doc_comment_types: config.doc_comment_nodes.clone(),
+                    tree_sitter_lang: existing_config.tree_sitter_lang, // Keep the existing parser
+                };
+                self.register_language(updated_config);
+            } else {
+                // This is a new language, use a placeholder tree-sitter language
+                // Dynamic languages will be loaded via GrammarManager
+                let language_config = LanguageConfig {
+                    name: config.name.clone(),
+                    extensions: config.extensions.clone(),
+                    comment_types: config.comment_nodes.clone(),
+                    doc_comment_types: config.doc_comment_nodes.clone(),
+                    tree_sitter_lang: || unsafe {
+                        tree_sitter::Language::from_raw(std::ptr::null())
+                    }, // Placeholder
+                };
+                self.register_language(language_config);
+            }
+        }
     }
 }
 
