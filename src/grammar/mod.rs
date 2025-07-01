@@ -82,18 +82,16 @@ impl GrammarManager {
         let language = match &grammar_config.source {
             GrammarSource::Builtin => self
                 .get_builtin_language(language_name)
-                .with_context(|| format!("Built-in language '{}' not found", language_name))?,
+                .with_context(|| format!("Built-in language '{language_name}' not found"))?,
             GrammarSource::Git { url, branch, path } => self
                 .load_git_language(language_name, url, branch.as_deref(), path.as_deref())
-                .with_context(|| format!("Failed to load Git grammar for '{}'", language_name))?,
+                .with_context(|| format!("Failed to load Git grammar for '{language_name}'"))?,
             GrammarSource::Local { path } => self
                 .load_local_language(language_name, path)
-                .with_context(|| format!("Failed to load local grammar for '{}'", language_name))?,
+                .with_context(|| format!("Failed to load local grammar for '{language_name}'"))?,
             GrammarSource::Library { path } => self
                 .load_library_language(language_name, path)
-                .with_context(|| {
-                    format!("Failed to load library grammar for '{}'", language_name)
-                })?,
+                .with_context(|| format!("Failed to load library grammar for '{language_name}'"))?,
         };
 
         // Cache the loaded language
@@ -128,10 +126,7 @@ impl GrammarManager {
         git_loader
             .load_git_grammar(language_name, url, branch, subpath)
             .with_context(|| {
-                format!(
-                    "Failed to load Git grammar for '{}' from '{}'",
-                    language_name, url
-                )
+                format!("Failed to load Git grammar for '{language_name}' from '{url}'")
             })
     }
 
@@ -395,8 +390,7 @@ mod tests {
             let result = manager.get_language(&language, &config);
             assert!(
                 result.is_ok(),
-                "Failed to load builtin language: {}",
-                language
+                "Failed to load builtin language: {language}"
             );
         }
     }

@@ -84,7 +84,7 @@ impl GitGrammarLoader {
 
         let output = cmd
             .output()
-            .with_context(|| format!("Failed to execute git clone for {}", url))?;
+            .with_context(|| format!("Failed to execute git clone for {url}"))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -121,7 +121,7 @@ impl GitGrammarLoader {
             .current_dir(grammar_dir)
             .args(["reset", "--hard", &branch_ref])
             .output()
-            .with_context(|| format!("Failed to reset to {}", branch_ref))?;
+            .with_context(|| format!("Failed to reset to {branch_ref}"))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -144,7 +144,7 @@ impl GitGrammarLoader {
 
         // Check if we have a cached compiled version
         let compiled_cache_dir = self.cache_dir.join("compiled").join(language_name);
-        let compiled_lib_path = compiled_cache_dir.join(format!("lib{}.so", language_name));
+        let compiled_lib_path = compiled_cache_dir.join(format!("lib{language_name}.so"));
 
         // Try to load from cached compiled library first
         if compiled_lib_path.exists() {
@@ -263,18 +263,14 @@ impl GitGrammarLoader {
     pub fn clear_language_cache(&self, language_name: &str) -> Result<()> {
         let language_dir = self.cache_dir.join(language_name);
         if language_dir.exists() {
-            fs::remove_dir_all(&language_dir).with_context(|| {
-                format!("Failed to remove cache for language: {}", language_name)
-            })?;
+            fs::remove_dir_all(&language_dir)
+                .with_context(|| format!("Failed to remove cache for language: {language_name}"))?;
         }
 
         let compiled_dir = self.cache_dir.join("compiled").join(language_name);
         if compiled_dir.exists() {
             fs::remove_dir_all(&compiled_dir).with_context(|| {
-                format!(
-                    "Failed to remove compiled cache for language: {}",
-                    language_name
-                )
+                format!("Failed to remove compiled cache for language: {language_name}")
             })?;
         }
 
@@ -294,7 +290,7 @@ impl GitGrammarLoader {
             .cache_dir
             .join("compiled")
             .join(language_name)
-            .join(format!("lib{}.so", language_name));
+            .join(format!("lib{language_name}.so"));
         compiled_lib_path.exists()
     }
 

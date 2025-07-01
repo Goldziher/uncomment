@@ -711,7 +711,7 @@ traverse_git_repos = false
 
         for (ext, count) in &detected_languages {
             if *count > 0 {
-                config.push_str(&format!("# Found {} {} files\n", count, ext));
+                config.push_str(&format!("# Found {count} {ext} files\n"));
             }
         }
         config.push('\n');
@@ -809,16 +809,15 @@ preserve_patterns = []
 # https://github.com/Goldziher/uncomment
 
 [global]
-remove_todos = {}
-remove_fixme = {}
-remove_docs = {}
+remove_todos = {remove_todos}
+remove_fixme = {remove_fixme}
+remove_docs = {remove_docs}
 preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
 use_default_ignores = true
 respect_gitignore = true
 traverse_git_repos = false
 
-"#,
-            remove_todos, remove_fixme, remove_docs
+"#
         );
 
         // Add selected language configurations

@@ -346,8 +346,7 @@ mod tests {
             let matches = rules.iter().any(|rule| rule.matches(&comment));
             assert!(
                 matches,
-                "Linting ignore pattern should be preserved: {}",
-                content
+                "Linting ignore pattern should be preserved: {content}"
             );
         }
     }
@@ -368,8 +367,7 @@ mod tests {
             let matches = rules.iter().any(|rule| rule.matches(&comment));
             assert!(
                 matches,
-                "Coverage ignore pattern should be preserved: {}",
-                pattern
+                "Coverage ignore pattern should be preserved: {pattern}"
             );
         }
     }
@@ -385,8 +383,7 @@ mod tests {
             let matches = rules.iter().any(|rule| rule.matches(&comment));
             assert!(
                 matches,
-                "Formatter ignore pattern should be preserved: {}",
-                pattern
+                "Formatter ignore pattern should be preserved: {pattern}"
             );
         }
     }
