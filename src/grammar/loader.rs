@@ -2,7 +2,11 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tree_sitter::Language;
+
+// Global flag to track if we've shown the caching message
+static CACHE_MESSAGE_SHOWN: AtomicBool = AtomicBool::new(false);
 
 /// Cache statistics
 #[cfg(test)]
@@ -43,6 +47,13 @@ impl GitGrammarLoader {
         branch: Option<&str>,
         subpath: Option<&str>,
     ) -> Result<Language> {
+        // Show the caching info message only once per run
+        if !CACHE_MESSAGE_SHOWN.load(Ordering::Relaxed) {
+            println!("📥 Downloading tree-sitter grammars for language processing...");
+            println!("💾 Grammars are cached at ~/.cache/uncomment/grammars/ - subsequent runs will be faster");
+            CACHE_MESSAGE_SHOWN.store(true, Ordering::Relaxed);
+        }
+
         let grammar_dir = self.ensure_grammar_cloned(language_name, url, branch)?;
         let grammar_path = if let Some(subpath) = subpath {
             grammar_dir.join(subpath)
@@ -75,8 +86,10 @@ impl GitGrammarLoader {
 
     /// Clone a grammar repository
     fn clone_grammar(&self, url: &str, target_dir: &Path, branch: Option<&str>) -> Result<()> {
+        println!("   Cloning grammar from {}", url);
+
         let mut cmd = Command::new("git");
-        cmd.args(["clone", url, &target_dir.to_string_lossy()]);
+        cmd.args(["clone", "--quiet", url, &target_dir.to_string_lossy()]);
 
         if let Some(branch) = branch {
             cmd.args(["--branch", branch]);
@@ -153,9 +166,12 @@ impl GitGrammarLoader {
             }
         }
 
+        println!("   Compiling grammar for {}", language_name);
+
         // Use tree-sitter-loader to compile and load the grammar
         use tree_sitter_loader::{CompileConfig, Loader};
 
+        #[allow(unused_mut)]
         let mut loader = Loader::new()
             .with_context(|| "Failed to create tree-sitter loader for grammar compilation")?;
 

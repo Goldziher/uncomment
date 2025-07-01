@@ -132,14 +132,23 @@ When modifying the tool:
 - Dynamic grammar loading: First-time Git grammar loading takes longer (clone + compile), but cached afterwards
 - Grammar cache at `~/.cache/uncomment/grammars/` speeds up subsequent runs
 
-### Release Process
+### Release Process (v2.4.1+)
+
+**Homebrew Release Pipeline** (Primary):
 
 1. Update version in `Cargo.toml`, `npm-package/package.json`, `pip-package/pyproject.toml`, and `pip-package/uncomment/__init__.py`
 2. Commit and push changes
-3. Create and push Git tag: `git tag v2.2.0 && git push origin v2.2.0`
-4. Wait for Release workflow to build binaries
-5. Create GitHub release manually to trigger Publish workflow
-6. Packages automatically published to crates.io, npm, and PyPI
+3. Create and push Git tag: `git tag v2.4.1 && git push origin v2.4.1`
+4. **Automated workflow** (`release-homebrew.yml`) handles:
+   - Building binaries for all platforms
+   - Creating GitHub releases with assets
+   - **Automatically updating Homebrew formula** with correct URL and SHA256
+5. Users can install via: `brew tap goldziher/tap && brew install uncomment`
+
+**Legacy Package Distribution** (Temporarily Disabled):
+
+- Cargo, npm, and PyPI distribution workflows disabled for Homebrew implementation
+- Can be re-enabled by updating workflow triggers in `.github/workflows/`
 
 ### Key Modules (v2.4.0+)
 
@@ -178,32 +187,41 @@ When working on this project:
 
 The project supports distribution via:
 
+- **Homebrew**: Primary distribution method (v2.4.1+) - `brew tap goldziher/tap && brew install uncomment`
 - **Cargo**: Direct Rust installation
 - **npm**: Package name is `uncomment-cli` (not `uncomment` which is taken)
 - **PyPI**: Package name is `uncomment`
 
 Key implementation details:
 
-1. **Package Naming**: Always check npm/PyPI for name availability before choosing names
+1. **Homebrew Implementation** (v2.4.1+):
+   - Uses git submodule (`homebrew-tap/`) to manage formula repository
+   - Automated formula updates via `mislav/bump-homebrew-formula-action`
+   - Source-based installation (builds from source with Rust dependency)
+   - Workflow: `.github/workflows/release-homebrew.yml`
+   - Formula location: `homebrew-tap/Formula/uncomment.rb`
+   - Authentication: Uses `HOMEBREW_TOKEN` secret for cross-repo access
 
-2. **Binary Distribution**:
+2. **Package Naming**: Always check npm/PyPI for name availability before choosing names
+
+3. **Binary Distribution**:
    - npm uses custom `install.js` script to download platform-specific binaries
    - PyPI uses `uncomment.downloader` module with requests library
    - Both must handle HTTP redirects (GitHub releases redirect to S3)
    - Add `.npmignore` to exclude bin/ folder from npm package
 
-3. **Version Format Differences**:
+4. **Version Format Differences**:
    - Cargo/npm use `2.1.1-rc.2` format
    - PyPI uses `2.1.1rc2` format (no hyphen/dot)
    - Publish workflow handles conversion automatically
 
-4. **GitHub Actions Gotchas**:
+5. **GitHub Actions Gotchas**:
    - Release workflow builds binaries using `taiki-e/upload-rust-binary-action`
    - Publish workflow only triggers on manual releases (not bot-created ones)
    - Uses dynamic versioning from Git tags - no hardcoded versions
    - npm version command fails if version already set - check first
 
-5. **Critical Bug Fixes Applied**:
+6. **Critical Bug Fixes Applied**:
    - Use `WalkBuilder` from ignore crate for proper .gitignore handling
    - Implement HTTP redirect following in download scripts
    - Handle multi-byte UTF-8 characters in file processing
