@@ -19,6 +19,14 @@ impl PreservationRule {
         }
     }
 
+    /// Check if this rule is a pattern rule that matches the given pattern
+    pub fn pattern_matches(&self, pattern: &str) -> bool {
+        match self {
+            PreservationRule::Pattern(rule_pattern) => rule_pattern == pattern,
+            _ => false,
+        }
+    }
+
     fn is_documentation_comment(&self, comment: &CommentInfo) -> bool {
         // Common documentation comment patterns
         let doc_patterns = [
@@ -39,6 +47,14 @@ impl PreservationRule {
             .any(|&pattern| comment.node_type.contains(pattern))
         {
             return true;
+        }
+
+        // Special handling for Python docstrings (string nodes that start with triple quotes)
+        if comment.node_type == "string" {
+            let content = comment.content.trim();
+            if content.starts_with("\"\"\"") || content.starts_with("'''") {
+                return true;
+            }
         }
 
         // Check content patterns

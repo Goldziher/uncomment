@@ -1,11 +1,14 @@
 mod ast;
 mod cli;
+mod config;
 pub mod languages;
 pub mod processor;
 mod rules;
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use cli::{Cli, Commands};
+use config::ConfigManager;
 use glob::glob;
 use processor::OutputWriter;
 use rayon::prelude::*;
@@ -13,17 +16,41 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 fn main() -> Result<()> {
-    let cli = cli::Cli::parse();
-    let options = cli.processing_options();
+    let cli = Cli::parse();
+
+    // Handle subcommands
+    if let Some(command) = &cli.command {
+        return match command {
+            Commands::Init { output, force } => Cli::handle_init_command(output, *force),
+        };
+    }
+
+    // Process files with the main logic
+    let options = cli.args.processing_options();
 
     // Validate input paths
-    if cli.paths.is_empty() {
+    if cli.args.paths.is_empty() {
         eprintln!("Error: No input paths specified. Use 'uncomment --help' for usage information.");
         std::process::exit(1);
     }
 
+    // Initialize configuration manager
+    let current_dir = std::env::current_dir().context("Failed to get current directory")?;
+
+    let config_manager = if let Some(config_path) = &cli.args.config {
+        // Load specific config file
+        let config = config::Config::from_file(config_path)
+            .with_context(|| format!("Failed to load config file: {}", config_path.display()))?;
+
+        // Create a temporary config manager with just this config
+        ConfigManager::from_single_config(current_dir, config)?
+    } else {
+        // Discover and load all configs in the tree
+        ConfigManager::new(&current_dir).context("Failed to initialize configuration manager")?
+    };
+
     // Collect all files to process
-    let files = collect_files(&cli.paths, &options)?;
+    let files = collect_files(&cli.args.paths, &options)?;
 
     if files.is_empty() {
         eprintln!("No supported files found to process in the specified paths.");
@@ -35,13 +62,13 @@ fn main() -> Result<()> {
     }
 
     // Configure thread pool
-    let num_threads = if cli.threads == 0 {
+    let num_threads = if cli.args.threads == 0 {
         num_cpus::get()
     } else {
-        cli.threads
+        cli.args.threads
     };
 
-    if cli.verbose && num_threads > 1 {
+    if cli.args.verbose && num_threads > 1 {
         println!("🔧 Using {num_threads} parallel threads");
     }
 
@@ -51,7 +78,7 @@ fn main() -> Result<()> {
         .unwrap();
 
     // Create output writer
-    let output_writer = Arc::new(OutputWriter::new(options.dry_run, cli.verbose));
+    let output_writer = Arc::new(OutputWriter::new(options.dry_run, cli.args.verbose));
 
     // Process files
     let total_files = files.len();
@@ -63,7 +90,7 @@ fn main() -> Result<()> {
         let mut processor = processor::Processor::new();
 
         for file_path in files {
-            match processor.process_file(&file_path, &options) {
+            match processor.process_file_with_config(&file_path, &config_manager) {
                 Ok(mut processed_file) => {
                     processed_file.modified =
                         processed_file.original_content != processed_file.processed_content;
@@ -76,7 +103,7 @@ fn main() -> Result<()> {
                 }
                 Err(e) => {
                     eprintln!("Error processing {}: {}", file_path.display(), e);
-                    if cli.verbose {
+                    if cli.args.verbose {
                         eprintln!("  Full error: {e:?}");
                     }
                 }
@@ -88,7 +115,7 @@ fn main() -> Result<()> {
             // Each thread gets its own processor
             let mut processor = processor::Processor::new();
 
-            match processor.process_file(file_path, &options) {
+            match processor.process_file_with_config(file_path, &config_manager) {
                 Ok(mut processed_file) => {
                     processed_file.modified =
                         processed_file.original_content != processed_file.processed_content;
@@ -102,7 +129,7 @@ fn main() -> Result<()> {
                 }
                 Err(e) => {
                     eprintln!("Error processing {}: {}", file_path.display(), e);
-                    if cli.verbose {
+                    if cli.args.verbose {
                         eprintln!("  Full error: {e:?}");
                     }
                 }
