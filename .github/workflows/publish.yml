@@ -1,8 +1,9 @@
 name: Publish Packages
 
 on:
-  release:
-    types: [published]
+  # Temporarily disabled for Homebrew implementation
+  # release:
+  #   types: [published]
   workflow_dispatch:
     inputs:
       tag:
