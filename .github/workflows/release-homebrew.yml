@@ -110,7 +110,7 @@ jobs:
           echo "version=$version" >> $GITHUB_OUTPUT
           echo "tag=$tag" >> $GITHUB_OUTPUT
 
-      - name: Create release
+      - name: Create or update release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -123,6 +123,12 @@ jobs:
           else
             prerelease_flag=""
             title_prefix="Release"
+          fi
+
+          # Check if release already exists
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists, deleting to recreate..."
+            gh release delete "$tag" --yes --cleanup-tag
           fi
 
           # Create release
