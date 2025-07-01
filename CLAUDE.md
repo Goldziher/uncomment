@@ -24,12 +24,21 @@ The tool processes files to remove comments while preserving:
 - Documentation comments/docstrings (configurable)
 - Comments marked with `~keep`
 - Comments inside strings (100% accurate with AST)
+- Custom preservation patterns (via configuration)
+- Language-specific rules (via configuration)
 
-### Supported Languages (12+ total)
+### Supported Languages
 
-- Rust, C, C++, Java, JavaScript, TypeScript, Python, Ruby, Go
-- YAML, HCL/Terraform, Makefile
-- Partial support: JSON/JSONC
+**Built-in Languages** (14 total):
+
+- Rust, C, C++, Java, JavaScript, TypeScript, Python, Go
+- YAML, HCL/Terraform, Makefile, Shell/Bash
+- JSON/JSONC (partial support)
+
+**Extensible via Configuration**:
+
+- Any language with a tree-sitter grammar can be added through configuration
+- Examples: Swift, Kotlin, Vue, Svelte, Dart, Zig, Elixir, Julia, and many more
 
 ### Testing & Quality
 
@@ -47,13 +56,27 @@ The tool processes files to remove comments while preserving:
    - AST visitor pattern traverses syntax tree to find comment nodes
    - 100% accurate - no false positives with strings or other constructs
 
-3. **Edge Cases Handled**:
+3. **Configuration System** (v2.4.0+):
+   - TOML-based hierarchical configuration
+   - Config discovery: CLI flag → `.uncommentrc.toml` (local) → `~/.config/uncomment/config.toml` (global) → defaults
+   - Configuration merging with proper precedence
+   - Pattern-based rules for file-specific overrides
+   - Smart init command with language detection
+
+4. **Dynamic Grammar Loading** (v2.4.0+):
+   - **Git source**: Clones and compiles tree-sitter grammars from Git repositories
+   - **Local source**: Loads grammars from local directories
+   - **Library source**: Loads pre-compiled `.so`/`.dylib` files
+   - **Caching**: Compiled grammars cached at `~/.cache/uncomment/grammars/`
+   - **Grammar Manager**: Handles both static (built-in) and dynamic grammars
+
+5. **Edge Cases Handled**:
    - Comments within strings are automatically preserved (AST understands context)
    - No regex false positives
    - Language-specific comment types properly identified
    - Preservation rules applied based on comment content
 
-4. **Git Integration**:
+6. **Git Integration**:
    - Respects .gitignore files by default
    - Can be used as a pre-commit hook
 
@@ -70,13 +93,29 @@ When modifying the tool:
 
 ### Common Modifications
 
-**Adding a new language**:
+**Adding a new language via configuration** (recommended):
+
+1. Create or edit `.uncommentrc.toml`
+2. Add language configuration with grammar source
+3. Example:
+
+   ```toml
+   [languages.mylang]
+   name = "My Language"
+   extensions = ["ml"]
+   comment_nodes = ["comment", "block_comment"]
+   preserve_patterns = ["TODO", "FIXME"]
+
+   [languages.mylang.grammar]
+   source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-mylang", branch = "main" }
+   ```
+
+**Adding a built-in language** (for core languages):
 
 1. Add tree-sitter parser dependency to `Cargo.toml`
-2. Register language in `src/languages/registry.rs`
-3. Define comment node types for the language's AST
-4. Add preservation patterns in language config
-5. Add test files
+2. Register language in `src/grammar/mod.rs` (static_languages HashMap)
+3. Add language configuration in `src/languages/registry.rs`
+4. Add test files in `tests/fixtures/`
 
 **Modifying comment preservation logic**:
 
@@ -90,6 +129,8 @@ When modifying the tool:
 - Parser initialization is cached for efficiency
 - Processes files in parallel when multiple paths provided
 - Trade-off: ~20-30ms for small files vs instant regex (but with perfect accuracy)
+- Dynamic grammar loading: First-time Git grammar loading takes longer (clone + compile), but cached afterwards
+- Grammar cache at `~/.cache/uncomment/grammars/` speeds up subsequent runs
 
 ### Release Process
 
@@ -99,6 +140,26 @@ When modifying the tool:
 4. Wait for Release workflow to build binaries
 5. Create GitHub release manually to trigger Publish workflow
 6. Packages automatically published to crates.io, npm, and PyPI
+
+### Key Modules (v2.4.0+)
+
+**Configuration (`src/config.rs`)**:
+
+- `Config` struct with global settings, language configs, and pattern rules
+- Template generation methods: `template()`, `smart_template()`, `comprehensive_template()`
+- TOML serialization/deserialization with serde
+
+**Grammar Management (`src/grammar/`)**:
+
+- `GrammarManager`: Central manager for all grammar loading
+- `GitGrammarLoader`: Handles Git cloning and compilation
+- Static language registration in `mod.rs`
+
+**Init Command (`src/cli.rs`)**:
+
+- `handle_init_command()`: Main init logic
+- Language detection via file extension scanning
+- Smart vs comprehensive template selection
 
 ## AI Assistant Guidelines
 
@@ -110,6 +171,8 @@ When working on this project:
 - The tree-sitter approach guarantees accuracy - focus on features, not edge cases
 - Performance is acceptable - accuracy is more important than speed
 - Use the visitor pattern when adding new analysis features
+- When adding grammars, prefer configuration over code changes
+- Test dynamic grammar loading with actual tree-sitter repositories
 
 ### Multi-Platform Distribution Learnings
 
