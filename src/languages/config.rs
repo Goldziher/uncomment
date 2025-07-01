@@ -151,15 +151,16 @@ impl LanguageConfig {
         )
     }
 
-    pub fn ruby() -> Self {
-        Self::new(
-            "ruby",
-            vec!["rb", "rbw"],
-            vec!["comment"],
-            vec!["comment"], // YARD documentation comments
-            || tree_sitter_ruby::LANGUAGE.into(),
-        )
-    }
+    // Ruby support removed - use custom grammar configuration if needed
+    // pub fn ruby() -> Self {
+    //     Self::new(
+    //         "ruby",
+    //         vec!["rb", "rbw"],
+    //         vec!["comment"],
+    //         vec!["comment"], // YARD documentation comments
+    //         || tree_sitter_ruby::LANGUAGE.into(),
+    //     )
+    // }
 
     pub fn json() -> Self {
         Self::new(
@@ -217,15 +218,16 @@ impl LanguageConfig {
         )
     }
 
-    pub fn haskell() -> Self {
-        Self::new(
-            "haskell",
-            vec!["hs"],
-            vec!["comment"],
-            vec!["haddock"],
-            || tree_sitter_haskell::LANGUAGE.into(),
-        )
-    }
+    // Haskell support removed - use custom grammar configuration if needed
+    // pub fn haskell() -> Self {
+    //     Self::new(
+    //         "haskell",
+    //         vec!["hs"],
+    //         vec!["comment"],
+    //         vec!["haddock"],
+    //         || tree_sitter_haskell::LANGUAGE.into(),
+    //     )
+    // }
 }
 
 #[cfg(test)]
@@ -287,9 +289,7 @@ mod tests {
             LanguageConfig::java(),
             LanguageConfig::c(),
             LanguageConfig::cpp(),
-            LanguageConfig::ruby(),
             LanguageConfig::shell(),
-            LanguageConfig::haskell(),
         ];
 
         for lang in languages {

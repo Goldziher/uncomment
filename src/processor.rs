@@ -1,5 +1,6 @@
 use crate::ast::visitor::{CommentInfo, CommentVisitor};
 use crate::config::{ConfigManager, ResolvedConfig};
+use crate::grammar::GrammarManager;
 use crate::languages::registry::LanguageRegistry;
 use crate::rules::preservation::PreservationRule;
 use anyhow::{Context, Result};
@@ -21,6 +22,7 @@ pub struct ProcessingOptions {
 pub struct Processor {
     parser: Parser,
     registry: LanguageRegistry,
+    grammar_manager: GrammarManager,
 }
 
 impl Default for Processor {
@@ -34,6 +36,7 @@ impl Processor {
         Self {
             parser: Parser::new(),
             registry: LanguageRegistry::new(),
+            grammar_manager: GrammarManager::new().expect("Failed to initialize GrammarManager"),
         }
     }
 
@@ -111,8 +114,22 @@ impl Processor {
         language_config: &crate::languages::config::LanguageConfig,
         resolved_config: &ResolvedConfig,
     ) -> Result<(String, usize)> {
-        // Set the parser language
-        let language = language_config.tree_sitter_language();
+        // Determine which language to use - dynamic or static
+        let language = if let Some(grammar_config) = &resolved_config.grammar_config {
+            // Use dynamic grammar loading
+            self.grammar_manager
+                .get_language(&language_config.name, grammar_config)
+                .with_context(|| {
+                    format!(
+                        "Failed to load dynamic grammar for {}",
+                        language_config.name
+                    )
+                })?
+        } else {
+            // Use static built-in language
+            language_config.tree_sitter_language()
+        };
+
         self.parser
             .set_language(&language)
             .context("Failed to set parser language")?;
