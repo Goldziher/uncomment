@@ -50,6 +50,13 @@ Through the configuration system, you can add support for any language with a tr
 
 ### Via Package Managers
 
+#### Homebrew (macOS/Linux)
+
+```bash
+brew tap goldziher/tap
+brew install uncomment
+```
+
 #### Cargo (Rust)
 
 ```bash

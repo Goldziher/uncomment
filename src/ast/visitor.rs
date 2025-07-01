@@ -38,14 +38,16 @@ pub struct CommentVisitor<'a> {
     comments: Vec<CommentInfo>,
     comment_node_types: Vec<String>,
     doc_comment_node_types: Vec<String>,
+    language_name: String,
 }
 
 impl<'a> CommentVisitor<'a> {
-    pub fn new_with_language_config(
+    pub fn new_with_language(
         source: &'a str,
         preservation_rules: &'a [PreservationRule],
         comment_node_types: Vec<String>,
         doc_comment_node_types: Vec<String>,
+        language_name: String,
     ) -> Self {
         Self {
             source,
@@ -53,16 +55,17 @@ impl<'a> CommentVisitor<'a> {
             comments: Vec::new(),
             comment_node_types,
             doc_comment_node_types,
+            language_name,
         }
     }
 
     pub fn visit_node(&mut self, node: Node) {
-        self.visit_node_recursive(node);
+        self.visit_node_recursive(node, None);
     }
 
-    fn visit_node_recursive(&mut self, node: Node) {
+    fn visit_node_recursive(&mut self, node: Node, parent: Option<Node>) {
         // Check if this node is a comment
-        if self.is_comment_node(&node) {
+        if self.is_comment_node(&node, parent) {
             let comment_info = CommentInfo::new(node, self.source);
             let should_preserve = self.should_preserve_comment(&comment_info);
             let comment_with_preservation = comment_info.with_preservation(should_preserve);
@@ -72,7 +75,7 @@ impl<'a> CommentVisitor<'a> {
         // Recursively visit child nodes
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.visit_node_recursive(child);
+            self.visit_node_recursive(child, Some(node));
         }
     }
 
@@ -84,16 +87,91 @@ impl<'a> CommentVisitor<'a> {
             .collect()
     }
 
-    fn is_comment_node(&self, node: &Node) -> bool {
+    fn is_comment_node(&self, node: &Node, parent: Option<Node>) -> bool {
         let kind = node.kind();
-        self.comment_node_types.contains(&kind.to_string())
-            || self.doc_comment_node_types.contains(&kind.to_string())
+
+        // Handle regular comment nodes
+        if self.comment_node_types.contains(&kind.to_string()) {
+            return true;
+        }
+
+        // Handle doc comment nodes
+        if self.doc_comment_node_types.contains(&kind.to_string()) {
+            // For Python, we need special handling of string nodes
+            if self.language_name.to_lowercase() == "python" && kind == "string" {
+                return self.is_python_docstring(node, parent);
+            }
+            // For other languages, treat all doc comment nodes as comments
+            return true;
+        }
+
+        false
     }
 
     fn should_preserve_comment(&self, comment: &CommentInfo) -> bool {
         for rule in self.preservation_rules {
             if rule.matches(comment) {
                 return true;
+            }
+        }
+        false
+    }
+
+    /// Check if a string node in Python is actually a docstring
+    fn is_python_docstring(&self, node: &Node, parent: Option<Node>) -> bool {
+        // Must be a string node
+        if node.kind() != "string" {
+            return false;
+        }
+
+        // Get the parent node (should be expression_statement)
+        let parent = match parent {
+            Some(p) => p,
+            None => return false,
+        };
+
+        // Parent must be an expression_statement
+        if parent.kind() != "expression_statement" {
+            return false;
+        }
+
+        // Get the grandparent to determine context
+        let grandparent = match parent.parent() {
+            Some(gp) => gp,
+            None => return false,
+        };
+
+        match grandparent.kind() {
+            "module" => {
+                // Module-level docstring: first statement in the module
+                self.is_first_statement(&parent, &grandparent)
+            }
+            "block" => {
+                // Function/class/method docstring: first statement in a block
+                if let Some(block_parent) = grandparent.parent() {
+                    match block_parent.kind() {
+                        "function_definition"
+                        | "async_function_definition"
+                        | "class_definition" => self.is_first_statement(&parent, &grandparent),
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// Check if the given statement is the first non-comment statement in its parent
+    fn is_first_statement(&self, statement: &Node, parent: &Node) -> bool {
+        let mut cursor = parent.walk();
+        for child in parent.children(&mut cursor) {
+            match child.kind() {
+                // Skip comments
+                "comment" => continue,
+                // This is the first non-comment statement
+                _ => return child.id() == statement.id(),
             }
         }
         false
@@ -138,8 +216,13 @@ mod tests {
         let rules = vec![PreservationRule::Pattern("TODO".to_string())];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let visitor =
-            CommentVisitor::new_with_language_config(source, &rules, comment_types, doc_types);
+        let visitor = CommentVisitor::new_with_language(
+            source,
+            &rules,
+            comment_types,
+            doc_types,
+            "test".to_string(),
+        );
         assert_eq!(visitor.source, source);
         assert_eq!(visitor.comments.len(), 0);
     }
@@ -150,8 +233,13 @@ mod tests {
         let rules = vec![];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let _visitor =
-            CommentVisitor::new_with_language_config(source, &rules, comment_types, doc_types);
+        let _visitor = CommentVisitor::new_with_language(
+            source,
+            &rules,
+            comment_types,
+            doc_types,
+            "test".to_string(),
+        );
 
         // We can't easily create tree-sitter nodes in tests without parsing,
         // so we'll test the string matching logic separately
@@ -170,8 +258,13 @@ mod tests {
         ];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let visitor =
-            CommentVisitor::new_with_language_config(source, &rules, comment_types, doc_types);
+        let visitor = CommentVisitor::new_with_language(
+            source,
+            &rules,
+            comment_types,
+            doc_types,
+            "test".to_string(),
+        );
 
         let todo_comment = create_mock_comment("// TODO: Fix this", "line_comment");
         let fixme_comment = create_mock_comment("// FIXME: Bug here", "line_comment");
@@ -188,8 +281,13 @@ mod tests {
         let rules = vec![PreservationRule::Pattern("TODO".to_string())];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let mut visitor =
-            CommentVisitor::new_with_language_config(source, &rules, comment_types, doc_types);
+        let mut visitor = CommentVisitor::new_with_language(
+            source,
+            &rules,
+            comment_types,
+            doc_types,
+            "test".to_string(),
+        );
 
         // Manually add comments for testing
         visitor.comments.push(
