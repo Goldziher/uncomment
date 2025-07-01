@@ -1,0 +1,222 @@
+name: Release with Homebrew
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: uncomment
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_name: uncomment
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: uncomment.exe
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+            artifact_name: uncomment.exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: uncomment
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: uncomment
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Configure cross-compilation
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          echo 'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc' >> $GITHUB_ENV
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Create tar.gz for Unix-like systems
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf uncomment-${{ matrix.target }}.tar.gz ${{ matrix.artifact_name }}
+          mv uncomment-${{ matrix.target }}.tar.gz ../../../
+
+      - name: Create zip for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a -tzip uncomment-${{ matrix.target }}.zip ${{ matrix.artifact_name }}
+          mv uncomment-${{ matrix.target }}.zip ../../../
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uncomment-${{ matrix.target }}
+          path: |
+            uncomment-${{ matrix.target }}.tar.gz
+            uncomment-${{ matrix.target }}.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          tag=${GITHUB_REF#refs/tags/}
+          version=${tag#v}
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+
+          # Check if this is a pre-release
+          if [[ "$tag" == *"-rc."* ]]; then
+            prerelease_flag="--prerelease"
+            title_prefix="Release Candidate"
+          else
+            prerelease_flag=""
+            title_prefix="Release"
+          fi
+
+          # Create release
+          gh release create "$tag" \
+            $prerelease_flag \
+            --title "$title_prefix $tag" \
+            --notes "$(cat <<'EOF'
+          ## What's Changed
+
+          See the [CHANGELOG](https://github.com/Goldziher/uncomment/releases) for full details.
+
+          ## Installation
+
+          ### Homebrew
+          ```bash
+          brew tap goldziher/tap
+          brew install uncomment
+          ```
+
+          ### Rust/Cargo
+          ```bash
+          cargo install uncomment
+          ```
+
+          ### npm
+          ```bash
+          npm install -g uncomment-cli
+          ```
+
+          ### pip
+          ```bash
+          pip install uncomment
+          ```
+
+          ### Direct Download
+          Download the appropriate binary for your platform below.
+          EOF
+          )"
+
+          # Upload binaries
+          for artifact in uncomment-*/; do
+            files=$(find "$artifact" -name "*.tar.gz" -o -name "*.zip")
+            for file in $files; do
+              gh release upload "$tag" "$file"
+            done
+          done
+
+  homebrew:
+    name: Update Homebrew Formula
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Calculate SHA256 checksums
+        id: checksums
+        run: |
+          # Calculate checksums for each platform
+          sha256_x86_64_darwin=$(shasum -a 256 uncomment-x86_64-apple-darwin/uncomment-x86_64-apple-darwin.tar.gz | awk '{print $1}')
+          sha256_aarch64_darwin=$(shasum -a 256 uncomment-aarch64-apple-darwin/uncomment-aarch64-apple-darwin.tar.gz | awk '{print $1}')
+          sha256_x86_64_linux=$(shasum -a 256 uncomment-x86_64-unknown-linux-gnu/uncomment-x86_64-unknown-linux-gnu.tar.gz | awk '{print $1}')
+          sha256_aarch64_linux=$(shasum -a 256 uncomment-aarch64-unknown-linux-gnu/uncomment-aarch64-unknown-linux-gnu.tar.gz | awk '{print $1}')
+
+          echo "sha256_x86_64_darwin=$sha256_x86_64_darwin" >> $GITHUB_OUTPUT
+          echo "sha256_aarch64_darwin=$sha256_aarch64_darwin" >> $GITHUB_OUTPUT
+          echo "sha256_x86_64_linux=$sha256_x86_64_linux" >> $GITHUB_OUTPUT
+          echo "sha256_aarch64_linux=$sha256_aarch64_linux" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew formula
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd homebrew-tap
+
+          # Update formula with new version and checksums
+          version="${{ needs.release.outputs.version }}"
+
+          # Update version
+          sed -i "s/version \".*\"/version \"$version\"/" Formula/uncomment.rb
+
+          # Update URLs
+          sed -i "s|v[0-9.]*[-rc.0-9]*/|v$version/|g" Formula/uncomment.rb
+
+          # Update SHA256 checksums
+          sed -i "s/PLACEHOLDER_SHA256_X86_64_DARWIN/${{ steps.checksums.outputs.sha256_x86_64_darwin }}/" Formula/uncomment.rb
+          sed -i "s/PLACEHOLDER_SHA256_AARCH64_DARWIN/${{ steps.checksums.outputs.sha256_aarch64_darwin }}/" Formula/uncomment.rb
+          sed -i "s/PLACEHOLDER_SHA256_X86_64_LINUX/${{ steps.checksums.outputs.sha256_x86_64_linux }}/" Formula/uncomment.rb
+          sed -i "s/PLACEHOLDER_SHA256_AARCH64_LINUX/${{ steps.checksums.outputs.sha256_aarch64_linux }}/" Formula/uncomment.rb
+
+          # Commit and push changes
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/uncomment.rb
+          git commit -m "Update uncomment to v$version"
+          git push origin main

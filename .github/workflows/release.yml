@@ -1,9 +1,8 @@
-name: Release
+name: Release (Disabled - See release-homebrew.yml)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  # Temporarily disabled - using release-homebrew.yml instead
+  workflow_dispatch:
 
 jobs:
   build:
