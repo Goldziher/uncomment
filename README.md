@@ -1,6 +1,6 @@
 # Uncomment: Tree-sitter Based Comment Removal Tool
 
-A fast, accurate comment removal tool that uses tree-sitter for parsing, ensuring 100% accuracy in comment identification across multiple programming languages.
+A fast, accurate, and extensible comment removal tool that uses tree-sitter for parsing, ensuring 100% accuracy in comment identification. Originally created to clean up AI-generated code with excessive comments, it now supports any language with a tree-sitter grammar through its flexible configuration system.
 
 ## Features
 
@@ -8,12 +8,17 @@ A fast, accurate comment removal tool that uses tree-sitter for parsing, ensurin
 - **No False Positives**: Never removes comment-like content from strings
 - **Smart Preservation**: Keeps important metadata, TODOs, FIXMEs, and language-specific patterns
 - **Parallel Processing**: Multi-threaded processing for improved performance
-- **Extensible**: Easy to add new languages through configuration
+- **Extensible**: Support any language with tree-sitter grammar through configuration
+- **Dynamic Grammar Loading**: Load grammars from Git, local paths, or pre-compiled libraries
+- **Configuration System**: TOML-based configuration for project-specific settings
+- **Smart Init Command**: Automatically generate configuration based on your project
 - **Fast**: Leverages tree-sitter's optimized parsing
 - **Safe**: Dry-run mode to preview changes
 - **Built-in Benchmarking**: Performance analysis and profiling tools
 
 ## Supported Languages
+
+### Built-in Languages
 
 - Python (.py, .pyw, .pyi, .pyx, .pxd)
 - JavaScript (.js, .jsx, .mjs, .cjs)
@@ -27,7 +32,19 @@ A fast, accurate comment removal tool that uses tree-sitter for parsing, ensurin
 - YAML (.yml, .yaml)
 - HCL/Terraform (.hcl, .tf, .tfvars)
 - Makefile (Makefile, .mk)
-- Zig (.zig)
+- Shell/Bash (.sh, .bash, .zsh, .bashrc, .zshrc)
+- Haskell (.hs, .lhs)
+- JSON with Comments (.jsonc)
+
+### Extensible to Any Language
+
+Through the configuration system, you can add support for any language with a tree-sitter grammar, including:
+
+- Vue, Svelte, Astro (Web frameworks)
+- Swift, Kotlin, Dart (Mobile development)
+- Zig, Nim (Systems programming)
+- Elixir, Clojure, Julia (Functional/Scientific)
+- And many more...
 
 ## Installation
 
@@ -64,7 +81,65 @@ cargo install --path .
 - For building from source: Rust 1.70+
 - For npm/pip packages: Pre-built binaries are downloaded automatically
 
+## Quick Start
+
+```bash
+# Generate a configuration file for your project
+uncomment init
+
+# Remove comments from files
+uncomment src/
+
+# Preview changes without modifying files
+uncomment --dry-run src/
+```
+
 ## Usage
+
+### Configuration
+
+```bash
+# Generate a smart configuration based on your project
+uncomment init
+
+# Generate a comprehensive configuration with all supported languages
+uncomment init --comprehensive
+
+# Interactive configuration setup
+uncomment init --interactive
+
+# Use a custom configuration file
+uncomment --config my-config.toml src/
+```
+
+#### Init Command Examples
+
+The `init` command intelligently detects languages in your project:
+
+```bash
+# Smart detection - analyzes your project and includes only detected languages
+$ uncomment init
+Detected languages in your project:
+- 150 rust files
+- 89 typescript files
+- 45 python files
+- 12 vue files (requires custom grammar)
+- 8 dockerfile files (requires custom grammar)
+
+Generated .uncommentrc.toml with configurations for detected languages.
+
+# Comprehensive mode - includes configurations for 25+ languages
+$ uncomment init --comprehensive
+Generated comprehensive configuration with all supported languages.
+
+# Specify output location
+$ uncomment init --output config/uncomment.toml
+
+# Force overwrite existing configuration
+$ uncomment init --force
+```
+
+### Basic Usage
 
 ```bash
 # Remove comments from a single file
@@ -140,6 +215,87 @@ uncomment profile /path/to/repo
 - Standard comment removal while preserving file structure
 - Supports both `#` and `//` style comments in HCL/Terraform
 
+## Configuration
+
+Uncomment uses a flexible TOML-based configuration system that allows you to customize behavior for your project.
+
+### Configuration File Discovery
+
+Uncomment searches for configuration files in the following order:
+
+1. Command-line specified config: `--config path/to/config.toml`
+2. `.uncommentrc.toml` in the current directory
+3. `.uncommentrc.toml` in parent directories (up to git root or filesystem root)
+4. `~/.config/uncomment/config.toml` (global configuration)
+5. Built-in defaults
+
+### Basic Configuration Example
+
+```toml
+[global]
+remove_todos = false
+remove_fixme = false
+remove_docs = false
+preserve_patterns = ["IMPORTANT", "NOTE", "WARNING"]
+use_default_ignores = true
+respect_gitignore = true
+
+[languages.python]
+extensions = ["py", "pyw", "pyi"]
+preserve_patterns = ["noqa", "type:", "pragma:", "pylint:"]
+
+[patterns."tests/**/*.py"]
+# Keep all comments in test files
+remove_todos = false
+remove_fixme = false
+remove_docs = false
+```
+
+### Dynamic Grammar Loading
+
+You can extend support to any language with a tree-sitter grammar:
+
+```toml
+# Add Swift support via Git
+[languages.swift]
+name = "Swift"
+extensions = ["swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+[languages.swift.grammar]
+source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
+
+# Use a local grammar
+[languages.custom]
+name = "Custom Language"
+extensions = ["custom"]
+comment_nodes = ["comment"]
+
+[languages.custom.grammar]
+source = { type = "local", path = "/path/to/tree-sitter-custom" }
+
+# Use a pre-compiled library
+[languages.proprietary]
+name = "Proprietary Language"
+extensions = ["prop"]
+comment_nodes = ["comment"]
+
+[languages.proprietary.grammar]
+source = { type = "library", path = "/usr/local/lib/libtree-sitter-proprietary.so" }
+```
+
+### Configuration Merging
+
+When multiple configuration files are found, they are merged with the following precedence (highest to lowest):
+
+1. Command-line flags
+2. Local `.uncommentrc.toml` files (closer to the file being processed wins)
+3. Global configuration (`~/.config/uncomment/config.toml`)
+4. Built-in defaults
+
+Pattern-specific configurations override language configurations for matching files.
+
 ## How It Works
 
 Unlike regex-based tools, uncomment uses tree-sitter to build a proper Abstract Syntax Tree (AST) of your code. This means it understands the difference between:
@@ -151,21 +307,48 @@ Unlike regex-based tools, uncomment uses tree-sitter to build a proper Abstract 
 
 ## Architecture
 
-The tool is built with a generic, extensible architecture:
+The tool is built with a modular, extensible architecture:
 
-1. **Language Registry**: Dynamically loads language configurations
-2. **AST Visitor**: Traverses the tree-sitter AST to find comments
-3. **Preservation Engine**: Applies rules to determine what to keep
-4. **Output Generator**: Produces clean code with comments removed
+1. **Language Registry**: Manages both built-in and dynamically loaded languages
+2. **Grammar Manager**: Handles loading grammars from Git, local paths, or compiled libraries
+3. **Configuration System**: TOML-based hierarchical configuration with merging
+4. **AST Visitor**: Traverses the tree-sitter AST to find comments
+5. **Preservation Engine**: Applies rules to determine what to keep
+6. **Output Generator**: Produces clean code with comments removed
+
+### Key Components
+
+- **Dynamic Grammar Loading**: Automatically downloads and compiles tree-sitter grammars
+- **Grammar Caching**: Caches compiled grammars for performance
+- **Configuration Discovery**: Searches for configs in project hierarchy
+- **Pattern Matching**: File-pattern-specific configuration overrides
 
 ## Adding New Languages
 
-Languages are configured through the registry. To add a new language:
+With the new configuration system, you can add languages without modifying code:
 
-1. Add the tree-sitter parser dependency
-2. Register the language in `src/languages/registry.rs`
-3. Define comment node types and preservation patterns
-4. That's it! No other code changes needed
+### Method 1: Using Configuration (Recommended)
+
+Add to your `.uncommentrc.toml`:
+
+```toml
+[languages.mylang]
+name = "My Language"
+extensions = ["ml", "mli"]
+comment_nodes = ["comment"]
+preserve_patterns = ["TODO", "FIXME"]
+
+[languages.mylang.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-mylang", branch = "main" }
+```
+
+### Method 2: Built-in Support
+
+For frequently used languages:
+
+1. Add the tree-sitter parser dependency to `Cargo.toml`
+2. Register the language in `src/grammar/mod.rs`
+3. Add language configuration in `src/languages/registry.rs`
 
 ## Git Hooks
 
@@ -176,7 +359,7 @@ Add to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/uncomment
-    rev: v2.2.0
+    rev: v2.4.0
     hooks:
       - id: uncomment
 ```
