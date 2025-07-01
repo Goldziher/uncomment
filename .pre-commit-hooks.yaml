@@ -2,11 +2,9 @@
   name: Uncomment
   description: Remove comments from source code files while preserving linting directives
   entry: uncomment
-  language: python
+  language: rust
   types_or: [text]
   files: \.(rs|c|h|cpp|cc|cxx|hpp|hxx|java|js|jsx|mjs|cjs|ts|tsx|mts|cts|py|pyw|pyi|rb|rake|go|yaml|yml|tf|hcl|make|makefile|json|jsonc)$
-  additional_dependencies:
-    - uncomment
   require_serial: true
   pass_filenames: true
   minimum_pre_commit_version: "2.9.0"

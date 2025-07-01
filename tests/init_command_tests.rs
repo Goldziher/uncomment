@@ -24,8 +24,8 @@ fn test_init_command_basic() {
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(content.contains("[global]"));
     assert!(content.contains("remove_todos = false"));
-    // Since no files are detected, it should fall back to the basic template
-    assert!(content.contains("# Uncomment Configuration File"));
+    // Since no files are detected, it should fall back to the basic template (clean version)
+    assert!(content.contains("preserve_patterns = [\"HACK\", \"WORKAROUND\", \"NOTE\"]"));
 }
 
 /// Test init command with force flag
@@ -63,8 +63,7 @@ fn test_init_command_comprehensive() {
 
     let content = fs::read_to_string(&output_path).unwrap();
 
-    // Check that comprehensive template includes many languages
-    assert!(content.contains("# Comprehensive Uncomment Configuration"));
+    // Check that comprehensive template includes many languages (clean version)
     assert!(content.contains("[languages.vue]"));
     assert!(content.contains("[languages.swift]"));
     assert!(content.contains("[languages.kotlin]"));
@@ -77,12 +76,9 @@ fn test_init_command_comprehensive() {
     assert!(content.contains("tree-sitter-vue"));
     assert!(content.contains("tree-sitter-swift"));
 
-    // Check for different categories
-    assert!(content.contains("# Web Development Languages"));
-    assert!(content.contains("# Mobile Development"));
-    assert!(content.contains("# Systems Programming"));
-    assert!(content.contains("# Functional Programming"));
-    assert!(content.contains("# Data Science & ML"));
+    // The clean version shouldn't have comments
+    assert!(!content.contains("# Web Development Languages"));
+    assert!(!content.contains("# Mobile Development"));
 }
 
 /// Test smart template generation based on detected files

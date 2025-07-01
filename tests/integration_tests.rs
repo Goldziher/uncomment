@@ -325,6 +325,7 @@ remove_docs = false
 name = "Python"
 extensions = [".py"]
 comment_nodes = ["comment"]
+doc_comment_nodes = ["string"]
 preserve_patterns = ["mypy:", "type:"]
 remove_docs = true
 
@@ -364,10 +365,16 @@ const x = 1;"#;
         .output()
         .unwrap();
 
+    if !output.status.success() {
+        eprintln!("Command failed with exit code: {:?}", output.status.code());
+        eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+        eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+    }
     assert!(
         output.status.success(),
-        "Command failed: {}",
-        String::from_utf8_lossy(&output.stderr)
+        "Command failed: stderr={}, stdout={}",
+        String::from_utf8_lossy(&output.stderr),
+        String::from_utf8_lossy(&output.stdout)
     );
 
     // Check Python file - docstring should be removed, mypy preserved

@@ -93,7 +93,7 @@ fn main() -> Result<()> {
 
     if num_threads == 1 {
         // Single-threaded processing
-        let mut processor = processor::Processor::new();
+        let mut processor = processor::Processor::new_with_config(&config_manager);
 
         for file_path in files {
             match processor.process_file_with_config(&file_path, &config_manager) {
@@ -119,7 +119,7 @@ fn main() -> Result<()> {
         // Parallel processing
         files.par_iter().for_each(|file_path| {
             // Each thread gets its own processor
-            let mut processor = processor::Processor::new();
+            let mut processor = processor::Processor::new_with_config(&config_manager);
 
             match processor.process_file_with_config(file_path, &config_manager) {
                 Ok(mut processed_file) => {
