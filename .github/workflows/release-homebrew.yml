@@ -1,8 +1,12 @@
-name: Release (Disabled - See release-homebrew.yml)
+name: Release with Homebrew
 
 on:
-  # Temporarily disabled - using release-homebrew.yml instead
-  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -62,16 +66,35 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
+      - name: Create tar.gz for Unix-like systems
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf uncomment-${{ matrix.target }}.tar.gz ${{ matrix.artifact_name }}
+          mv uncomment-${{ matrix.target }}.tar.gz ../../../
+
+      - name: Create zip for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a -tzip uncomment-${{ matrix.target }}.zip ${{ matrix.artifact_name }}
+          mv uncomment-${{ matrix.target }}.zip ../../../
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: uncomment-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          path: |
+            uncomment-${{ matrix.target }}.tar.gz
+            uncomment-${{ matrix.target }}.zip
 
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,11 +102,19 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: Create release
+      - name: Extract version
+        id: version
+        run: |
+          tag=${GITHUB_REF#refs/tags/}
+          version=${tag#v}
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+
+      - name: Create or update release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag=${GITHUB_REF#refs/tags/}
+          tag="${{ steps.version.outputs.tag }}"
 
           # Check if this is a pre-release
           if [[ "$tag" == *"-rc."* ]]; then
@@ -92,6 +123,12 @@ jobs:
           else
             prerelease_flag=""
             title_prefix="Release"
+          fi
+
+          # Check if release already exists
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists, deleting to recreate..."
+            gh release delete "$tag" --yes --cleanup-tag
           fi
 
           # Create release
@@ -105,20 +142,26 @@ jobs:
 
           ## Installation
 
+          ### Homebrew
+          ```bash
+          brew tap goldziher/tap
+          brew install uncomment
+          ```
+
           ### Rust/Cargo
-          \`\`\`bash
+          ```bash
           cargo install uncomment
-          \`\`\`
+          ```
 
           ### npm
-          \`\`\`bash
-          npm install -g uncomment
-          \`\`\`
+          ```bash
+          npm install -g uncomment-cli
+          ```
 
           ### pip
-          \`\`\`bash
+          ```bash
           pip install uncomment
-          \`\`\`
+          ```
 
           ### Direct Download
           Download the appropriate binary for your platform below.
@@ -126,14 +169,28 @@ jobs:
           )"
 
           # Upload binaries
-          for dir in uncomment-*/; do
-            target=$(basename "$dir" | sed 's/^uncomment-//')
-            binary=$(find "$dir" -type f -executable -o -name "*.exe" | head -1)
-            if [ -n "$binary" ]; then
-              if [[ "$binary" == *.exe ]]; then
-                gh release upload "$tag" "$binary#uncomment-${target}.exe"
-              else
-                gh release upload "$tag" "$binary#uncomment-${target}"
-              fi
-            fi
+          for artifact in uncomment-*/; do
+            files=$(find "$artifact" -name "*.tar.gz" -o -name "*.zip")
+            for file in $files; do
+              gh release upload "$tag" "$file"
+            done
           done
+
+  homebrew:
+    name: Update Homebrew Formula
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Homebrew formula
+        uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          formula-name: uncomment
+          formula-path: Formula/uncomment.rb
+          homebrew-tap: Goldziher/homebrew-tap
+          download-url: https://github.com/Goldziher/uncomment/archive/${{ needs.release.outputs.tag }}.tar.gz
+          commit-message: |
+            {{formulaName}} {{version}}
+
+            Created by https://github.com/mislav/bump-homebrew-formula-action
+        env:
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
