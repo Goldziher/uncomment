@@ -173,7 +173,7 @@ impl Cli {
                     info.detected_languages.len()
                 );
                 for (lang, count) in &info.detected_languages {
-                    println!("   {} ({} files)", lang, count);
+                    println!("   {count} ({lang} files)");
                 }
                 println!(
                     "📝 Configured {} languages with appropriate settings",
