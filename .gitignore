@@ -50,3 +50,6 @@ doc/
 !/test-repos/logs/
 !/test-repos/*.sh
 !/test-repos/*.md
+
+# Integration test repos cache directory
+tests/integration_test/repos_cache/
