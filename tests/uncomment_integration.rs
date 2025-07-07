@@ -1,11 +1,11 @@
+use serde::Deserialize;
 use std::{
     fs,
+    io::Write,
     path::{Path, PathBuf},
     process::Command,
-    io::Write,
 };
 use walkdir::WalkDir;
-use serde::Deserialize;
 
 const EXTENSIONS: &[(&str, &str)] = &[(".js", "js"), (".ts", "ts"), (".py", "py")];
 
@@ -21,8 +21,7 @@ struct RepoEntry {
 
 #[test]
 fn integration_test_uncomment_on_real_repos() {
-    let repos = read_repos_yaml("test-data/repos.yaml")
-        .expect("Failed to read repos.yaml");
+    let repos = read_repos_yaml("test-data/repos.yaml").expect("Failed to read repos.yaml");
     let work_dir = Path::new("tests/integration_test/repos_cache");
     fs::create_dir_all(work_dir).expect("Failed to create cache directory");
 
@@ -37,9 +36,16 @@ fn integration_test_uncomment_on_real_repos() {
 
         if !repo_path.exists() {
             println!("Cloning {}...", repo.url);
-            assert!(clone_repo(&repo.url, &repo_path), "Failed to clone {}", repo.url);
+            assert!(
+                clone_repo(&repo.url, &repo_path),
+                "Failed to clone {}",
+                repo.url
+            );
             // Wait for files to stabilize after clone
-            assert!(wait_for_files_to_stabilize(&repo_path, 10), "Repo files did not stabilize after clone");
+            assert!(
+                wait_for_files_to_stabilize(&repo_path, 10),
+                "Repo files did not stabilize after clone"
+            );
         } else {
             println!("Repo already cloned: {}", repo_name);
         }
@@ -58,22 +64,37 @@ fn integration_test_uncomment_on_real_repos() {
             let lang = file
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .and_then(|ext| EXTENSIONS.iter().find(|(e, _)| *e == format!(".{ext}")).map(|(_, l)| *l))
+                .and_then(|ext| {
+                    EXTENSIONS
+                        .iter()
+                        .find(|(e, _)| *e == format!(".{ext}"))
+                        .map(|(_, l)| *l)
+                })
                 .unwrap_or("unknown");
 
             // Parse AST before uncomment
             if !parse_ast(&file, lang) {
-                eprintln!("  [SKIP] Could not parse AST before uncomment: {}", file.display());
+                eprintln!(
+                    "  [SKIP] Could not parse AST before uncomment: {}",
+                    file.display()
+                );
                 skipped_files.push(file.display().to_string());
                 continue;
             }
 
             // Run uncomment
-            assert!(run_uncomment(&file), "[FAIL] Uncomment failed: {}", file.display());
+            assert!(
+                run_uncomment(&file),
+                "[FAIL] Uncomment failed: {}",
+                file.display()
+            );
 
             // Parse AST after uncomment
             if !parse_ast(&file, lang) {
-                eprintln!("  [FAIL] AST parse failed after uncomment: {}", file.display());
+                eprintln!(
+                    "  [FAIL] AST parse failed after uncomment: {}",
+                    file.display()
+                );
                 failed_files.push(file.display().to_string());
             } else {
                 println!("  [PASS]");
@@ -92,7 +113,8 @@ fn integration_test_uncomment_on_real_repos() {
     // Write failing files to test-data/failing_files.txt (overwrite each run)
     if !failed_files.is_empty() {
         // File::create will overwrite the file if it exists
-        let mut file = std::fs::File::create("test-data/failing_files.txt").expect("Could not create failing_files.txt");
+        let mut file = std::fs::File::create("test-data/failing_files.txt")
+            .expect("Could not create failing_files.txt");
         for f in &failed_files {
             writeln!(file, "{}", f).expect("Could not write to failing_files.txt");
         }
@@ -105,7 +127,11 @@ fn integration_test_uncomment_on_real_repos() {
             eprintln!("  - {}", f);
         }
     }
-    assert!(failed_files.is_empty(), "{} files failed AST parsing after uncomment", failed_files.len());
+    assert!(
+        failed_files.is_empty(),
+        "{} files failed AST parsing after uncomment",
+        failed_files.len()
+    );
     assert!(total_files > 0, "No source files were tested");
 }
 
@@ -128,7 +154,10 @@ fn find_source_files(dir: &Path) -> Vec<PathBuf> {
     for entry in WalkDir::new(dir).into_iter().filter_map(Result::ok) {
         if entry.file_type().is_file() {
             let path = entry.path();
-            if EXTENSIONS.iter().any(|(ext, _)| path.extension().map_or(false, |e| e == &ext[1..])) {
+            if EXTENSIONS
+                .iter()
+                .any(|(ext, _)| path.extension().map_or(false, |e| e == &ext[1..]))
+            {
                 files.push(path.to_path_buf());
             }
         }
@@ -179,11 +208,7 @@ fn parse_js_ts_ast(file: &Path) -> bool {
             process.exit(1);
         }
     "#;
-    let output = Command::new("node")
-        .arg("-e")
-        .arg(code)
-        .arg(file)
-        .output();
+    let output = Command::new("node").arg("-e").arg(code).arg(file).output();
 
     match output {
         Ok(out) if out.status.success() => true,
@@ -202,9 +227,7 @@ fn parse_js_ts_ast(file: &Path) -> bool {
 }
 
 fn run_uncomment(file: &Path) -> bool {
-    let output = Command::new("uncomment")
-        .arg(file)
-        .output();
+    let output = Command::new("uncomment").arg(file).output();
 
     match output {
         Ok(out) if out.status.success() => true,
@@ -241,4 +264,4 @@ fn wait_for_files_to_stabilize(dir: &Path, timeout_secs: u64) -> bool {
         }
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
-} 
+}
