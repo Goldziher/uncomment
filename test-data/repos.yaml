@@ -1,0 +1,5 @@
+# List of repositories for integration testing
+repos:
+  - url: "https://github.com/facebook/react.git"
+  - url: "https://github.com/AmalTomio/Osya-Blog.git"
+  - url: "https://github.com/fikarpakarpikir/aryajaya_v2.git"

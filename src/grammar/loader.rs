@@ -86,7 +86,7 @@ impl GitGrammarLoader {
 
     /// Clone a grammar repository
     fn clone_grammar(&self, url: &str, target_dir: &Path, branch: Option<&str>) -> Result<()> {
-        println!("   Cloning grammar from {}", url);
+        println!("   Cloning grammar from {url}");
 
         let mut cmd = Command::new("git");
         cmd.args(["clone", "--quiet", url, &target_dir.to_string_lossy()]);
@@ -166,7 +166,7 @@ impl GitGrammarLoader {
             }
         }
 
-        println!("   Compiling grammar for {}", language_name);
+        println!("   Compiling grammar for {language_name}");
 
         // Use tree-sitter-loader to compile and load the grammar
         use tree_sitter_loader::{CompileConfig, Loader};
