@@ -1,0 +1,6 @@
+# List of repositories for integration testing
+repos:
+  - url: "https://github.com/pallets/flask.git"
+  - url: "https://github.com/chiragpalan/stock_predictions_rnn_v2.git"
+  - url: "https://github.com/PIEDRACAR/FinancialEcuador.git"
+  - url: "https://github.com/interlark/ustvgo-tvguide.git"
