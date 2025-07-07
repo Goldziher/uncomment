@@ -38,8 +38,9 @@ regex = "1.11"
 walkdir = "2.5"
 rayon = "1.10"
 num_cpus = "1.17"
-dirs = "5.0"
+dirs = "6.0"
 serde_yaml = "0.9.34"
+
 
 [dev-dependencies]
 tempfile = "3.20"
