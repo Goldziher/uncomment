@@ -341,41 +341,35 @@ impl Processor {
             let start_char = byte_to_char(comment.start_byte);
             let end_char = byte_to_char(comment.end_byte);
 
-            // Handle inline vs standalone comments
-            if self.is_inline_comment(content, &comment) {
-                // For inline comments, just remove the comment part
-                if start_char < chars.len() && end_char <= chars.len() && start_char <= end_char {
-                    chars.drain(start_char..end_char);
-                }
-            } else {
-                // For standalone comments, remove the entire line
-                let line_start = self.find_line_start(content, comment.start_byte);
-                let line_end = self.find_line_end(content, comment.end_byte);
+            // Find the start and end of the line containing the comment
+            let line_start = self.find_line_start(content, comment.start_byte);
+            let line_end = self.find_line_end(content, comment.end_byte);
+            let line_start_char = byte_to_char(line_start);
+            let line_end_char = byte_to_char(line_end);
 
-                let line_start_char = byte_to_char(line_start);
-                let line_end_char = byte_to_char(line_end);
+            // Get the line text
+            let line_text: String = chars[line_start_char..line_end_char].iter().collect();
+            let comment_text: String = chars[start_char..end_char].iter().collect();
 
+            // Check if the line contains only the comment (plus whitespace)
+            let line_without_comment = line_text.replace(&comment_text, "");
+            if line_without_comment.trim().is_empty() {
+                // Remove the entire line (including newline)
                 if line_start_char < chars.len()
                     && line_end_char <= chars.len()
                     && line_start_char <= line_end_char
                 {
                     chars.drain(line_start_char..line_end_char);
                 }
+            } else {
+                // Only remove the comment text, leave the rest of the line intact
+                if start_char < chars.len() && end_char <= chars.len() && start_char <= end_char {
+                    chars.drain(start_char..end_char);
+                }
             }
         }
 
         chars.into_iter().collect()
-    }
-
-    fn is_inline_comment(&self, content: &str, comment: &CommentInfo) -> bool {
-        let lines: Vec<&str> = content.lines().collect();
-        if comment.start_row < lines.len() {
-            let line = lines[comment.start_row];
-            let before_comment = &line[..comment.start_byte.min(line.len())];
-            !before_comment.trim().is_empty()
-        } else {
-            false
-        }
     }
 
     fn find_line_start(&self, content: &str, byte_pos: usize) -> usize {
