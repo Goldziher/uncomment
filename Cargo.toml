@@ -28,7 +28,7 @@ tree-sitter-bash = "0.25.0"
 tree-sitter-haskell = "0.23.1"
 tree-sitter-loader = "0.25"
 libloading = "0.8"
-toml = "0.8"
+toml = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 glob = "0.3"
 ignore = "0.4"
