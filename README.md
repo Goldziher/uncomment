@@ -212,6 +212,12 @@ uncomment profile /path/to/repo
 - Doc comments `///` and `//!` (unless `--remove-doc`)
 - Clippy directives: `clippy::`
 
+**Go:**
+
+- Documentation comments: `//` comments that immediately precede `package`, `func`, `type`, `const`, or `var` declarations (unless `--remove-doc`)
+- Regular comments: All other `//` and `/* */` comments are removed
+- Build constraints: `//go:build`, `//+build`
+
 **Haskell:**
 
 - Comments: `--`
@@ -366,7 +372,7 @@ Add to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/uncomment
-    rev: v2.4.0
+    rev: v2.5.0
     hooks:
       - id: uncomment
 ```
