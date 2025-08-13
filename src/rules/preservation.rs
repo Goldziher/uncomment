@@ -28,7 +28,12 @@ impl PreservationRule {
     }
 
     fn is_documentation_comment(&self, comment: &CommentInfo) -> bool {
-        // Common documentation comment patterns
+        // Use the language handler's determination if available
+        if comment.is_documentation {
+            return true;
+        }
+
+        // Fallback to pattern-based detection for backwards compatibility
         let doc_patterns = [
             "/**",
             "///",
@@ -237,6 +242,7 @@ mod tests {
             content: content.to_string(),
             node_type: node_type.to_string(),
             should_preserve: false,
+            is_documentation: false,
         }
     }
 
