@@ -20,6 +20,7 @@ struct RepoEntry {
 }
 
 #[test]
+#[ignore = "Network dependent test - run manually with --ignored"]
 fn integration_test_uncomment_on_real_repos() {
     let repos = read_repos_yaml("test-data/repos.yaml").expect("Failed to read repos.yaml");
     let work_dir = Path::new("tests/integration_test/repos_cache");
