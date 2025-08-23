@@ -60,6 +60,7 @@ impl Processor {
         &mut self,
         path: &Path,
         config_manager: &ConfigManager,
+        cli_overrides: Option<&ProcessingOptions>,
     ) -> Result<ProcessedFile> {
         // Read file content
         let content = std::fs::read_to_string(path)
@@ -76,42 +77,34 @@ impl Processor {
         let language_name = language_config.name.to_lowercase();
 
         // Get resolved configuration for this file with language-specific overrides
-        let resolved_config =
+        let mut resolved_config =
             config_manager.get_config_for_file_with_language(path, &language_name);
+
+        // Apply CLI overrides if provided
+        if let Some(overrides) = cli_overrides {
+            if overrides.remove_doc {
+                resolved_config.remove_docs = true;
+            }
+            if overrides.remove_todo {
+                resolved_config.remove_todos = true;
+            }
+            if overrides.remove_fixme {
+                resolved_config.remove_fixme = true;
+            }
+            // CLI patterns extend config patterns rather than replacing them
+            if !overrides.custom_preserve_patterns.is_empty() {
+                resolved_config
+                    .preserve_patterns
+                    .extend(overrides.custom_preserve_patterns.clone());
+            }
+            // Apply gitignore and traversal settings
+            resolved_config.respect_gitignore = overrides.respect_gitignore;
+            resolved_config.traverse_git_repos = overrides.traverse_git_repos;
+        }
 
         // Process the content
         let (processed_content, comments_removed) =
             self.process_content_with_config(&content, &language_config, &resolved_config)?;
-
-        Ok(ProcessedFile {
-            path: path.to_path_buf(),
-            original_content: content,
-            processed_content,
-            modified: false, // Will be set by the caller after comparison
-            comments_removed,
-        })
-    }
-
-    /// Process a single file (legacy method for backward compatibility)
-    pub fn process_file(
-        &mut self,
-        path: &Path,
-        options: &ProcessingOptions,
-    ) -> Result<ProcessedFile> {
-        // Read file content
-        let content = std::fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
-
-        // Get language configuration
-        let language_config = self
-            .registry
-            .detect_language(path)
-            .with_context(|| format!("Unsupported file type: {}", path.display()))?
-            .clone();
-
-        // Process the content
-        let (processed_content, comments_removed) =
-            self.process_content(&content, &language_config, options)?;
 
         Ok(ProcessedFile {
             path: path.to_path_buf(),
@@ -157,47 +150,6 @@ impl Processor {
 
         // Create preservation rules based on resolved config
         let preservation_rules = self.create_preservation_rules_from_config(resolved_config);
-
-        // Collect comments using the language-aware visitor
-        let mut visitor = CommentVisitor::new_with_language(
-            content,
-            &preservation_rules,
-            language_config.comment_types.clone(),
-            language_config.doc_comment_types.clone(),
-            language_config.name.clone(),
-        );
-        visitor.visit_node(tree.root_node());
-
-        let comments_to_remove = visitor.get_comments_to_remove();
-        let comments_removed = comments_to_remove.len();
-
-        // Generate output by removing comments
-        let output = self.remove_comments_from_content(content, &comments_to_remove);
-
-        Ok((output, comments_removed))
-    }
-
-    /// Process file content and return (processed_content, comments_removed_count)
-    fn process_content(
-        &mut self,
-        content: &str,
-        language_config: &crate::languages::config::LanguageConfig,
-        options: &ProcessingOptions,
-    ) -> Result<(String, usize)> {
-        // Set the parser language
-        let language = language_config.tree_sitter_language();
-        self.parser
-            .set_language(&language)
-            .context("Failed to set parser language")?;
-
-        // Parse the content
-        let tree = self
-            .parser
-            .parse(content, None)
-            .context("Failed to parse source code")?;
-
-        // Create preservation rules based on options
-        let preservation_rules = self.create_preservation_rules(options);
 
         // Collect comments using the language-aware visitor
         let mut visitor = CommentVisitor::new_with_language(
@@ -268,40 +220,6 @@ impl Processor {
             }
 
             rules.extend(comprehensive_rules);
-        }
-
-        rules
-    }
-
-    fn create_preservation_rules(&self, options: &ProcessingOptions) -> Vec<PreservationRule> {
-        let mut rules = Vec::new();
-
-        // Always preserve ~keep
-        rules.push(PreservationRule::pattern("~keep"));
-
-        // Preserve TODO/FIXME unless explicitly removed
-        if !options.remove_todo {
-            rules.push(PreservationRule::pattern("TODO"));
-            rules.push(PreservationRule::pattern("todo"));
-        }
-        if !options.remove_fixme {
-            rules.push(PreservationRule::pattern("FIXME"));
-            rules.push(PreservationRule::pattern("fixme"));
-        }
-
-        // Preserve documentation unless explicitly removed
-        if !options.remove_doc {
-            rules.push(PreservationRule::documentation());
-        }
-
-        // Add custom patterns
-        for pattern in &options.custom_preserve_patterns {
-            rules.push(PreservationRule::pattern(pattern));
-        }
-
-        // Add default ignores if enabled
-        if options.use_default_ignores {
-            rules.extend(PreservationRule::comprehensive_rules());
         }
 
         rules

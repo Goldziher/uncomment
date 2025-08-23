@@ -207,6 +207,12 @@ impl PreservationRule {
             Self::pattern("@Deprecated"),
             Self::pattern("@Generated"),
             Self::pattern("@SuppressFBWarnings"),
+            // HCL/Terraform security scanning tools
+            Self::pattern("trivy:ignore"),
+            Self::pattern("trivy ignore"),
+            Self::pattern("tfsec:ignore"),
+            Self::pattern("checkov:skip"),
+            Self::pattern("terrascan:skip"),
             Self::pattern("#pragma"),
             Self::pattern("NOLINT"),
             Self::pattern("NOLINTNEXTLINE"),
