@@ -96,7 +96,7 @@ fn main() -> Result<()> {
         let mut processor = processor::Processor::new_with_config(&config_manager);
 
         for file_path in files {
-            match processor.process_file_with_config(&file_path, &config_manager) {
+            match processor.process_file_with_config(&file_path, &config_manager, Some(&options)) {
                 Ok(mut processed_file) => {
                     processed_file.modified =
                         processed_file.original_content != processed_file.processed_content;
@@ -121,7 +121,7 @@ fn main() -> Result<()> {
             // Each thread gets its own processor
             let mut processor = processor::Processor::new_with_config(&config_manager);
 
-            match processor.process_file_with_config(file_path, &config_manager) {
+            match processor.process_file_with_config(file_path, &config_manager, Some(&options)) {
                 Ok(mut processed_file) => {
                     processed_file.modified =
                         processed_file.original_content != processed_file.processed_content;

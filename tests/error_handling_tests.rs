@@ -161,7 +161,7 @@ fn test_processor_unsupported_file_type_error() {
     let unsupported_file = temp_dir.path().join("test.unsupported");
     fs::write(&unsupported_file, "// Comment in unsupported file").unwrap();
 
-    let result = processor.process_file_with_config(&unsupported_file, &config_manager);
+    let result = processor.process_file_with_config(&unsupported_file, &config_manager, None);
     assert!(result.is_err());
 
     let error_msg = result.unwrap_err().to_string();
@@ -177,7 +177,7 @@ fn test_processor_nonexistent_file_error() {
 
     let nonexistent_file = temp_dir.path().join("nonexistent.rs");
 
-    let result = processor.process_file_with_config(&nonexistent_file, &config_manager);
+    let result = processor.process_file_with_config(&nonexistent_file, &config_manager, None);
     assert!(result.is_err());
 
     let error_msg = result.unwrap_err().to_string();
@@ -295,14 +295,14 @@ url = "https://invalid-url-that-does-not-exist.com/grammar.git"
     let rust_file = temp_dir.path().join("test.rs");
     fs::write(&rust_file, "// Comment\nfn main() {}").unwrap();
 
-    let rust_result = processor.process_file_with_config(&rust_file, &config_manager);
+    let rust_result = processor.process_file_with_config(&rust_file, &config_manager, None);
     assert!(rust_result.is_ok());
 
     // Test with invalid grammar language (Swift) - should fail gracefully
     let swift_file = temp_dir.path().join("test.swift");
     fs::write(&swift_file, "// Comment\nfunc main() {}").unwrap();
 
-    let swift_result = processor.process_file_with_config(&swift_file, &config_manager);
+    let swift_result = processor.process_file_with_config(&swift_file, &config_manager, None);
     assert!(swift_result.is_err());
 
     // Error should be descriptive and not cause panic

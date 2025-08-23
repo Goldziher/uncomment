@@ -193,7 +193,7 @@ end
     fs::write(&elixir_file, elixir_content).unwrap();
 
     // Processing should fail gracefully with appropriate error
-    let result = processor.process_file_with_config(&elixir_file, &config_manager);
+    let result = processor.process_file_with_config(&elixir_file, &config_manager, None);
     assert!(result.is_err());
 
     let error_msg = result.unwrap_err().to_string();

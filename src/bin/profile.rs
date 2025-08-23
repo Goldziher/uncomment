@@ -227,7 +227,8 @@ fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>, Box<dyn std::error::Err
 fn run_uncomment(files: &[PathBuf]) -> Result<Duration, Box<dyn std::error::Error>> {
     let start = Instant::now();
 
-    let mut processor = uncomment::processor::Processor::new();
+    let config_manager = uncomment::config::ConfigManager::new(std::env::current_dir()?)?;
+    let mut processor = uncomment::processor::Processor::new_with_config(&config_manager);
     let options = uncomment::processor::ProcessingOptions {
         remove_todo: false,
         remove_fixme: false,
@@ -240,7 +241,7 @@ fn run_uncomment(files: &[PathBuf]) -> Result<Duration, Box<dyn std::error::Erro
     };
 
     for file in files {
-        let _ = processor.process_file(file, &options);
+        let _ = processor.process_file_with_config(file, &config_manager, Some(&options));
     }
 
     Ok(start.elapsed())
@@ -249,7 +250,8 @@ fn run_uncomment(files: &[PathBuf]) -> Result<Duration, Box<dyn std::error::Erro
 fn run_uncomment_with_stats(
     files: &[PathBuf],
 ) -> Result<ProcessResult, Box<dyn std::error::Error>> {
-    let mut processor = uncomment::processor::Processor::new();
+    let config_manager = uncomment::config::ConfigManager::new(std::env::current_dir()?)?;
+    let mut processor = uncomment::processor::Processor::new_with_config(&config_manager);
     let options = uncomment::processor::ProcessingOptions {
         remove_todo: false,
         remove_fixme: false,
@@ -265,7 +267,9 @@ fn run_uncomment_with_stats(
     let mut total_comments = 0;
 
     for file in files {
-        if let Ok(result) = processor.process_file(file, &options) {
+        if let Ok(result) =
+            processor.process_file_with_config(file, &config_manager, Some(&options))
+        {
             if result.original_content != result.processed_content {
                 modified_files += 1;
                 total_comments += result.comments_removed;
