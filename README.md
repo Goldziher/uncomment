@@ -2,6 +2,14 @@
 
 A fast, accurate, and extensible comment removal tool that uses tree-sitter for parsing, ensuring 100% accuracy in comment identification. Originally created to clean up AI-generated code with excessive comments, it now supports any language with a tree-sitter grammar through its flexible configuration system.
 
+## Support This Project
+
+If you find uncomment helpful, please consider sponsoring the development:
+
+<a href="https://github.com/sponsors/Goldziher"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github-sponsors" alt="Sponsor on GitHub" height="32"></a>
+
+Your support helps maintain and improve this tool for the community! 🚀
+
 ## Features
 
 - **100% Accurate**: Uses tree-sitter AST parsing to correctly identify comments
