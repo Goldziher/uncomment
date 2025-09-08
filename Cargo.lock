@@ -925,9 +925,9 @@ checksum = "fcc842091f2def52017664b53082ecbbeb5c7731092bad69d2c63050401dfd64"
 
 [[package]]
 name = "tree-sitter"
-version = "0.25.8"
+version = "0.25.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d7b8994f367f16e6fa14b5aebbcb350de5d7cbea82dc5b00ae997dd71680dd2"
+checksum = "ccd2a058a86cfece0bf96f7cce1021efef9c8ed0e892ab74639173e5ed7a34fa"
 dependencies = [
  "cc",
  "regex",
@@ -969,9 +969,9 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-go"
-version = "0.23.4"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b13d476345220dbe600147dd444165c5791bf85ef53e28acbedd46112ee18431"
+checksum = "c8560a4d2f835cc0d4d2c2e03cbd0dde2f6114b43bc491164238d333e28b16ea"
 dependencies = [
  "cc",
  "tree-sitter-language",
@@ -999,9 +999,9 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-highlight"
-version = "0.25.8"
+version = "0.25.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bf7a0dfbd45d88e75c89da0d13fc46f477cc20ce15617b54ebf73978eb66aec"
+checksum = "c89fa29ef0aa9595898934922482181db525a45657ab5bb7d1127ffde1682826"
 dependencies = [
  "regex",
  "streaming-iterator",
@@ -1021,9 +1021,9 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-javascript"
-version = "0.23.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf40bf599e0416c16c125c3cec10ee5ddc7d1bb8b0c60fa5c4de249ad34dc1b1"
+checksum = "68204f2abc0627a90bdf06e605f5c470aa26fdcb2081ea553a04bdad756693f5"
 dependencies = [
  "cc",
  "tree-sitter-language",
@@ -1047,9 +1047,9 @@ checksum = "c4013970217383f67b18aef68f6fb2e8d409bc5755227092d32efb0422ba24b8"
 
 [[package]]
 name = "tree-sitter-loader"
-version = "0.25.8"
+version = "0.25.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f69d9e0c652b294a767036781fef16a286176de6e365c5b4c88a0f113884b22f"
+checksum = "b051e03b824264e7e8cdda746f09bff3ebe5dc644faa61c31608feedd65bea2d"
 dependencies = [
  "anyhow",
  "cc",
@@ -1112,9 +1112,9 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-tags"
-version = "0.25.8"
+version = "0.25.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f710be5c0fc54bfc57c5f5c964e029431963e724119641179e36b173ebc5546"
+checksum = "df564991260163d2c06e95ca1c6b5fa5bda96a83e7d4b1cfe6cb7171b6996954"
 dependencies = [
  "memchr",
  "regex",
