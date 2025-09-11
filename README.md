@@ -441,6 +441,43 @@ uncomment profile /path/to/repo
 
 The accuracy gained through AST parsing is worth the small performance cost, and parallel processing makes it suitable for even the largest codebases.
 
+## Development
+
+### Project Structure
+
+```
+uncomment/
+├── src/               # Source code
+├── tests/             # Integration tests
+├── fixtures/          # Test fixtures
+│   ├── languages/     # Language-specific test files
+│   └── repos/         # Repository test configurations
+├── bench/             # CLI benchmarking tool
+├── benchmarks/        # Rust micro-benchmarks
+├── test-repos/        # Manual testing scripts
+└── scripts/           # Build and release scripts
+```
+
+### Benchmarking
+
+The project includes two types of benchmarking tools:
+
+- **`bench/`**: Custom CLI benchmarking tool for testing real-world performance on large codebases. Use via `cargo run --release --bin benchmark`.
+- **`benchmarks/`**: Standard Rust micro-benchmarks for testing specific functions and components. Run with `cargo bench`.
+
+### Testing
+
+```bash
+# Run all tests
+cargo test
+
+# Run tests with output
+cargo test -- --nocapture
+
+# Run integration tests (including network-dependent)
+cargo test -- --ignored
+```
+
 ## License
 
 MIT
