@@ -22,7 +22,7 @@ struct RepoEntry {
 #[test]
 #[ignore = "Network dependent test - run manually with --ignored"]
 fn integration_test_uncomment_on_real_repos() {
-    let repos = read_repos_yaml("test-data/repos.yaml").expect("Failed to read repos.yaml");
+    let repos = read_repos_yaml("fixtures/repos/repos.yaml").expect("Failed to read repos.yaml");
     let work_dir = Path::new("tests/integration_test/repos_cache");
     fs::create_dir_all(work_dir).expect("Failed to create cache directory");
 
@@ -111,10 +111,10 @@ fn integration_test_uncomment_on_real_repos() {
         }
     }
 
-    // Write failing files to test-data/failing_files.txt (overwrite each run)
+    // Write failing files to fixtures/failing_files.txt (overwrite each run)
     if !failed_files.is_empty() {
         // File::create will overwrite the file if it exists
-        let mut file = std::fs::File::create("test-data/failing_files.txt")
+        let mut file = std::fs::File::create("fixtures/failing_files.txt")
             .expect("Could not create failing_files.txt");
         for f in &failed_files {
             writeln!(file, "{}", f).expect("Could not write to failing_files.txt");

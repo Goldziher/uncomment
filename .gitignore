@@ -53,3 +53,18 @@ doc/
 
 # Integration test repos cache directory
 tests/integration_test/repos_cache/
+
+# Test fixtures output
+fixtures/failing_files.txt
+
+# Benchmarking artifacts
+benchmarks/target/
+perf.data
+perf.data.old
+*.profdata
+*.profraw
+
+# Build artifacts
+*.so
+*.dylib
+*.dll

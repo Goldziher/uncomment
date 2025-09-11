@@ -1,139 +1,43 @@
-name: Release (Disabled - See release-homebrew.yml)
+name: Release
+
+permissions:
+  contents: write
 
 on:
-  # Temporarily disabled - using release-homebrew.yml instead
-  workflow_dispatch:
+  push:
+    tags:
+      - v[0-9]+.*
 
 jobs:
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/create-gh-release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-assets:
+    needs: create-release
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: uncomment
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact_name: uncomment
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: uncomment.exe
-          - os: windows-latest
-            target: i686-pc-windows-msvc
-            artifact_name: uncomment.exe
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: uncomment
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: uncomment
-
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v5
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          targets: ${{ matrix.target }}
-
-      - name: Install cross-compilation tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
-      - name: Configure cross-compilation
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          echo 'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc' >> $GITHUB_ENV
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: uncomment-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
-
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v5
-
-      - name: Create release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag=${GITHUB_REF#refs/tags/}
-
-          # Check if this is a pre-release
-          if [[ "$tag" == *"-rc."* ]]; then
-            prerelease_flag="--prerelease"
-            title_prefix="Release Candidate"
-          else
-            prerelease_flag=""
-            title_prefix="Release"
-          fi
-
-          # Create release
-          gh release create "$tag" \
-            $prerelease_flag \
-            --title "$title_prefix $tag" \
-            --notes "$(cat <<'EOF'
-          ## What's Changed
-
-          See the [CHANGELOG](https://github.com/Goldziher/uncomment/releases) for full details.
-
-          ## Installation
-
-          ### Rust/Cargo
-          \`\`\`bash
-          cargo install uncomment
-          \`\`\`
-
-          ### npm
-          \`\`\`bash
-          npm install -g uncomment
-          \`\`\`
-
-          ### pip
-          \`\`\`bash
-          pip install uncomment
-          \`\`\`
-
-          ### Direct Download
-          Download the appropriate binary for your platform below.
-          EOF
-          )"
-
-          # Upload binaries
-          for dir in uncomment-*/; do
-            target=$(basename "$dir" | sed 's/^uncomment-//')
-            binary=$(find "$dir" -type f -executable -o -name "*.exe" | head -1)
-            if [ -n "$binary" ]; then
-              if [[ "$binary" == *.exe ]]; then
-                gh release upload "$tag" "$binary#uncomment-${target}.exe"
-              else
-                gh release upload "$tag" "$binary#uncomment-${target}"
-              fi
-            fi
-          done
+          bin: uncomment
+          target: ${{ matrix.target }}
+          tar: unix
+          zip: windows
+          archive: uncomment-${{ matrix.target }}
+          token: ${{ secrets.GITHUB_TOKEN }}
