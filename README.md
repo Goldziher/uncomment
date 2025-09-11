@@ -197,44 +197,55 @@ uncomment profile /path/to/repo
 - FIXME comments (unless `--remove-fixme`)
 - Documentation comments (unless `--remove-doc`)
 
-### Language-Specific Preservation
+### Linting Tool Directives (Always Preserved)
 
-**Python:**
-
-- Type hints: `# type:`, `# mypy:`
-- Linting: `# noqa`, `# pylint:`, `# flake8:`, `# ruff:`
-- Formatting: `# fmt:`, `# isort:`
-- Other: `# pragma:`, `# NOTE:`
-
-**JavaScript/TypeScript:**
-
-- Type checking: `@flow`, `@ts-ignore`, `@ts-nocheck`
-- Linting: `eslint-disable`, `eslint-enable`, `biome-ignore`
-- Formatting: `prettier-ignore`
-- Coverage: `v8 ignore`, `c8 ignore`, `istanbul ignore`
-- Other: `@jsx`, `@license`, `@preserve`
-
-**Rust:**
-
-- Attributes and directives (preserved in comment form)
-- Doc comments `///` and `//!` (unless `--remove-doc`)
-- Clippy directives: `clippy::`
+The tool preserves all linting and formatting directives to ensure your CI/CD pipelines and development workflows remain intact:
 
 **Go:**
 
-- Documentation comments: `//` comments that immediately precede `package`, `func`, `type`, `const`, or `var` declarations (unless `--remove-doc`)
-- Regular comments: All other `//` and `/* */` comments are removed
-- Build constraints: `//go:build`, `//+build`
+- `//nolint`, `//nolint:gosec`, `//golangci-lint`, `//staticcheck`, `//go:generate`
 
-**Haskell:**
+**Python:**
 
-- Comments: `--`
-- Haddock: `-- |`, `{-^ ... -}`, `{-| ... -}` (unless `--remove-doc`)
+- `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`
+- `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# pyre-ignore`
 
-**YAML/HCL/Makefile:**
+**JavaScript/TypeScript:**
 
-- Standard comment removal while preserving file structure
-- Supports both `#` and `//` style comments in HCL/Terraform
+- ESLint: `eslint-disable`, `eslint-enable`, `eslint-disable-next-line`
+- TypeScript: `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `@ts-check`
+- Triple-slash: `/// <reference`, `/// <amd-module`, `/// <amd-dependency`
+- Formatters: `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`
+- Coverage: `v8 ignore`, `c8 ignore`, `istanbul ignore`
+
+**Rust:**
+
+- Attributes: `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`
+- Clippy: `clippy::`, `#[rustfmt::skip]`
+
+**Java:**
+
+- `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:`
+
+**C/C++:**
+
+- `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on`
+
+**Shell/Bash:**
+
+- `# shellcheck disable`, `# hadolint ignore`
+
+**YAML:**
+
+- `# yamllint disable/enable`
+
+**HCL/Terraform:**
+
+- `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore`
+
+**Ruby:**
+
+- `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable`
 
 ## Configuration
 
