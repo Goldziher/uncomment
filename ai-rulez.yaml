@@ -1,0 +1,252 @@
+$schema: https://github.com/Goldziher/ai-rulez/schema/ai-rules-v2.schema.json
+agents: []
+commands: []
+mcp_servers:
+    - args:
+        - -y
+        - ai-rulez@latest
+        - mcp
+      command: npx
+      description: AI-Rulez MCP server for configuration management
+      name: ai-rulez
+metadata:
+    description: Fast, accurate CLI tool that removes comments from source code using tree-sitter AST parsing
+    name: uncomment
+    version: 1.0.0
+presets:
+    - popular
+rules:
+    - content: Use Result<T, E> types for all fallible operations. Leverage anyhow for error propagation in application code and thiserror for library error types. Always provide context when returning errors using .context() or .with_context(). Never use unwrap() or expect() in production code paths - only in tests or when panic is truly the correct behavior.
+      name: Error Handling
+      priority: critical
+    - content: 'Write comprehensive tests for all new functionality. Place unit tests in the same file as the code using #[cfg(test)]. Integration tests go in tests/ directory. Test files must be in tests/fixtures/. Run cargo test before committing. Include edge cases: multi-byte UTF-8 handling, empty files, malformed input, and language-specific comment syntax variations.'
+      name: Testing
+      priority: critical
+    - content: All comment identification must use tree-sitter AST parsing - never regex. When adding language support, define comment_nodes in src/languages/registry.rs or configuration. Use the visitor pattern in src/ast/visitor.rs for traversal. Cache parsed trees when processing multiple operations on the same file. Handle tree-sitter query errors gracefully.
+      name: Tree-sitter AST Handling
+      priority: high
+    - content: 'Follow the TOML-based config hierarchy: CLI flags > .uncommentrc.toml (local) > ~/.config/uncomment/config.toml (global) > defaults. Use serde for serialization. When adding config options, update Config struct in src/config.rs, add to template methods (template(), smart_template(), comprehensive_template()), and document in examples/ directory.'
+      name: Configuration System
+      priority: high
+    - content: 'Register built-in grammars in src/grammar/mod.rs static_languages HashMap. For dynamic grammars, support three source types: git (clone and compile), local (from directory), and library (pre-compiled .so/.dylib). Cache compiled grammars in ~/.cache/uncomment/grammars/. Handle compilation failures gracefully with clear error messages. Never block on network requests without timeout.'
+      name: Grammar Management
+      priority: high
+    - content: 'Run cargo fmt before committing. Fix all cargo clippy warnings - aim for zero warnings. Use Rust idioms: prefer iter() over loops, use ? for error propagation, leverage pattern matching. Follow naming conventions: snake_case for functions/variables, PascalCase for types. Document public APIs with /// comments. Keep functions focused and under 50 lines when possible.'
+      name: Code Style and Linting
+      priority: medium
+    - content: Use parallel processing for multiple files but parse serially within each file. Cache language parsers in GrammarManager to avoid reinitialization. Be mindful that tree-sitter parsing takes ~20-30ms per small file vs instant regex - prioritize accuracy over speed. Use benchmarks/performance.rs and cargo bench to measure changes. Profile with bin/profile.rs before optimizing.
+      name: Performance Considerations
+      priority: medium
+sections:
+    - content: |-
+        ## Development Setup
+
+        ### Prerequisites
+        - Rust 1.70+ (verify with `rustc --version`)
+        - Cargo (included with Rust)
+
+        ### Initial Setup
+        ```bash
+        # Clone and build
+        git clone https://github.com/Goldziher/uncomment.git
+        cd uncomment
+        cargo build --release
+
+        # Run the tool locally
+        cargo run -- --help
+        ```
+
+        ### Testing Workflow
+        ```bash
+        # Run all unit and integration tests
+        cargo test
+
+        # Run with verbose output
+        cargo test -- --nocapture
+
+        # Run network-dependent tests (grammar loading, etc.)
+        cargo test -- --ignored
+
+        # Run specific test file
+        cargo test --test integration_tests
+
+        # Test on actual files
+        cargo run -- fixtures/languages/test.py --dry-run
+        ```
+
+        ### Code Quality
+        ```bash
+        # Lint code (required before commits)
+        cargo clippy
+
+        # Format code
+        cargo fmt
+
+        # Run benchmarks
+        cargo bench
+
+        # Profile performance on real codebases
+        cargo run --release --bin profile /path/to/repo
+        ```
+
+        ### Project Structure
+        - `src/ast/` - AST visitor pattern for comment detection
+        - `src/grammar/` - Tree-sitter grammar loading (static + dynamic)
+        - `src/languages/` - Language registry and configuration
+        - `src/rules/` - Comment preservation rules
+        - `src/config.rs` - TOML configuration system
+        - `src/processor.rs` - Main file processing logic
+        - `fixtures/languages/` - Test files for each language
+        - `tests/` - Integration tests
+      name: Development Setup & Testing
+      priority: high
+    - content: |-
+        ## Adding New Language Support
+
+        ### Option 1: Via Configuration (Recommended)
+
+        Create `.uncommentrc.toml` in your project:
+
+        ```toml
+        # Add Swift support via Git
+        [languages.swift]
+        name = "Swift"
+        extensions = ["swift"]
+        comment_nodes = ["comment", "multiline_comment"]
+        preserve_patterns = ["MARK:", "swiftlint:"]
+
+        [languages.swift.grammar]
+        source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
+        ```
+
+        Grammar sources:
+        - **Git**: `{ type = "git", url = "...", branch = "main" }` - Clones and compiles
+        - **Local**: `{ type = "local", path = "/path/to/grammar" }` - Uses local directory
+        - **Library**: `{ type = "library", path = "/path/to/libtree-sitter-lang.so" }` - Pre-compiled
+
+        Grammars are cached in `~/.cache/uncomment/grammars/`
+
+        ### Option 2: Built-in Support
+
+        For core languages to be included in releases:
+
+        **1. Add dependency to `Cargo.toml`:**
+        ```toml
+        [dependencies]
+        tree-sitter-swift = "0.3"
+        ```
+
+        **2. Register in `src/grammar/mod.rs`:**
+        ```rust
+        use tree_sitter_swift;
+
+        pub fn static_languages() -> HashMap<&'static str, Language> {
+            let mut langs = HashMap::new();
+            // ... existing languages ...
+            langs.insert("swift", tree_sitter_swift::language());
+            langs
+        }
+        ```
+
+        **3. Configure in `src/languages/registry.rs`:**
+        ```rust
+        LanguageConfig {
+            name: "Swift",
+            extensions: vec!["swift"],
+            comment_nodes: vec!["comment", "multiline_comment"],
+            preserve_patterns: vec!["MARK:", "swiftlint:"],
+            grammar_source: GrammarSource::Static,
+        }
+        ```
+
+        **4. Add test fixture:**
+        - Create `fixtures/languages/test.swift` with sample comments
+        - Add test in `tests/integration_tests.rs`
+
+        ### Finding Comment Node Names
+
+        ```bash
+        # Use tree-sitter CLI to inspect AST
+        tree-sitter parse file.swift
+        # Look for nodes like: comment, line_comment, block_comment
+        ```
+
+        See `examples/custom_languages.toml` for more configuration examples.
+      name: Adding Language Support
+      priority: medium
+    - content: |-
+        ## Release Process
+
+        ### Version Update Checklist
+
+        1. **Update version numbers:**
+           - `Cargo.toml` - Main version (e.g., `2.5.1`)
+           - `npm-package/package.json` - npm version (e.g., `2.5.1`)
+           - `pip-package/pyproject.toml` - PyPI version (e.g., `2.5.1`)
+           - `pip-package/uncomment/__init__.py` - Python module version
+
+        2. **Commit and tag:**
+        ```bash
+        git add Cargo.toml npm-package/package.json pip-package/
+        git commit -m "chore: bump version to 2.5.1"
+        git tag v2.5.1
+        git push origin main
+        git push origin v2.5.1
+        ```
+
+        3. **Automated workflows trigger:**
+           - `.github/workflows/release-homebrew.yml` builds binaries for all platforms
+           - Creates GitHub Release with binaries attached
+           - Updates Homebrew formula automatically via `HOMEBREW_TOKEN`
+
+        ### Distribution Channels
+
+        **Homebrew (Primary):**
+        ```bash
+        brew tap goldziher/tap
+        brew install uncomment
+        ```
+        - Builds from source with Rust dependency
+        - Formula: `homebrew-tap/Formula/uncomment.rb`
+        - Auto-updated via `mislav/bump-homebrew-formula-action`
+
+        **Cargo:**
+        ```bash
+        cargo install uncomment
+        ```
+        - Published to crates.io manually: `cargo publish`
+
+        **npm (package: uncomment-cli):**
+        ```bash
+        npm install -g uncomment-cli
+        ```
+        - Binary wrapper downloads from GitHub Releases
+        - Install script: `npm-package/install.js`
+
+        **PyPI (package: uncomment):**
+        ```bash
+        pip install uncomment
+        ```
+        - Binary wrapper with `pip-package/uncomment/downloader.py`
+        - Build: `python -m build` in `pip-package/`
+
+        ### Testing Releases
+
+        ```bash
+        # Test RC releases
+        git tag v2.5.1-rc.1
+        git push origin v2.5.1-rc.1
+
+        # Delete failed tags
+        git tag -d v2.5.1-rc.1
+        git push origin :refs/tags/v2.5.1-rc.1
+
+        # Verify published packages
+        npm view uncomment-cli
+        cargo search uncomment
+        pip index versions uncomment
+        ```
+
+        **Note:** PyPI uses `2.5.1rc1` format (no hyphens), while npm/Cargo use `2.5.1-rc.1`
+      name: Release & Distribution
+      priority: medium
