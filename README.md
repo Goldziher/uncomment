@@ -98,6 +98,17 @@ cargo install --path .
 
 ## Quick Start
 
+### Run Without Installing
+
+```bash
+npx -y uncomment-cli@latest .
+uvx uncomment .
+```
+
+Add `--dry-run` to either command to preview changes before writing.
+
+### Install Locally
+
 ```bash
 # Generate a configuration file for your project
 uncomment init
@@ -195,6 +206,10 @@ The crate ships development binaries for benchmarking and profiling, but they ar
   cargo run --release --features bench-tools --bin benchmark -- --target /path/to/repo --iterations 3
   cargo run --release --features bench-tools --bin profile -- /path/to/repo
   ```
+
+## Contributing
+
+See `CONTRIBUTING.md` for local development, automation hooks, and release procedures.
 
 ## Default Preservation Rules
 
