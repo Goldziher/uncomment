@@ -85,8 +85,8 @@ sections:
         # Run benchmarks
         cargo bench
 
-        # Profile performance on real codebases
-        cargo run --release --bin profile /path/to/repo
+        # Profile performance on real codebases (enable optional tools)
+        cargo run --release --features bench-tools --bin profile -- /path/to/repo
         ```
 
         ### Project Structure
