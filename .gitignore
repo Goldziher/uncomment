@@ -68,3 +68,14 @@ perf.data.old
 *.so
 *.dylib
 *.dll
+
+# AI Rules generated files
+.claude/agents/
+.cursor/rules/
+.gemini/settings.json
+.github/copilot-instructions.md
+.mcp.json
+.windsurf/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
