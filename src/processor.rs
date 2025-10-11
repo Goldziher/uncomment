@@ -265,6 +265,19 @@ impl Processor {
             let line_start_char = byte_to_char(line_start);
             let line_end_char = byte_to_char(line_end);
 
+            // Validate bounds before attempting to slice
+            if start_char >= chars.len()
+                || end_char > chars.len()
+                || start_char > end_char
+                || line_start_char >= chars.len()
+                || line_end_char > chars.len()
+                || line_start_char > line_end_char
+            {
+                // Skip this comment if indices are out of bounds
+                // This can happen when previous removals affected the indices
+                continue;
+            }
+
             // Get the line text
             let line_text: String = chars[line_start_char..line_end_char].iter().collect();
             let comment_text: String = chars[start_char..end_char].iter().collect();
@@ -273,17 +286,10 @@ impl Processor {
             let line_without_comment = line_text.replace(&comment_text, "");
             if line_without_comment.trim().is_empty() {
                 // Remove the entire line (including newline)
-                if line_start_char < chars.len()
-                    && line_end_char <= chars.len()
-                    && line_start_char <= line_end_char
-                {
-                    chars.drain(line_start_char..line_end_char);
-                }
+                chars.drain(line_start_char..line_end_char);
             } else {
                 // Only remove the comment text, leave the rest of the line intact
-                if start_char < chars.len() && end_char <= chars.len() && start_char <= end_char {
-                    chars.drain(start_char..end_char);
-                }
+                chars.drain(start_char..end_char);
             }
         }
 
