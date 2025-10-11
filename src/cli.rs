@@ -18,25 +18,25 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Initialize a configuration file in the current directory
+    /// ~keep Initialize a configuration file in the current directory
     #[command(about = "Create a template configuration file")]
     Init {
-        /// Output file name
+        /// ~keep Output file name
         #[arg(short, long, default_value = ".uncommentrc.toml")]
         output: PathBuf,
 
-        /// Overwrite existing file
+        /// ~keep Overwrite existing file
         #[arg(short, long)]
         force: bool,
 
-        /// Generate configuration for all supported languages
+        /// ~keep Generate configuration for all supported languages
         #[arg(
             long,
             help = "Generate comprehensive config with all supported languages"
         )]
         comprehensive: bool,
 
-        /// Interactive mode to select languages
+        /// ~keep Interactive mode to select languages
         #[arg(short, long, help = "Interactive mode to select languages and options")]
         interactive: bool,
     },
@@ -44,19 +44,19 @@ pub enum Commands {
 
 #[derive(Parser, Debug)]
 pub struct ProcessArgs {
-    /// Files or directories to process (supports glob patterns)
+    /// ~keep Files or directories to process (supports glob patterns)
     #[arg(help = "Files, directories, or glob patterns to process")]
     pub paths: Vec<String>,
 
-    /// Remove TODO comments (normally preserved)
+    /// ~keep Remove TODO comments (normally preserved)
     #[arg(short = 'r', long, help = "Remove TODO comments (normally preserved)")]
     pub remove_todo: bool,
 
-    /// Remove FIXME comments (normally preserved)
+    /// ~keep Remove FIXME comments (normally preserved)
     #[arg(short = 'f', long, help = "Remove FIXME comments (normally preserved)")]
     pub remove_fixme: bool,
 
-    /// Remove documentation comments (normally preserved)
+    /// ~keep Remove documentation comments (normally preserved)
     #[arg(
         short = 'd',
         long,
@@ -64,7 +64,7 @@ pub struct ProcessArgs {
     )]
     pub remove_doc: bool,
 
-    /// Additional patterns to preserve (beyond defaults)
+    /// ~keep Additional patterns to preserve (beyond defaults)
     #[arg(
         short = 'i',
         long = "ignore",
@@ -72,33 +72,33 @@ pub struct ProcessArgs {
     )]
     pub ignore_patterns: Vec<String>,
 
-    /// Disable automatic preservation of linting directives
+    /// ~keep Disable automatic preservation of linting directives
     #[arg(
         long = "no-default-ignores",
         help = "Disable built-in preservation patterns (ESLint, Clippy, etc.)"
     )]
     pub no_default_ignores: bool,
 
-    /// Show what would be changed without modifying files
+    /// ~keep Show what would be changed without modifying files
     #[arg(short = 'n', long, help = "Show changes without modifying files")]
     pub dry_run: bool,
 
-    /// Show detailed processing information
+    /// ~keep Show detailed processing information
     #[arg(short = 'v', long, help = "Show detailed processing information")]
     pub verbose: bool,
 
-    /// Ignore .gitignore rules when finding files
+    /// ~keep Ignore .gitignore rules when finding files
     #[arg(long = "no-gitignore", help = "Process files ignored by .gitignore")]
     pub no_gitignore: bool,
 
-    /// Process files in nested git repositories
+    /// ~keep Process files in nested git repositories
     #[arg(
         long = "traverse-git-repos",
         help = "Traverse into other git repositories (useful for monorepos)"
     )]
     pub traverse_git_repos: bool,
 
-    /// Number of parallel threads (0 = number of CPU cores)
+    /// ~keep Number of parallel threads (0 = number of CPU cores)
     #[arg(
         short = 'j',
         long = "threads",
@@ -107,7 +107,7 @@ pub struct ProcessArgs {
     )]
     pub threads: usize,
 
-    /// Path to configuration file
+    /// ~keep Path to configuration file
     #[arg(
         short = 'c',
         long = "config",
@@ -132,7 +132,7 @@ impl ProcessArgs {
 }
 
 impl Cli {
-    /// Handle the init command
+    /// ~keep Handle the init command
     pub fn handle_init_command(
         output: &PathBuf,
         force: bool,

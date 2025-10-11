@@ -46,15 +46,12 @@ impl LanguageRegistry {
         let name = config.name.clone();
         let name_lower = name.to_lowercase();
 
-        // Map all extensions to this language (use lowercase name)
         for extension in &config.extensions {
-            // Normalize extension: remove leading dots and convert to lowercase
             let normalized_ext = extension.trim_start_matches('.').to_lowercase();
             self.extension_map
                 .insert(normalized_ext, name_lower.clone());
         }
 
-        // Store language with lowercase name for consistency
         self.languages.insert(name_lower, config);
     }
 
@@ -65,13 +62,11 @@ impl LanguageRegistry {
     pub fn detect_language(&self, file_path: &Path) -> Option<&LanguageConfig> {
         let file_name = file_path.file_name()?.to_str()?;
 
-        // Special handling for files without extensions
         match file_name {
             "Makefile" | "makefile" | "GNUmakefile" => return self.languages.get("make"),
             _ => {}
         }
 
-        // Special handling for .d.ts files
         if file_name.ends_with(".d.ts")
             || file_name.ends_with(".d.mts")
             || file_name.ends_with(".d.cts")
@@ -79,7 +74,6 @@ impl LanguageRegistry {
             return self.languages.get("typescript");
         }
 
-        // Special handling for .bashrc, bashrc, .zshrc, zshrc, etc files.
         match file_name {
             "bashrc" | ".bashrc" | "zshrc" | ".zshrc" | "zshenv" | ".zshenv" => {
                 return self.languages.get("shell")
@@ -93,7 +87,6 @@ impl LanguageRegistry {
     }
 
     pub fn detect_language_by_extension(&self, extension: &str) -> Option<&LanguageConfig> {
-        // Normalize extension: remove leading dots and convert to lowercase
         let normalized_ext = extension.trim_start_matches('.').to_lowercase();
         let language_name = self.extension_map.get(&normalized_ext)?;
         self.languages.get(language_name)
@@ -130,27 +123,22 @@ impl LanguageRegistry {
         self.languages.iter()
     }
 
-    /// Register configured languages from a configuration manager
     pub fn register_configured_languages(
         &mut self,
         config_languages: &std::collections::HashMap<String, crate::config::LanguageConfig>,
     ) {
         for config in config_languages.values() {
-            // Check if this is overriding a built-in language
             let name_lower = config.name.to_lowercase();
             if let Some(existing_config) = self.languages.get(&name_lower).cloned() {
-                // Update the existing language config with the new settings
                 let updated_config = LanguageConfig {
                     name: config.name.clone(),
                     extensions: config.extensions.clone(),
                     comment_types: config.comment_nodes.clone(),
                     doc_comment_types: config.doc_comment_nodes.clone(),
-                    tree_sitter_lang: existing_config.tree_sitter_lang, // Keep the existing parser
+                    tree_sitter_lang: existing_config.tree_sitter_lang,
                 };
                 self.register_language(updated_config);
             } else {
-                // This is a new language, use a placeholder tree-sitter language
-                // Dynamic languages will be loaded via GrammarManager
                 let language_config = LanguageConfig {
                     name: config.name.clone(),
                     extensions: config.extensions.clone(),
@@ -158,7 +146,7 @@ impl LanguageRegistry {
                     doc_comment_types: config.doc_comment_nodes.clone(),
                     tree_sitter_lang: || unsafe {
                         tree_sitter::Language::from_raw(std::ptr::null())
-                    }, // Placeholder
+                    },
                 };
                 self.register_language(language_config);
             }
@@ -309,13 +297,12 @@ mod tests {
         let mut registry = LanguageRegistry::new();
         let initial_count = registry.languages.len();
 
-        // Create a custom language config
         let custom_config = LanguageConfig::new(
             "custom",
             vec!["cst"],
             vec!["comment"],
             vec!["doc_comment"],
-            || tree_sitter_rust::LANGUAGE.into(), // Just use rust parser for testing
+            || tree_sitter_rust::LANGUAGE.into(),
         );
 
         registry.register_language(custom_config);

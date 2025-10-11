@@ -40,11 +40,9 @@ impl Processor {
         }
     }
 
-    /// Create a new processor with configured languages from a configuration manager
     pub fn new_with_config(config_manager: &ConfigManager) -> Self {
         let mut registry = LanguageRegistry::new();
 
-        // Register configured languages
         let all_languages = config_manager.get_all_languages();
         registry.register_configured_languages(&all_languages);
 
@@ -55,32 +53,26 @@ impl Processor {
         }
     }
 
-    /// Process a single file with configuration manager
     pub fn process_file_with_config(
         &mut self,
         path: &Path,
         config_manager: &ConfigManager,
         cli_overrides: Option<&ProcessingOptions>,
     ) -> Result<ProcessedFile> {
-        // Read file content
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
-        // Get language configuration first
         let language_config = self
             .registry
             .detect_language(path)
             .with_context(|| format!("Unsupported file type: {}", path.display()))?
             .clone();
 
-        // Get the language name for configuration lookup
         let language_name = language_config.name.to_lowercase();
 
-        // Get resolved configuration for this file with language-specific overrides
         let mut resolved_config =
             config_manager.get_config_for_file_with_language(path, &language_name);
 
-        // Apply CLI overrides if provided
         if let Some(overrides) = cli_overrides {
             if overrides.remove_doc {
                 resolved_config.remove_docs = true;
@@ -91,18 +83,15 @@ impl Processor {
             if overrides.remove_fixme {
                 resolved_config.remove_fixme = true;
             }
-            // CLI patterns extend config patterns rather than replacing them
             if !overrides.custom_preserve_patterns.is_empty() {
                 resolved_config
                     .preserve_patterns
                     .extend(overrides.custom_preserve_patterns.clone());
             }
-            // Apply gitignore and traversal settings
             resolved_config.respect_gitignore = overrides.respect_gitignore;
             resolved_config.traverse_git_repos = overrides.traverse_git_repos;
         }
 
-        // Process the content
         let (processed_content, comments_removed) =
             self.process_content_with_config(&content, &language_config, &resolved_config)?;
 
@@ -110,21 +99,18 @@ impl Processor {
             path: path.to_path_buf(),
             original_content: content,
             processed_content,
-            modified: false, // Will be set by the caller after comparison
+            modified: false,
             comments_removed,
         })
     }
 
-    /// Process file content with resolved configuration
     fn process_content_with_config(
         &mut self,
         content: &str,
         language_config: &crate::languages::config::LanguageConfig,
         resolved_config: &ResolvedConfig,
     ) -> Result<(String, usize)> {
-        // Determine which language to use - dynamic or static
         let language = if let Some(grammar_config) = &resolved_config.grammar_config {
-            // Use dynamic grammar loading
             self.grammar_manager
                 .get_language(&language_config.name, grammar_config)
                 .with_context(|| {
@@ -134,7 +120,6 @@ impl Processor {
                     )
                 })?
         } else {
-            // Use static built-in language
             language_config.tree_sitter_language()
         };
 
@@ -142,16 +127,13 @@ impl Processor {
             .set_language(&language)
             .context("Failed to set parser language")?;
 
-        // Parse the content
         let tree = self
             .parser
             .parse(content, None)
             .context("Failed to parse source code")?;
 
-        // Create preservation rules based on resolved config
         let preservation_rules = self.create_preservation_rules_from_config(resolved_config);
 
-        // Collect comments using the language-aware visitor
         let mut visitor = CommentVisitor::new_with_language(
             content,
             &preservation_rules,
@@ -164,7 +146,6 @@ impl Processor {
         let comments_to_remove = visitor.get_comments_to_remove();
         let comments_removed = comments_to_remove.len();
 
-        // Generate output by removing comments
         let output = self.remove_comments_from_content(content, &comments_to_remove);
 
         Ok((output, comments_removed))
@@ -189,17 +170,14 @@ impl Processor {
             rules.push(PreservationRule::pattern("fixme"));
         }
 
-        // Preserve documentation unless explicitly removed
         if !config.remove_docs {
             rules.push(PreservationRule::documentation());
         }
 
-        // Add configured patterns
         for pattern in &config.preserve_patterns {
             rules.push(PreservationRule::pattern(pattern));
         }
 
-        // Add default ignores if enabled
         if config.use_default_ignores {
             let mut comprehensive_rules = PreservationRule::comprehensive_rules();
 
@@ -214,7 +192,6 @@ impl Processor {
                 });
             }
 
-            // Remove documentation rules if docs should be removed
             if config.remove_docs {
                 comprehensive_rules.retain(|rule| !matches!(rule, PreservationRule::Documentation));
             }
@@ -246,7 +223,8 @@ impl Processor {
         let mut filtered: Vec<CommentInfo> = Vec::new();
         for comment in deduped {
             if let Some(previous) = filtered.last() {
-                if comment.start_byte >= previous.start_byte && comment.end_byte <= previous.end_byte
+                if comment.start_byte >= previous.start_byte
+                    && comment.end_byte <= previous.end_byte
                 {
                     continue;
                 }
@@ -305,7 +283,6 @@ pub struct ProcessedFile {
     pub comments_removed: usize,
 }
 
-// Simple output writer
 pub struct OutputWriter {
     dry_run: bool,
     verbose: bool,

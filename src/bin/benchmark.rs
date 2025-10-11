@@ -12,31 +12,24 @@ mod bench {
     about = "Benchmark tool for testing uncomment performance on large codebases"
 )]
 struct BenchmarkCli {
-    /// Path to the uncomment binary to test
     #[arg(short, long, default_value = "./target/release/uncomment")]
     uncomment_binary: PathBuf,
 
-    /// Target directory to process
     #[arg(short, long)]
     target: PathBuf,
 
-    /// Sample size (limit number of files for quick testing)
     #[arg(short, long)]
     sample_size: Option<usize>,
 
-    /// Run multiple iterations for averaging
     #[arg(short, long, default_value = "1")]
     iterations: usize,
 
-    /// Test only specific language files
     #[arg(short, long)]
     language: Option<String>,
 
-    /// Enable memory profiling (requires additional tools)
     #[arg(short, long)]
     memory_profile: bool,
 
-    /// Number of threads for parallel processing (0 = auto)
     #[arg(short = 'j', long, default_value = "1")]
     threads: usize,
 }
@@ -44,7 +37,6 @@ struct BenchmarkCli {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = BenchmarkCli::parse();
 
-    // Validate inputs
     if !cli.uncomment_binary.exists() {
         eprintln!(
             "❌ Uncomment binary not found: {}",
@@ -75,7 +67,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut results = Vec::new();
     let overall_start = Instant::now();
 
-    // Run benchmark iterations
     for iteration in 1..=cli.iterations {
         println!("\n🏃 Running iteration {}/{}...", iteration, cli.iterations);
 
@@ -92,7 +83,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let total_duration = overall_start.elapsed();
 
-    // Print aggregate results if multiple iterations
     if cli.iterations > 1 {
         println!("\n📊 AGGREGATE RESULTS ({} iterations)", cli.iterations);
         println!("=====================================");
@@ -109,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let avg_comments_per_sec =
             results.iter().map(|r| r.comments_per_second).sum::<f64>() / results.len() as f64;
 
-        let total_files = results[0].total_files; // Should be same across iterations
+        let total_files = results[0].total_files;
         let total_comments = results
             .iter()
             .map(|r| r.total_comments_removed)
@@ -122,7 +112,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("📂 Total files: {total_files}");
         println!("🗑️  Avg comments removed: {total_comments}");
 
-        // Calculate consistency
         let durations: Vec<f64> = results.iter().map(|r| r.duration.as_secs_f64()).collect();
         let min_duration = durations.iter().fold(f64::INFINITY, |a, &b| a.min(b));
         let max_duration = durations.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
@@ -135,7 +124,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    // Performance analysis and recommendations
     println!("\n🔍 PERFORMANCE ANALYSIS");
     println!("=======================");
 
@@ -166,7 +154,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("🎉 Performance is already optimized!");
     }
 
-    // Estimate processing time for the full Armis codebase
     if cli.sample_size.is_some() {
         let estimated_full_time = 850_000.0 / last_result.files_per_second;
         println!("\n📊 FULL CODEBASE ESTIMATE");
@@ -177,7 +164,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         if estimated_full_time > 300.0 {
-            // > 5 minutes
             println!("⚠️  Consider optimization for large-scale usage");
         }
     }

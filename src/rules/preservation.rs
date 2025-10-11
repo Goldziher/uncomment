@@ -2,11 +2,8 @@ use crate::ast::visitor::CommentInfo;
 
 #[derive(Debug, Clone)]
 pub enum PreservationRule {
-    /// Preserve comments containing a specific pattern
     Pattern(String),
-    /// Preserve documentation comments
     Documentation,
-    /// Preserve comments at the beginning of files (headers)
     FileHeader,
 }
 
@@ -19,7 +16,6 @@ impl PreservationRule {
         }
     }
 
-    /// Check if this rule is a pattern rule that matches the given pattern
     pub fn pattern_matches(&self, pattern: &str) -> bool {
         match self {
             PreservationRule::Pattern(rule_pattern) => rule_pattern == pattern,
@@ -28,25 +24,22 @@ impl PreservationRule {
     }
 
     fn is_documentation_comment(&self, comment: &CommentInfo) -> bool {
-        // Use the language handler's determination if available
         if comment.is_documentation {
             return true;
         }
 
-        // Fallback to pattern-based detection for backwards compatibility
         let doc_patterns = [
             "/**",
             "///",
             "//!",
             "##",
-            "\"\"\"", // Common doc comment starters
+            "\"\"\"",
             "doc_comment",
             "documentation_comment",
             "inner_doc_comment",
             "outer_doc_comment",
         ];
 
-        // Check node type
         if doc_patterns
             .iter()
             .any(|&pattern| comment.node_type.contains(pattern))
@@ -54,7 +47,6 @@ impl PreservationRule {
             return true;
         }
 
-        // Special handling for Python docstrings (string nodes that start with triple quotes)
         if comment.node_type == "string" {
             let content = comment.content.trim();
             if content.starts_with("\"\"\"") || content.starts_with("'''") {
@@ -62,7 +54,6 @@ impl PreservationRule {
             }
         }
 
-        // Check content patterns
         let content = comment.content.trim();
         doc_patterns
             .iter()
@@ -70,7 +61,6 @@ impl PreservationRule {
     }
 
     fn is_file_header_comment(&self, comment: &CommentInfo) -> bool {
-        // Consider comments at the beginning of the file (first few lines) as headers
         comment.start_row < 10 && self.looks_like_header(&comment.content)
     }
 
@@ -92,7 +82,7 @@ impl PreservationRule {
             "@license",
             "===",
             "---",
-            "***", // Common header decorations
+            "***",
         ];
 
         let lower_content = content.to_lowercase();
@@ -101,25 +91,20 @@ impl PreservationRule {
             .any(|&indicator| lower_content.contains(indicator))
     }
 
-    /// Create a pattern-based preservation rule
     pub fn pattern(pattern: &str) -> Self {
         PreservationRule::Pattern(pattern.to_string())
     }
 
-    /// Create a documentation preservation rule
     pub fn documentation() -> Self {
         PreservationRule::Documentation
     }
 
-    /// Create a file header preservation rule
     pub fn file_header() -> Self {
         PreservationRule::FileHeader
     }
 }
 
-// Common preservation rule presets
 impl PreservationRule {
-    /// Get default preservation rules for most projects
     pub fn default_rules() -> Vec<Self> {
         vec![
             Self::pattern("TODO"),
@@ -131,7 +116,6 @@ impl PreservationRule {
             Self::pattern("LICENSE"),
             Self::documentation(),
             Self::file_header(),
-            // Common linting tool directives that should always be preserved
             Self::pattern("eslint-disable"),
             Self::pattern("prettier-ignore"),
             Self::pattern("//nolint"),
@@ -145,7 +129,6 @@ impl PreservationRule {
         ]
     }
 
-    /// Get comprehensive preservation rules
     pub fn comprehensive_rules() -> Vec<Self> {
         let mut rules = Self::default_rules();
         rules.extend(vec![
@@ -155,35 +138,26 @@ impl PreservationRule {
             Self::pattern("PERFORMANCE"),
             Self::pattern("SECURITY"),
             Self::pattern("DEPRECATED"),
-            // JavaScript/TypeScript linting and tooling
-            // ESLint directives
             Self::pattern("eslint-disable"),
             Self::pattern("eslint-enable"),
             Self::pattern("eslint-disable-next-line"),
             Self::pattern("eslint-disable-line"),
             Self::pattern("eslint-env"),
             Self::pattern("eslint:"),
-            // Biome directives
             Self::pattern("biome-ignore"),
             Self::pattern("biome:"),
-            // Oxlint directives
             Self::pattern("oxlint-ignore"),
             Self::pattern("oxlint-disable"),
-            // Deno directives
             Self::pattern("deno-lint-ignore"),
             Self::pattern("deno-fmt-ignore"),
-            // TypeScript directives
             Self::pattern("@ts-expect-error"),
             Self::pattern("@ts-ignore"),
             Self::pattern("@ts-nocheck"),
             Self::pattern("@ts-check"),
-            // TypeScript triple-slash directives
             Self::pattern("/// <reference"),
             Self::pattern("/// <amd-module"),
             Self::pattern("/// <amd-dependency"),
-            // Prettier directives
             Self::pattern("prettier-ignore"),
-            // Coverage ignore patterns
             Self::pattern("v8 ignore"),
             Self::pattern("c8 ignore"),
             Self::pattern("istanbul ignore"),
@@ -193,7 +167,6 @@ impl PreservationRule {
             Self::pattern("vite:"),
             Self::pattern("rollup:"),
             Self::pattern("esbuild:"),
-            // Python linting and tooling
             Self::pattern("type: ignore"),
             Self::pattern("type:ignore"),
             Self::pattern("mypy:"),
@@ -216,7 +189,6 @@ impl PreservationRule {
             Self::pattern("isort:"),
             Self::pattern("pyre-ignore"),
             Self::pattern("pyre-fixme"),
-            // Rust directives
             Self::pattern("#["),
             Self::pattern("allow("),
             Self::pattern("deny("),
@@ -229,7 +201,6 @@ impl PreservationRule {
             Self::pattern("rustfmt::"),
             Self::pattern("#[rustfmt"),
             Self::pattern("#![rustfmt"),
-            // Go directives
             Self::pattern("//go:"),
             Self::pattern("nolint"),
             Self::pattern("//nolint"),
@@ -240,14 +211,12 @@ impl PreservationRule {
             Self::pattern("staticcheck:"),
             Self::pattern("exhaustive:"),
             Self::pattern("govet:"),
-            // Ruby directives
             Self::pattern("rubocop:"),
             Self::pattern("rubocop:disable"),
             Self::pattern("rubocop:enable"),
             Self::pattern("reek:"),
             Self::pattern("standard:disable"),
             Self::pattern("standard:enable"),
-            // Java/C/C++ annotations and directives
             Self::pattern("@Override"),
             Self::pattern("@SuppressWarnings"),
             Self::pattern("@Deprecated"),
@@ -257,7 +226,6 @@ impl PreservationRule {
             Self::pattern("//noinspection"),
             Self::pattern("// noinspection"),
             Self::pattern("spotbugs:"),
-            // HCL/Terraform security scanning tools
             Self::pattern("trivy:ignore"),
             Self::pattern("trivy ignore"),
             Self::pattern("tfsec:ignore"),
@@ -266,7 +234,6 @@ impl PreservationRule {
             Self::pattern("terraform-docs:"),
             Self::pattern("tflint-ignore:"),
             Self::pattern("tflint:"),
-            // C/C++ specific
             Self::pattern("#pragma"),
             Self::pattern("NOLINT"),
             Self::pattern("NOLINTNEXTLINE"),
@@ -274,14 +241,11 @@ impl PreservationRule {
             Self::pattern("clang-format on"),
             Self::pattern("cppcheck-suppress"),
             Self::pattern("coverity["),
-            // Shell/Bash directives
             Self::pattern("shellcheck disable"),
             Self::pattern("shellcheck source"),
             Self::pattern("hadolint ignore"),
-            // YAML directives
             Self::pattern("yamllint disable"),
             Self::pattern("yamllint enable"),
-            // JSDoc/Documentation patterns
             Self::pattern("@param"),
             Self::pattern("@return"),
             Self::pattern("@throws"),
@@ -355,7 +319,6 @@ mod tests {
     fn test_file_header_rule() {
         let rule = PreservationRule::file_header();
 
-        // Comments at the beginning of file with header-like content
         let header_comment = create_test_comment(
             "// Copyright 2023 Author\n// Licensed under MIT",
             "line_comment",
@@ -363,11 +326,9 @@ mod tests {
         );
         assert!(rule.matches(&header_comment));
 
-        // Regular comment at the beginning
         let early_comment = create_test_comment("// Just a comment", "line_comment", 1);
         assert!(!rule.matches(&early_comment));
 
-        // Header-like comment later in file
         let late_header = create_test_comment("// Copyright 2023 Author", "line_comment", 50);
         assert!(!rule.matches(&late_header));
     }
@@ -401,7 +362,6 @@ mod tests {
     fn test_linting_ignore_patterns() {
         let rules = PreservationRule::comprehensive_rules();
 
-        // Test JavaScript/TypeScript linting patterns
         let test_cases = vec![
             ("// eslint-disable-next-line no-console", "line_comment"),
             (

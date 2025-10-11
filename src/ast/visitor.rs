@@ -77,11 +77,9 @@ impl<'a> CommentVisitor<'a> {
     }
 
     fn visit_node_recursive(&mut self, node: Node, parent: Option<Node>) {
-        // Check if this node is a comment
         if self.is_comment_node(&node, parent) {
             let mut comment_info = CommentInfo::new(node, self.source);
 
-            // Check if this is documentation using language handler
             if let Some(is_doc) =
                 self.language_handler
                     .is_documentation_comment(&node, parent, self.source)
@@ -89,13 +87,11 @@ impl<'a> CommentVisitor<'a> {
                 comment_info = comment_info.with_documentation(is_doc);
             }
 
-            // Check if this should be preserved (pattern rules or documentation)
             let should_preserve = self.should_preserve_comment(&comment_info);
             let comment_with_preservation = comment_info.with_preservation(should_preserve);
             self.comments.push(comment_with_preservation);
         }
 
-        // Recursively visit child nodes
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.visit_node_recursive(child, Some(node));
@@ -114,21 +110,17 @@ impl<'a> CommentVisitor<'a> {
     fn is_comment_node(&self, node: &Node, parent: Option<Node>) -> bool {
         let kind = node.kind();
 
-        // Handle regular comment nodes
         if self.comment_node_types.contains(&kind.to_string()) {
             return true;
         }
 
-        // Handle doc comment nodes
         if self.doc_comment_node_types.contains(&kind.to_string()) {
-            // Use language handler for special logic (e.g., Python docstrings)
             if let Some(is_doc) =
                 self.language_handler
                     .is_documentation_comment(node, parent, self.source)
             {
                 return is_doc;
             }
-            // For other languages, treat all doc comment nodes as comments
             return true;
         }
 
@@ -211,16 +203,11 @@ mod tests {
             "test".to_string(),
         );
 
-        // We can't easily create tree-sitter nodes in tests without parsing,
-        // so we'll test the string matching logic separately
         assert!(matches!("comment", "comment"));
         assert!(matches!("line_comment", "line_comment"));
         assert!(matches!("block_comment", "block_comment"));
         assert!(!matches!("function", "comment"));
     }
-
-    // Note: should_preserve_comment test removed because it now requires tree-sitter nodes
-    // Integration tests handle this functionality better
 
     #[test]
     fn test_get_comments_to_remove() {
@@ -236,7 +223,6 @@ mod tests {
             "test".to_string(),
         );
 
-        // Manually add comments for testing
         visitor.comments.push(
             create_mock_comment("// TODO: Keep this", "line_comment").with_preservation(true),
         );
@@ -248,7 +234,6 @@ mod tests {
         assert_eq!(to_remove.len(), 1);
         assert_eq!(to_remove[0].content, "// Remove this");
 
-        // Check that preserved comments are not in the removal list
         assert!(!to_remove.iter().any(|c| c.content == "// TODO: Keep this"));
     }
 }

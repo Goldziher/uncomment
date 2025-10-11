@@ -59,7 +59,6 @@ impl LanguageConfig {
     }
 }
 
-// Language-specific configurations
 impl LanguageConfig {
     pub fn rust() -> Self {
         Self::new(
@@ -76,7 +75,7 @@ impl LanguageConfig {
             "python",
             vec!["py", "pyw", "pyi", "pyx", "pxd"],
             vec!["comment"],
-            vec!["string"], // Python uses strings for docstrings
+            vec!["string"],
             || tree_sitter_python::LANGUAGE.into(),
         )
     }
@@ -86,7 +85,7 @@ impl LanguageConfig {
             "javascript",
             vec!["js", "jsx", "mjs", "cjs"],
             vec!["comment"],
-            vec!["comment"], // JSDoc comments are still comments
+            vec!["comment"],
             || tree_sitter_javascript::LANGUAGE.into(),
         )
     }
@@ -96,29 +95,21 @@ impl LanguageConfig {
             "typescript",
             vec!["ts", "mts", "cts", "d.ts", "d.mts", "d.cts"],
             vec!["comment"],
-            vec!["comment"], // TSDoc comments are still comments
+            vec!["comment"],
             || tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
         )
     }
 
     pub fn tsx() -> Self {
-        Self::new(
-            "tsx",
-            vec!["tsx"],
-            vec!["comment"],
-            vec!["comment"], // TSDoc comments are still comments
-            || tree_sitter_typescript::LANGUAGE_TSX.into(),
-        )
+        Self::new("tsx", vec!["tsx"], vec!["comment"], vec!["comment"], || {
+            tree_sitter_typescript::LANGUAGE_TSX.into()
+        })
     }
 
     pub fn go() -> Self {
-        Self::new(
-            "go",
-            vec!["go"],
-            vec!["comment"],
-            vec!["comment"], // Go doc comments are regular comments
-            || tree_sitter_go::LANGUAGE.into(),
-        )
+        Self::new("go", vec!["go"], vec!["comment"], vec!["comment"], || {
+            tree_sitter_go::LANGUAGE.into()
+        })
     }
 
     pub fn java() -> Self {
@@ -126,7 +117,7 @@ impl LanguageConfig {
             "java",
             vec!["java"],
             vec!["line_comment", "block_comment"],
-            vec!["block_comment"], // Javadoc comments
+            vec!["block_comment"],
             || tree_sitter_java::LANGUAGE.into(),
         )
     }
@@ -136,7 +127,7 @@ impl LanguageConfig {
             "c",
             vec!["c", "h"],
             vec!["comment"],
-            vec!["comment"], // Doxygen comments
+            vec!["comment"],
             || tree_sitter_c::LANGUAGE.into(),
         )
     }
@@ -146,40 +137,21 @@ impl LanguageConfig {
             "cpp",
             vec!["cpp", "cxx", "cc", "c++", "hpp", "hxx", "hh", "h++"],
             vec!["comment"],
-            vec!["comment"], // Doxygen comments
+            vec!["comment"],
             || tree_sitter_cpp::LANGUAGE.into(),
         )
     }
 
-    // Ruby support removed - use custom grammar configuration if needed
-    // pub fn ruby() -> Self {
-    //     Self::new(
-    //         "ruby",
-    //         vec!["rb", "rbw"],
-    //         vec!["comment"],
-    //         vec!["comment"], // YARD documentation comments
-    //         || tree_sitter_ruby::LANGUAGE.into(),
-    //     )
-    // }
-
     pub fn json() -> Self {
-        Self::new(
-            "json",
-            vec!["json"],
-            vec![], // JSON doesn't support comments officially
-            vec![],
-            || tree_sitter_json::LANGUAGE.into(),
-        )
+        Self::new("json", vec!["json"], vec![], vec![], || {
+            tree_sitter_json::LANGUAGE.into()
+        })
     }
 
     pub fn jsonc() -> Self {
-        Self::new(
-            "jsonc",
-            vec!["jsonc"],
-            vec!["comment"], // JSON with Comments
-            vec![],
-            || tree_sitter_json::LANGUAGE.into(), // Uses same parser as JSON
-        )
+        Self::new("jsonc", vec!["jsonc"], vec!["comment"], vec![], || {
+            tree_sitter_json::LANGUAGE.into()
+        })
     }
 
     pub fn yaml() -> Self {
@@ -192,20 +164,16 @@ impl LanguageConfig {
         Self::new(
             "hcl",
             vec!["hcl", "tf", "tfvars"],
-            vec!["comment"], // Both # and // style comments
+            vec!["comment"],
             vec![],
             || tree_sitter_hcl::LANGUAGE.into(),
         )
     }
 
     pub fn make() -> Self {
-        Self::new(
-            "make",
-            vec!["mk"], // Will need special handling for Makefile (no extension)
-            vec!["comment"],
-            vec![],
-            || tree_sitter_make::LANGUAGE.into(),
-        )
+        Self::new("make", vec!["mk"], vec!["comment"], vec![], || {
+            tree_sitter_make::LANGUAGE.into()
+        })
     }
 
     pub fn shell() -> Self {
@@ -217,17 +185,6 @@ impl LanguageConfig {
             || tree_sitter_bash::LANGUAGE.into(),
         )
     }
-
-    // Haskell support removed - use custom grammar configuration if needed
-    // pub fn haskell() -> Self {
-    //     Self::new(
-    //         "haskell",
-    //         vec!["hs"],
-    //         vec!["comment"],
-    //         vec!["haddock"],
-    //         || tree_sitter_haskell::LANGUAGE.into(),
-    //     )
-    // }
 }
 
 #[cfg(test)]
@@ -248,7 +205,7 @@ mod tests {
     fn test_extension_support() {
         let rust_config = LanguageConfig::rust();
         assert!(rust_config.supports_extension("rs"));
-        assert!(rust_config.supports_extension("RS")); // Case insensitive
+        assert!(rust_config.supports_extension("RS"));
 
         let python_config = LanguageConfig::python();
         assert!(python_config.supports_extension("py"));
