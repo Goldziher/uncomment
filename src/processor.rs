@@ -234,82 +234,65 @@ impl Processor {
             return content.to_string();
         }
 
-        // Convert byte positions to char positions once, before any modifications
-        let char_positions: Vec<usize> = content
-            .char_indices()
-            .map(|(byte_pos, _)| byte_pos)
-            .collect();
-        let total_chars = content.chars().count();
+        let mut bytes = content.as_bytes().to_vec();
 
-        // Helper function to convert byte position to char position
-        let byte_to_char = |byte_pos: usize| -> usize {
-            match char_positions.binary_search(&byte_pos) {
-                Ok(char_pos) => char_pos,
-                Err(char_pos) => char_pos.min(total_chars),
+        let mut deduped = comments_to_remove.to_vec();
+        deduped.sort_by(|a, b| {
+            a.start_byte
+                .cmp(&b.start_byte)
+                .then(b.end_byte.cmp(&a.end_byte))
+        });
+
+        let mut filtered: Vec<CommentInfo> = Vec::new();
+        for comment in deduped {
+            if let Some(previous) = filtered.last() {
+                if comment.start_byte >= previous.start_byte && comment.end_byte <= previous.end_byte
+                {
+                    continue;
+                }
             }
-        };
+            filtered.push(comment);
+        }
 
-        let mut chars: Vec<char> = content.chars().collect();
-
-        // Sort comments by start position in reverse order to avoid offset issues
-        let mut sorted_comments = comments_to_remove.to_vec();
+        let mut sorted_comments = filtered;
         sorted_comments.sort_by(|a, b| b.start_byte.cmp(&a.start_byte));
 
         for comment in sorted_comments {
-            let start_char = byte_to_char(comment.start_byte);
-            let end_char = byte_to_char(comment.end_byte);
-
-            // Find the start and end of the line containing the comment
-            let line_start = self.find_line_start(content, comment.start_byte);
-            let line_end = self.find_line_end(content, comment.end_byte);
-            let line_start_char = byte_to_char(line_start);
-            let line_end_char = byte_to_char(line_end);
-
-            // Validate bounds before attempting to slice
-            if start_char >= chars.len()
-                || end_char > chars.len()
-                || start_char > end_char
-                || line_start_char >= chars.len()
-                || line_end_char > chars.len()
-                || line_start_char > line_end_char
-            {
-                // Skip this comment if indices are out of bounds
-                // This can happen when previous removals affected the indices
+            if comment.start_byte >= bytes.len() {
+                continue;
+            }
+            let start = comment.start_byte;
+            let end = comment.end_byte.min(bytes.len());
+            if start >= end {
                 continue;
             }
 
-            // Get the line text
-            let has_non_whitespace_before = chars[line_start_char..start_char]
-                .iter()
-                .any(|c| !c.is_whitespace());
-            let has_non_whitespace_after = chars[end_char..line_end_char]
-                .iter()
-                .any(|c| !c.is_whitespace());
+            let mut line_start = start;
+            while line_start > 0 && bytes[line_start - 1] != b'\n' {
+                line_start -= 1;
+            }
 
-            if !has_non_whitespace_before && !has_non_whitespace_after {
-                // Remove the entire line (including newline)
-                chars.drain(line_start_char..line_end_char);
+            let mut line_end = end;
+            while line_end < bytes.len() && bytes[line_end] != b'\n' {
+                line_end += 1;
+            }
+            if line_end < bytes.len() {
+                line_end += 1;
+            }
+
+            let before = &bytes[line_start..start];
+            let after = &bytes[end..line_end];
+            let before_ws = before.iter().all(|b| b.is_ascii_whitespace());
+            let after_ws = after.iter().all(|b| b.is_ascii_whitespace());
+
+            if before_ws && after_ws {
+                bytes.drain(line_start..line_end);
             } else {
-                // Only remove the comment text, leave the rest of the line intact
-                chars.drain(start_char..end_char);
+                bytes.drain(start..end);
             }
         }
 
-        chars.into_iter().collect()
-    }
-
-    fn find_line_start(&self, content: &str, byte_pos: usize) -> usize {
-        content[..byte_pos]
-            .rfind('\n')
-            .map(|pos| pos + 1)
-            .unwrap_or(0)
-    }
-
-    fn find_line_end(&self, content: &str, byte_pos: usize) -> usize {
-        content[byte_pos..]
-            .find('\n')
-            .map(|pos| byte_pos + pos + 1)
-            .unwrap_or(content.len())
+        String::from_utf8(bytes).unwrap_or_default()
     }
 }
 
@@ -472,5 +455,28 @@ fn main() {
 
         assert!(processed.contains("announce!(\"// keep\");"));
         assert!(!processed.contains("// keep\n"));
+    }
+
+    #[test]
+    fn preserves_attributes_when_removing_doc_comments() {
+        let source = r#"#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Create smart config
+    #[command(about = "Create a template configuration file")]
+    Init,
+}
+"#;
+
+        let mut processor = Processor::new();
+        let language_config = LanguageConfig::rust();
+        let mut config = default_resolved_config();
+        config.remove_docs = true;
+
+        let (processed, _) = processor
+            .process_content_with_config(source, &language_config, &config)
+            .expect("process doc comments");
+
+        assert!(processed.contains("#[command(about = \"Create a template configuration file\")]"));
+        assert!(!processed.contains("Create smart config"));
     }
 }
