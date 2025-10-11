@@ -7,28 +7,21 @@ use tree_sitter_loader::{CompileConfig, Config as LoaderConfig, Loader};
 
 pub mod loader;
 
-/// Grammar manager that handles both static and dynamic grammars
 pub struct GrammarManager {
-    /// Tree-sitter loader for dynamic grammars
     loader: Loader,
 
-    /// Cache of loaded languages
     language_cache: HashMap<String, Language>,
 
-    /// Static language mappings
     static_languages: HashMap<String, Language>,
 }
 
 impl GrammarManager {
-    /// Create a new grammar manager
     pub fn new() -> Result<Self> {
         let mut loader = Loader::new().context("Failed to create tree-sitter loader")?;
 
-        // Configure loader for debug builds in development
         #[cfg(debug_assertions)]
         loader.debug_build(true);
 
-        // Initialize loader configuration
         let config = LoaderConfig::initial();
         loader
             .find_all_languages(&config)
@@ -36,7 +29,6 @@ impl GrammarManager {
 
         let mut static_languages = HashMap::new();
 
-        // Register built-in static languages
         static_languages.insert("rust".to_string(), tree_sitter_rust::LANGUAGE.into());
         static_languages.insert("python".to_string(), tree_sitter_python::LANGUAGE.into());
         static_languages.insert(
@@ -68,13 +60,11 @@ impl GrammarManager {
         })
     }
 
-    /// Get a language by name, using configuration to determine source
     pub fn get_language(
         &mut self,
         language_name: &str,
         grammar_config: &GrammarConfig,
     ) -> Result<Language> {
-        // Check cache first
         if let Some(language) = self.language_cache.get(language_name) {
             return Ok(language.clone());
         }
@@ -94,14 +84,12 @@ impl GrammarManager {
                 .with_context(|| format!("Failed to load library grammar for '{language_name}'"))?,
         };
 
-        // Cache the loaded language
         self.language_cache
             .insert(language_name.to_string(), language.clone());
 
         Ok(language)
     }
 
-    /// Get a built-in static language
     fn get_builtin_language(&self, language_name: &str) -> Result<Language> {
         let language = self
             .static_languages
@@ -111,7 +99,6 @@ impl GrammarManager {
         Ok(language.clone())
     }
 
-    /// Load a language from a Git repository
     fn load_git_language(
         &mut self,
         language_name: &str,
@@ -119,7 +106,6 @@ impl GrammarManager {
         branch: Option<&str>,
         subpath: Option<&str>,
     ) -> Result<Language> {
-        // Use the Git loader to handle cloning and compilation
         let git_loader =
             loader::GitGrammarLoader::new().context("Failed to create Git grammar loader")?;
 
@@ -130,16 +116,13 @@ impl GrammarManager {
             })
     }
 
-    /// Load a language from a local directory
     fn load_local_language(&mut self, _language_name: &str, path: &Path) -> Result<Language> {
         if !path.exists() {
             anyhow::bail!("Grammar path does not exist: {}", path.display());
         }
 
-        // Check if path contains grammar.js (source grammar)
         let grammar_js = path.join("grammar.js");
         if grammar_js.exists() {
-            // Compile and load from source
             let compile_config = CompileConfig::new(path, None, None);
 
             self.loader
@@ -148,9 +131,6 @@ impl GrammarManager {
                     format!("Failed to compile and load grammar from {}", path.display())
                 })
         } else {
-            // Try to load as a pre-compiled library or find existing language configurations
-            // For now, we'll try a direct approach assuming this is a tree-sitter language directory
-            // that might have been already processed
             let compile_config = CompileConfig::new(path, None, None);
 
             self.loader
@@ -159,22 +139,17 @@ impl GrammarManager {
         }
     }
 
-    /// Load a language from a pre-compiled library
     fn load_library_language(&mut self, _language_name: &str, path: &Path) -> Result<Language> {
         if !path.exists() {
             anyhow::bail!("Library path does not exist: {}", path.display());
         }
 
-        // Use libloading to dynamically load the compiled grammar
         use libloading::{Library, Symbol};
 
         unsafe {
-            // Load the dynamic library
             let lib = Library::new(path)
                 .with_context(|| format!("Failed to load library from {}", path.display()))?;
 
-            // Look for the standard tree-sitter language function
-            // Most tree-sitter grammars export a function named `tree_sitter_<language>`
             let symbol_names = ["tree_sitter_language", "tree_sitter", "language"];
 
             for symbol_name in &symbol_names {
@@ -185,7 +160,6 @@ impl GrammarManager {
                     let ts_language_ptr = func();
                     let language = Language::from_raw(ts_language_ptr);
 
-                    // Keep the library loaded by storing it (leak it intentionally)
                     std::mem::forget(lib);
 
                     return Ok(language);
@@ -199,13 +173,11 @@ impl GrammarManager {
         }
     }
 
-    /// Get the list of available built-in languages
     #[cfg(test)]
     pub fn builtin_languages(&self) -> Vec<String> {
         self.static_languages.keys().cloned().collect()
     }
 
-    /// Clear the language cache
     #[cfg(test)]
     pub fn clear_cache(&mut self) {
         self.language_cache.clear();
@@ -252,7 +224,7 @@ mod tests {
     #[test]
     fn test_get_builtin_language() {
         let mut manager = GrammarManager::new().unwrap();
-        let config = GrammarConfig::default(); // Uses Builtin source
+        let config = GrammarConfig::default();
 
         let rust_lang = manager.get_language("rust", &config);
         assert!(rust_lang.is_ok());
@@ -267,7 +239,7 @@ mod tests {
     #[test]
     fn test_nonexistent_builtin_language() {
         let mut manager = GrammarManager::new().unwrap();
-        let config = GrammarConfig::default(); // Uses Builtin source
+        let config = GrammarConfig::default();
 
         let result = manager.get_language("nonexistent", &config);
         assert!(result.is_err());
@@ -282,14 +254,11 @@ mod tests {
         let mut manager = GrammarManager::new().unwrap();
         let config = GrammarConfig::default();
 
-        // Get language twice - should use cache the second time
         let rust_lang1 = manager.get_language("rust", &config).unwrap();
         let rust_lang2 = manager.get_language("rust", &config).unwrap();
 
-        // Languages should be equivalent (though we can't directly compare them)
         assert_eq!(rust_lang1.abi_version(), rust_lang2.abi_version());
 
-        // Clear cache and try again
         manager.clear_cache();
         let rust_lang3 = manager.get_language("rust", &config).unwrap();
         assert_eq!(rust_lang1.abi_version(), rust_lang3.abi_version());
@@ -327,7 +296,6 @@ mod tests {
 
         let result = manager.get_language("test", &config);
         assert!(result.is_err());
-        // Should fail because there's no grammar.js or pre-compiled language
     }
 
     #[test]
@@ -361,11 +329,8 @@ mod tests {
             ..Default::default()
         };
 
-        // This will fail in CI/testing because we don't have git/internet
-        // But we can test that it attempts the right operation
         let result = manager.get_language("rust", &config);
         assert!(result.is_err());
-        // Error should be related to git operations or compilation
     }
 
     #[test]

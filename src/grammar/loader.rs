@@ -5,10 +5,8 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tree_sitter::Language;
 
-// Global flag to track if we've shown the caching message
 static CACHE_MESSAGE_SHOWN: AtomicBool = AtomicBool::new(false);
 
-/// Cache statistics
 #[cfg(test)]
 #[derive(Debug, Default)]
 pub struct CacheStats {
@@ -17,21 +15,17 @@ pub struct CacheStats {
     pub total_size_bytes: u64,
 }
 
-/// Git grammar loader for cloning and compiling tree-sitter grammars
 pub struct GitGrammarLoader {
-    /// Cache directory for cloned grammars
     cache_dir: PathBuf,
 }
 
 impl GitGrammarLoader {
-    /// Create a new Git grammar loader
     pub fn new() -> Result<Self> {
         let cache_dir = dirs::cache_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine cache directory"))?
             .join("uncomment")
             .join("grammars");
 
-        // Ensure cache directory exists
         fs::create_dir_all(&cache_dir).with_context(|| {
             format!("Failed to create cache directory: {}", cache_dir.display())
         })?;
@@ -39,7 +33,6 @@ impl GitGrammarLoader {
         Ok(Self { cache_dir })
     }
 
-    /// Load a grammar from a Git repository
     pub fn load_git_grammar(
         &self,
         language_name: &str,
@@ -47,7 +40,6 @@ impl GitGrammarLoader {
         branch: Option<&str>,
         subpath: Option<&str>,
     ) -> Result<Language> {
-        // Show the caching info message only once per run
         if !CACHE_MESSAGE_SHOWN.load(Ordering::Relaxed) {
             println!("📥 Downloading tree-sitter grammars for language processing...");
             println!("💾 Grammars are cached at ~/.cache/uncomment/grammars/ - subsequent runs will be faster");
@@ -64,7 +56,6 @@ impl GitGrammarLoader {
         self.compile_and_load_grammar(language_name, &grammar_path)
     }
 
-    /// Ensure the grammar is cloned and up to date
     fn ensure_grammar_cloned(
         &self,
         language_name: &str,
@@ -74,17 +65,14 @@ impl GitGrammarLoader {
         let grammar_dir = self.cache_dir.join(language_name);
 
         if grammar_dir.exists() {
-            // Update existing clone
             self.update_grammar(&grammar_dir, branch)?;
         } else {
-            // Clone new grammar
             self.clone_grammar(url, &grammar_dir, branch)?;
         }
 
         Ok(grammar_dir)
     }
 
-    /// Clone a grammar repository
     fn clone_grammar(&self, url: &str, target_dir: &Path, branch: Option<&str>) -> Result<()> {
         println!("   Cloning grammar from {url}");
 
@@ -107,9 +95,7 @@ impl GitGrammarLoader {
         Ok(())
     }
 
-    /// Update an existing grammar repository
     fn update_grammar(&self, grammar_dir: &Path, branch: Option<&str>) -> Result<()> {
-        // Fetch latest changes
         let output = Command::new("git")
             .current_dir(grammar_dir)
             .args(["fetch", "origin"])
@@ -119,14 +105,12 @@ impl GitGrammarLoader {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             eprintln!("Warning: Failed to fetch updates: {stderr}");
-            return Ok(()); // Continue with existing version
+            return Ok(());
         }
 
-        // Checkout specified branch or reset to origin
         let branch_ref = if let Some(branch) = branch {
             format!("origin/{branch}")
         } else {
-            // Try to determine default branch
             "origin/HEAD".to_string()
         };
 
@@ -144,7 +128,6 @@ impl GitGrammarLoader {
         Ok(())
     }
 
-    /// Compile and load a grammar from a local directory
     fn compile_and_load_grammar(
         &self,
         language_name: &str,
@@ -155,11 +138,9 @@ impl GitGrammarLoader {
             anyhow::bail!("No grammar.js found in {}", grammar_path.display());
         }
 
-        // Check if we have a cached compiled version
         let compiled_cache_dir = self.cache_dir.join("compiled").join(language_name);
         let compiled_lib_path = compiled_cache_dir.join(format!("lib{language_name}.so"));
 
-        // Try to load from cached compiled library first
         if compiled_lib_path.exists() {
             if let Ok(language) = self.load_cached_library(&compiled_lib_path) {
                 return Ok(language);
@@ -168,18 +149,15 @@ impl GitGrammarLoader {
 
         println!("   Compiling grammar for {language_name}");
 
-        // Use tree-sitter-loader to compile and load the grammar
         use tree_sitter_loader::{CompileConfig, Loader};
 
         #[allow(unused_mut)]
         let mut loader = Loader::new()
             .with_context(|| "Failed to create tree-sitter loader for grammar compilation")?;
 
-        // Configure loader for debug builds in development
         #[cfg(debug_assertions)]
         loader.debug_build(true);
 
-        // Set output path for compiled library to our cache
         fs::create_dir_all(&compiled_cache_dir).with_context(|| {
             format!(
                 "Failed to create compiled cache directory: {}",
@@ -187,11 +165,9 @@ impl GitGrammarLoader {
             )
         })?;
 
-        // Create compile configuration with output path
         let output_paths = vec![compiled_cache_dir];
         let compile_config = CompileConfig::new(grammar_path, Some(&output_paths), None);
 
-        // Compile and load the language
         let language = loader
             .load_language_at_path(compile_config)
             .with_context(|| {
@@ -205,7 +181,6 @@ impl GitGrammarLoader {
         Ok(language)
     }
 
-    /// Load a language from a cached compiled library
     fn load_cached_library(&self, lib_path: &Path) -> Result<Language> {
         use libloading::{Library, Symbol};
 
@@ -214,7 +189,6 @@ impl GitGrammarLoader {
                 format!("Failed to load cached library from {}", lib_path.display())
             })?;
 
-            // Try common tree-sitter language function names
             let symbol_names = ["tree_sitter_language", "tree_sitter", "language"];
 
             for symbol_name in &symbol_names {
@@ -225,7 +199,6 @@ impl GitGrammarLoader {
                     let ts_language_ptr = func();
                     let language = Language::from_raw(ts_language_ptr);
 
-                    // Keep the library loaded by storing it (leak it intentionally)
                     std::mem::forget(lib);
 
                     return Ok(language);
@@ -239,13 +212,11 @@ impl GitGrammarLoader {
         }
     }
 
-    /// Get the cache directory
     #[cfg(test)]
     pub fn cache_dir(&self) -> &Path {
         &self.cache_dir
     }
 
-    /// Clear the grammar cache
     #[cfg(test)]
     pub fn clear_cache(&self) -> Result<()> {
         if self.cache_dir.exists() {
@@ -259,7 +230,6 @@ impl GitGrammarLoader {
         Ok(())
     }
 
-    /// Clear cached compiled libraries only
     #[cfg(test)]
     pub fn clear_compiled_cache(&self) -> Result<()> {
         let compiled_dir = self.cache_dir.join("compiled");
@@ -274,7 +244,6 @@ impl GitGrammarLoader {
         Ok(())
     }
 
-    /// Clear cache for a specific language
     #[cfg(test)]
     pub fn clear_language_cache(&self, language_name: &str) -> Result<()> {
         let language_dir = self.cache_dir.join(language_name);
@@ -293,13 +262,11 @@ impl GitGrammarLoader {
         Ok(())
     }
 
-    /// Check if a grammar is cached
     #[cfg(test)]
     pub fn is_grammar_cached(&self, language_name: &str) -> bool {
         self.cache_dir.join(language_name).exists()
     }
 
-    /// Check if a compiled grammar is cached
     #[cfg(test)]
     pub fn is_compiled_cached(&self, language_name: &str) -> bool {
         let compiled_lib_path = self
@@ -310,7 +277,6 @@ impl GitGrammarLoader {
         compiled_lib_path.exists()
     }
 
-    /// Get cache statistics
     #[cfg(test)]
     pub fn cache_stats(&self) -> Result<CacheStats> {
         let mut stats = CacheStats::default();
@@ -319,7 +285,6 @@ impl GitGrammarLoader {
             return Ok(stats);
         }
 
-        // Count cached grammars
         for entry in fs::read_dir(&self.cache_dir)? {
             let entry = entry?;
             if entry.file_type()?.is_dir() {
@@ -330,7 +295,6 @@ impl GitGrammarLoader {
             }
         }
 
-        // Count compiled grammars
         let compiled_dir = self.cache_dir.join("compiled");
         if compiled_dir.exists() {
             for entry in fs::read_dir(&compiled_dir)? {
@@ -341,13 +305,11 @@ impl GitGrammarLoader {
             }
         }
 
-        // Calculate total cache size
         stats.total_size_bytes = self.calculate_directory_size(&self.cache_dir)?;
 
         Ok(stats)
     }
 
-    /// Calculate directory size recursively
     #[cfg(test)]
     #[allow(clippy::only_used_in_recursion)]
     fn calculate_directory_size(&self, dir: &Path) -> Result<u64> {
@@ -394,23 +356,19 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().join("test_cache");
 
-        // Manually create a loader with custom cache dir for testing
         let _loader = GitGrammarLoader {
             cache_dir: cache_dir.clone(),
         };
 
-        // The cache dir should be created when methods are called that need it
-        assert!(!cache_dir.exists()); // Not created yet in constructor
+        assert!(!cache_dir.exists());
     }
 
     #[test]
     fn test_is_grammar_cached() {
         let loader = GitGrammarLoader::new().unwrap();
 
-        // Should not be cached initially
         assert!(!loader.is_grammar_cached("nonexistent_grammar"));
 
-        // Test with cache directory that doesn't exist
         let temp_dir = TempDir::new().unwrap();
         let custom_loader = GitGrammarLoader {
             cache_dir: temp_dir.path().join("custom_cache"),
@@ -422,10 +380,8 @@ mod tests {
     fn test_is_compiled_cached() {
         let loader = GitGrammarLoader::new().unwrap();
 
-        // Should not be cached initially
         assert!(!loader.is_compiled_cached("nonexistent_grammar"));
 
-        // Test cross-platform library extension handling
         let temp_dir = TempDir::new().unwrap();
         let custom_loader = GitGrammarLoader {
             cache_dir: temp_dir.path().join("custom_cache"),
@@ -440,7 +396,6 @@ mod tests {
             cache_dir: temp_dir.path().join("test_cache"),
         };
 
-        // Clearing non-existent cache should not error
         assert!(loader.clear_cache().is_ok());
         assert!(loader.clear_compiled_cache().is_ok());
         assert!(loader.clear_language_cache("test").is_ok());
@@ -452,7 +407,6 @@ mod tests {
         let cache_dir = temp_dir.path().join("test_cache");
         fs::create_dir_all(&cache_dir).unwrap();
 
-        // Create mock cache structure
         let language_dir = cache_dir.join("test_lang");
         fs::create_dir_all(&language_dir).unwrap();
         fs::write(language_dir.join("grammar.js"), "// test grammar").unwrap();
@@ -465,11 +419,9 @@ mod tests {
             cache_dir: cache_dir.clone(),
         };
 
-        // Test cache detection
         assert!(loader.is_grammar_cached("test_lang"));
         assert!(loader.is_compiled_cached("test_lang"));
 
-        // Test language-specific cache clearing
         assert!(loader.clear_language_cache("test_lang").is_ok());
         assert!(!loader.is_grammar_cached("test_lang"));
         assert!(!loader.is_compiled_cached("test_lang"));
@@ -494,7 +446,6 @@ mod tests {
         let cache_dir = temp_dir.path().join("test_cache");
         fs::create_dir_all(&cache_dir).unwrap();
 
-        // Create mock cache structure
         let lang1_dir = cache_dir.join("lang1");
         let lang2_dir = cache_dir.join("lang2");
         fs::create_dir_all(&lang1_dir).unwrap();
@@ -559,20 +510,17 @@ mod tests {
             cache_dir: temp_dir.path().join("git_cache"),
         };
 
-        // Test with invalid URL (should fail git clone)
         let result = loader.load_git_grammar("test_lang", "invalid://not.a.real.url", None, None);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_cache_directory_permissions() {
-        // Test with a location that should be writable
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().join("writable_cache");
 
         let loader = GitGrammarLoader { cache_dir };
 
-        // This should work as temp directories are writable
         let stats_result = loader.cache_stats();
         assert!(stats_result.is_ok());
     }
@@ -581,8 +529,6 @@ mod tests {
     fn test_platform_library_extension() {
         let loader = GitGrammarLoader::new().unwrap();
 
-        // Test that compiled cache checks use the right extension (.so on Unix)
-        // This is implicitly tested by is_compiled_cached method
         assert!(!loader.is_compiled_cached("nonexistent"));
     }
 }

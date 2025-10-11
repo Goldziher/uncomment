@@ -6,19 +6,15 @@ use std::time::{Duration, Instant};
 #[derive(Parser)]
 #[command(name = "profile", about = "Profile uncomment performance")]
 struct ProfileCli {
-    /// Path to test
     #[arg(short, long)]
     path: PathBuf,
 
-    /// Number of warmup runs
     #[arg(short, long, default_value = "3")]
     warmup: usize,
 
-    /// Number of measurement runs
     #[arg(short, long, default_value = "10")]
     runs: usize,
 
-    /// Show per-file statistics
     #[arg(short, long)]
     verbose: bool,
 }
@@ -33,7 +29,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📊 Measurement runs: {}", cli.runs);
     println!();
 
-    // Count files first
     let files = collect_files(&cli.path)?;
     println!("📂 Found {} files to process", files.len());
 
@@ -42,7 +37,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    // Show file type breakdown
     let mut type_counts = std::collections::HashMap::new();
     for file in &files {
         if let Some(ext) = file.extension() {
@@ -57,7 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("   • .{ext}: {count} files");
     }
 
-    // Calculate total size
     let total_size: u64 = files
         .iter()
         .filter_map(|f| fs::metadata(f).ok())
@@ -66,7 +59,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n💾 Total size: {:.2} MB", total_size as f64 / 1_048_576.0);
 
-    // Warmup runs
     println!("\n🔥 Running {} warmup iterations...", cli.warmup);
     for i in 1..=cli.warmup {
         print!("   Warmup {}/{}... ", i, cli.warmup);
@@ -74,7 +66,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{:.3}s", duration.as_secs_f64());
     }
 
-    // Measurement runs
     println!("\n📊 Running {} measurement iterations...", cli.runs);
     let mut durations = Vec::new();
     let mut file_counts = Vec::new();
@@ -95,7 +86,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         file_counts.push(result);
     }
 
-    // Calculate statistics
     let avg_duration =
         durations.iter().map(|d| d.as_secs_f64()).sum::<f64>() / durations.len() as f64;
 
@@ -112,7 +102,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let files_per_second = files.len() as f64 / avg_duration;
     let mb_per_second = (total_size as f64 / 1_048_576.0) / avg_duration;
 
-    // Print results
     println!("\n📈 PERFORMANCE RESULTS");
     println!("=====================");
     println!("⏱️  Timing:");
@@ -132,7 +121,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         avg_duration * 1_000_000.0 / files.len() as f64
     );
 
-    // Performance analysis
     println!("\n🔍 PERFORMANCE ANALYSIS");
     println!("=======================");
 
@@ -154,7 +142,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("   The tool is well-optimized for this workload.");
     }
 
-    // Memory usage estimate
     println!("\n💾 Resource usage:");
     println!(
         "   • Estimated memory per file: ~{:.1} KB",
@@ -284,21 +271,14 @@ fn run_uncomment_with_stats(
 }
 
 fn estimate_memory_per_file(files: &[PathBuf]) -> f64 {
-    // Estimate based on average file size
     let total_size: u64 = files
         .iter()
-        .take(100) // Sample first 100 files
+        .take(100)
         .filter_map(|f| fs::metadata(f).ok())
         .map(|m| m.len())
         .sum();
 
     let avg_size = total_size as f64 / files.len().min(100) as f64;
-
-    // Memory usage is roughly:
-    // - File content (1x)
-    // - AST nodes (~2x content size)
-    // - Comment tracking (~0.5x)
-    // Total: ~3.5x file size
 
     (avg_size * 3.5) / 1024.0
 }
