@@ -5,11 +5,13 @@ Thanks for helping improve `uncomment`! This guide keeps the local workflow and 
 ## Local Development
 
 ### Prerequisites
+
 - Rust 1.70+ with `cargo`
 - Node.js 18+ (for optional tooling and npm wrapper verification)
 - `tree-sitter` grammars are bundled; no extra setup is required
 
 ### Bootstrap
+
 ```bash
 git clone https://github.com/Goldziher/uncomment.git
 cd uncomment
@@ -18,6 +20,7 @@ cargo test
 ```
 
 Run the usual hygiene commands before sending a change:
+
 ```bash
 cargo fmt
 cargo clippy --all-targets --all-features -- --deny warnings
@@ -40,6 +43,7 @@ prek run --all-files          # run hooks on demand
 `uncomment` ships through four channels: crates.io, npm, PyPI, and GitHub Releases. Keep versions in sync across all artifacts.
 
 ### Version Bump Checklist
+
 1. Update versions:
    - `Cargo.toml`
    - `npm-package/package.json`
@@ -49,16 +53,19 @@ prek run --all-files          # run hooks on demand
 3. Commit the changes with a descriptive message.
 
 ### Tagging
+
 ```bash
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
+
 Release candidates use `vX.Y.Z-rc.1` for Git/npm and `X.Y.Zrc1` for PyPI.
 
 ### Publishing
+
 - **Cargo**: `cargo publish`
 - **npm**: `cd npm-package && npm publish` (use `--tag beta` for RCs)
-- **PyPI**: 
+- **PyPI**:
   ```bash
   cd pip-package
   python -m build
@@ -66,9 +73,10 @@ Release candidates use `vX.Y.Z-rc.1` for Git/npm and `X.Y.Zrc1` for PyPI.
   ```
 
 ### GitHub Release Workflow
+
 Pushing the tag triggers `.github/workflows/release.yml`, which builds signed binaries for macOS (Intel/Apple Silicon), Linux (x86_64/aarch64), and Windows, attaches them to the GitHub release, and makes them available to the npm and PyPI shims.
 
 ### After Publishing
+
 - Verify installs: `cargo install uncomment`, `npm view uncomment-cli`, `pip index versions uncomment`
 - Announce the release and update any downstream docs if needed
-
