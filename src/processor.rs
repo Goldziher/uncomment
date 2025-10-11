@@ -279,12 +279,14 @@ impl Processor {
             }
 
             // Get the line text
-            let line_text: String = chars[line_start_char..line_end_char].iter().collect();
-            let comment_text: String = chars[start_char..end_char].iter().collect();
+            let has_non_whitespace_before = chars[line_start_char..start_char]
+                .iter()
+                .any(|c| !c.is_whitespace());
+            let has_non_whitespace_after = chars[end_char..line_end_char]
+                .iter()
+                .any(|c| !c.is_whitespace());
 
-            // Check if the line contains only the comment (plus whitespace)
-            let line_without_comment = line_text.replace(&comment_text, "");
-            if line_without_comment.trim().is_empty() {
+            if !has_non_whitespace_before && !has_non_whitespace_after {
                 // Remove the entire line (including newline)
                 chars.drain(line_start_char..line_end_char);
             } else {
@@ -406,5 +408,69 @@ impl OutputWriter {
         if total_files > 0 && modified_files == 0 {
             println!("All files were already comment-free or only contained preserved comments.");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::ResolvedConfig;
+    use crate::languages::config::LanguageConfig;
+
+    fn default_resolved_config() -> ResolvedConfig {
+        ResolvedConfig {
+            remove_todos: false,
+            remove_fixme: false,
+            remove_docs: false,
+            preserve_patterns: Vec::new(),
+            use_default_ignores: true,
+            respect_gitignore: true,
+            traverse_git_repos: false,
+            language_config: None,
+            grammar_config: None,
+        }
+    }
+
+    fn process_rust(source: &str) -> String {
+        let mut processor = Processor::new();
+        let language_config = LanguageConfig::rust();
+        let resolved_config = default_resolved_config();
+        let (output, _) = processor
+            .process_content_with_config(source, &language_config, &resolved_config)
+            .expect("processing rust source");
+        output
+    }
+
+    #[test]
+    fn preserves_strings_matching_comment_text() {
+        let source = r#"fn main() {
+    let pattern = "// comment";
+    println!("{}", pattern); // comment
+}
+"#;
+
+        let processed = process_rust(source);
+
+        assert!(processed.contains("\"// comment\""));
+        assert!(!processed.contains("; // comment"));
+    }
+
+    #[test]
+    fn preserves_macro_invocations_with_comment_like_strings() {
+        let source = r#"macro_rules! announce {
+    ($msg:expr) => {{
+        println!("{}", $msg); // keep
+    }};
+}
+
+fn main() {
+    announce!("// keep");
+}
+"#;
+
+        let processed = process_rust(source);
+
+        assert!(processed.contains("announce!(\"// keep\");"));
+        assert!(!processed.contains("// keep\n"));
     }
 }

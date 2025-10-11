@@ -1,6 +1,6 @@
 [package]
 name = "uncomment"
-version = "2.8.1"
+version = "2.8.2"
 authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
 description = "A CLI tool to remove comments from code using tree-sitter for accurate parsing"
 edition = "2021"
