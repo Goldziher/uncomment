@@ -268,12 +268,10 @@ fn has_supported_extension(path: &Path) -> bool {
         }
 
         supported_extensions.iter().any(|&e| e == ext_str)
+    } else if let Some(filename) = path.file_name() {
+        let filename_str = filename.to_string_lossy().to_lowercase();
+        filename_str == "makefile"
     } else {
-        if let Some(filename) = path.file_name() {
-            let filename_str = filename.to_string_lossy().to_lowercase();
-            filename_str == "makefile"
-        } else {
-            false
-        }
+        false
     }
 }
