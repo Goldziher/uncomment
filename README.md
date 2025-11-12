@@ -414,7 +414,7 @@ Add to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/uncomment
-    rev: v2.5.0
+    rev: v2.9.0
     hooks:
       - id: uncomment
 ```

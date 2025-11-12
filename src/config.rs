@@ -1107,7 +1107,9 @@ preserve_patterns = []
             println!("  {}. {} - {}", i + 1, name, desc);
         }
 
-        println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
+        println!(
+            "\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):"
+        );
         print!("> ");
         io::stdout().flush().unwrap();
 
@@ -1121,10 +1123,11 @@ preserve_patterns = []
             selected_languages = available_languages.iter().map(|(name, _)| *name).collect();
         } else if input != "skip" {
             for num_str in input.split(',') {
-                if let Ok(num) = num_str.trim().parse::<usize>() {
-                    if num > 0 && num <= available_languages.len() {
-                        selected_languages.push(available_languages[num - 1].0);
-                    }
+                if let Ok(num) = num_str.trim().parse::<usize>()
+                    && num > 0
+                    && num <= available_languages.len()
+                {
+                    selected_languages.push(available_languages[num - 1].0);
                 }
             }
         }
@@ -1190,7 +1193,9 @@ traverse_git_repos = false
             println!("  {}. {} - {}", i + 1, name, desc);
         }
 
-        println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
+        println!(
+            "\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):"
+        );
         print!("> ");
         io::stdout().flush().unwrap();
 
@@ -1204,10 +1209,11 @@ traverse_git_repos = false
             selected_languages = available_languages.iter().map(|(name, _)| *name).collect();
         } else if input != "skip" {
             for num_str in input.split(',') {
-                if let Ok(num) = num_str.trim().parse::<usize>() {
-                    if num > 0 && num <= available_languages.len() {
-                        selected_languages.push(available_languages[num - 1].0);
-                    }
+                if let Ok(num) = num_str.trim().parse::<usize>()
+                    && num > 0
+                    && num <= available_languages.len()
+                {
+                    selected_languages.push(available_languages[num - 1].0);
                 }
             }
         }
@@ -1551,15 +1557,15 @@ impl ConfigManager {
             }
         }
 
-        if let Some(global_config_path) = Self::global_config_path() {
-            if global_config_path.exists() {
-                match Config::from_file(&global_config_path) {
-                    Ok(config) => {
-                        configs.push((global_config_path, config));
-                    }
-                    Err(e) => {
-                        eprintln!("Warning: Failed to load global config: {e}");
-                    }
+        if let Some(global_config_path) = Self::global_config_path()
+            && global_config_path.exists()
+        {
+            match Config::from_file(&global_config_path) {
+                Ok(config) => {
+                    configs.push((global_config_path, config));
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to load global config: {e}");
                 }
             }
         }
@@ -1607,10 +1613,10 @@ impl ConfigManager {
 
         loop {
             for (config_path, config) in &self.configs {
-                if let Some(config_dir) = config_path.parent() {
-                    if config_dir == current_path {
-                        applicable_configs.push(config);
-                    }
+                if let Some(config_dir) = config_path.parent()
+                    && config_dir == current_path
+                {
+                    applicable_configs.push(config);
                 }
             }
 
