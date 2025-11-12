@@ -222,12 +222,11 @@ impl Processor {
 
         let mut filtered: Vec<CommentInfo> = Vec::new();
         for comment in deduped {
-            if let Some(previous) = filtered.last() {
-                if comment.start_byte >= previous.start_byte
-                    && comment.end_byte <= previous.end_byte
-                {
-                    continue;
-                }
+            if let Some(previous) = filtered.last()
+                && comment.start_byte >= previous.start_byte
+                && comment.end_byte <= previous.end_byte
+            {
+                continue;
             }
             filtered.push(comment);
         }

@@ -52,7 +52,9 @@ fn main() -> Result<()> {
 
     if files.is_empty() {
         eprintln!("No supported files found to process in the specified paths.");
-        eprintln!("Supported extensions: .rs, .py, .js, .jsx, .mjs, .cjs, .ts, .tsx, .mts, .cts, .d.ts, .java, .go, .c, .cpp, .rb, and more.");
+        eprintln!(
+            "Supported extensions: .rs, .py, .js, .jsx, .mjs, .cjs, .ts, .tsx, .mts, .cts, .d.ts, .java, .go, .c, .cpp, .rb, and more."
+        );
         if options.respect_gitignore {
             eprintln!("Tip: Use --no-gitignore to process files ignored by git.");
         }
@@ -219,10 +221,10 @@ fn collect_from_pattern(
                 Ok(entry) => {
                     let path = entry.path();
 
-                    if let Some(ref prefix) = filter_prefix {
-                        if !path.starts_with(prefix) {
-                            continue;
-                        }
+                    if let Some(ref prefix) = filter_prefix
+                        && !path.starts_with(prefix)
+                    {
+                        continue;
                     }
 
                     if path.is_file() && has_supported_extension(path) {

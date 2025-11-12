@@ -42,7 +42,9 @@ impl GitGrammarLoader {
     ) -> Result<Language> {
         if !CACHE_MESSAGE_SHOWN.load(Ordering::Relaxed) {
             println!("📥 Downloading tree-sitter grammars for language processing...");
-            println!("💾 Grammars are cached at ~/.cache/uncomment/grammars/ - subsequent runs will be faster");
+            println!(
+                "💾 Grammars are cached at ~/.cache/uncomment/grammars/ - subsequent runs will be faster"
+            );
             CACHE_MESSAGE_SHOWN.store(true, Ordering::Relaxed);
         }
 
@@ -141,10 +143,10 @@ impl GitGrammarLoader {
         let compiled_cache_dir = self.cache_dir.join("compiled").join(language_name);
         let compiled_lib_path = compiled_cache_dir.join(format!("lib{language_name}.so"));
 
-        if compiled_lib_path.exists() {
-            if let Ok(language) = self.load_cached_library(&compiled_lib_path) {
-                return Ok(language);
-            }
+        if compiled_lib_path.exists()
+            && let Ok(language) = self.load_cached_library(&compiled_lib_path)
+        {
+            return Ok(language);
         }
 
         println!("   Compiling grammar for {language_name}");
@@ -479,10 +481,12 @@ mod tests {
         let fake_lib_path = temp_dir.path().join("nonexistent.so");
         let result = loader.load_cached_library(&fake_lib_path);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Failed to load cached library"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to load cached library")
+        );
     }
 
     #[test]
@@ -497,10 +501,12 @@ mod tests {
 
         let result = loader.compile_and_load_grammar("test", &grammar_dir);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("No grammar.js found"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("No grammar.js found")
+        );
     }
 
     #[test]
