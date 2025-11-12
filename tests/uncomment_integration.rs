@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use anyhow::{Context, anyhow};
+use saphyr::{LoadableYamlNode, Yaml};
 use std::{
     fs,
     io::Write,
@@ -9,12 +10,10 @@ use walkdir::WalkDir;
 
 const EXTENSIONS: &[(&str, &str)] = &[(".js", "js"), (".ts", "ts"), (".py", "py")];
 
-#[derive(Debug, Deserialize)]
 struct RepoList {
     repos: Vec<RepoEntry>,
 }
 
-#[derive(Debug, Deserialize)]
 struct RepoEntry {
     url: String,
 }
@@ -138,8 +137,28 @@ fn integration_test_uncomment_on_real_repos() {
 
 fn read_repos_yaml<P: AsRef<Path>>(path: P) -> anyhow::Result<RepoList> {
     let content = fs::read_to_string(path)?;
-    let repos: RepoList = serde_yaml::from_str(&content)?;
-    Ok(repos)
+    let docs = Yaml::load_from_str(&content).context("Failed to parse YAML repo list")?;
+    let doc = docs
+        .first()
+        .ok_or_else(|| anyhow!("repos.yaml does not contain any documents"))?;
+
+    let repos_yaml = doc["repos"]
+        .as_vec()
+        .ok_or_else(|| anyhow!("repos.yaml missing 'repos' array"))?;
+
+    let repos = repos_yaml
+        .iter()
+        .map(|entry| {
+            let url = entry["url"]
+                .as_str()
+                .ok_or_else(|| anyhow!("repo entry missing 'url' field"))?;
+            Ok(RepoEntry {
+                url: url.to_string(),
+            })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    Ok(RepoList { repos })
 }
 
 fn clone_repo(repo_url: &str, dest: &Path) -> bool {
