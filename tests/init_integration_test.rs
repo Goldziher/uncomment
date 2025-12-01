@@ -6,7 +6,7 @@ use tempfile::TempDir;
 fn get_binary_path() -> std::path::PathBuf {
     // Build the binary first to ensure it's up to date
     let build_output = Command::new("cargo")
-        .args(&["build", "--bin", "uncomment"])
+        .args(["build", "--bin", "uncomment"])
         .output()
         .expect("Failed to build binary");
 
@@ -461,7 +461,7 @@ fn test_smart_init(project_dir: &std::path::Path) {
 
     // Change to project directory and run the command
     let output = Command::new(&binary_path)
-        .args(&["init", "--output", "smart-config.toml"])
+        .args(["init", "--output", "smart-config.toml"])
         .current_dir(project_dir)
         .output()
         .expect("Failed to execute command");
@@ -527,7 +527,7 @@ fn test_comprehensive_init(project_dir: &std::path::Path) {
 
     let binary_path = get_binary_path();
     let output = Command::new(&binary_path)
-        .args(&[
+        .args([
             "init",
             "--comprehensive",
             "--output",
@@ -600,7 +600,7 @@ fn test_generated_config_processing(project_dir: &std::path::Path) {
     // Process some files using the generated config
     let binary_path = get_binary_path();
     let output = Command::new(&binary_path)
-        .args(&[
+        .args([
             "--config",
             config_path.to_str().unwrap(),
             "--dry-run",
@@ -656,7 +656,7 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
     // Create initial config
     let binary_path = get_binary_path();
     let output1 = Command::new(&binary_path)
-        .args(&["init", "--output", "test-force.toml"])
+        .args(["init", "--output", "test-force.toml"])
         .current_dir(project_dir)
         .output()
         .expect("Failed to execute first init command");
@@ -668,7 +668,7 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
 
     // Try to overwrite without force (should fail)
     let output2 = Command::new(&binary_path)
-        .args(&["init", "--output", "test-force.toml"])
+        .args(["init", "--output", "test-force.toml"])
         .current_dir(project_dir)
         .output()
         .expect("Failed to execute second init command");
@@ -686,7 +686,7 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
 
     // Now overwrite with force (should succeed)
     let output3 = Command::new(&binary_path)
-        .args(&[
+        .args([
             "init",
             "--comprehensive",
             "--output",
@@ -725,7 +725,7 @@ fn test_init_error_scenarios() {
     // Test invalid output path (directory doesn't exist)
     let binary_path = get_binary_path();
     let output = Command::new(&binary_path)
-        .args(&["init", "--output", "/nonexistent/path/config.toml"])
+        .args(["init", "--output", "/nonexistent/path/config.toml"])
         .current_dir(project_dir)
         .output()
         .expect("Failed to execute command");
@@ -749,7 +749,7 @@ fn test_init_error_scenarios() {
 fn test_init_help() {
     let binary_path = get_binary_path();
     let output = Command::new(&binary_path)
-        .args(&["init", "--help"])
+        .args(["init", "--help"])
         .output()
         .expect("Failed to execute help command");
 
@@ -773,7 +773,7 @@ fn test_comprehensive_config_repositories() {
 
     let binary_path = get_binary_path();
     let output = Command::new(&binary_path)
-        .args(&["init", "--comprehensive", "--output", "repo-test.toml"])
+        .args(["init", "--comprehensive", "--output", "repo-test.toml"])
         .current_dir(project_dir)
         .output()
         .expect("Failed to execute command");

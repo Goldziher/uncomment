@@ -27,8 +27,8 @@ name = "Rust"  # Missing closing bracket
     let result = ConfigManager::new(temp_dir.path());
     // The ConfigManager might not error on malformed config but emit warnings instead
     // So we check if the manager was created but config loading failed
-    if result.is_err() {
-        let error_msg = result.unwrap_err().to_string();
+    if let Err(error) = result {
+        let error_msg = error.to_string();
         assert!(error_msg.contains("parse") || error_msg.contains("TOML"));
     } else {
         // Config manager was created but might have ignored the malformed file

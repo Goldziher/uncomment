@@ -31,7 +31,12 @@ fn integration_test_uncomment_on_real_repos() {
 
     for repo in repos.repos {
         println!("\n=== Processing repo: {} ===", repo.url);
-        let repo_name = repo.url.split('/').last().unwrap().replace(".git", "");
+        let repo_name = repo
+            .url
+            .rsplit('/')
+            .next()
+            .unwrap_or(&repo.url)
+            .replace(".git", "");
         let repo_path = work_dir.join(&repo_name);
 
         if !repo_path.exists() {
@@ -163,7 +168,7 @@ fn read_repos_yaml<P: AsRef<Path>>(path: P) -> anyhow::Result<RepoList> {
 
 fn clone_repo(repo_url: &str, dest: &Path) -> bool {
     Command::new("git")
-        .args(&["clone", "--depth=1", repo_url, dest.to_str().unwrap()])
+        .args(["clone", "--depth=1", repo_url, dest.to_str().unwrap()])
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
@@ -176,7 +181,7 @@ fn find_source_files(dir: &Path) -> Vec<PathBuf> {
             let path = entry.path();
             if EXTENSIONS
                 .iter()
-                .any(|(ext, _)| path.extension().map_or(false, |e| e == &ext[1..]))
+                .any(|(ext, _)| path.extension().is_some_and(|e| e == &ext[1..]))
             {
                 files.push(path.to_path_buf());
             }
@@ -197,7 +202,7 @@ fn parse_python_ast(file: &Path) -> bool {
     let code = "import ast, sys; ast.parse(open(sys.argv[1]).read())";
     let output = Command::new("python3")
         .arg("-c")
-        .arg(&code)
+        .arg(code)
         .arg(file)
         .output();
 

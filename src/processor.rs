@@ -77,6 +77,7 @@ impl Processor {
             if overrides.remove_doc {
                 resolved_config.remove_docs = true;
             }
+            resolved_config.use_default_ignores = overrides.use_default_ignores;
             if overrides.remove_todo {
                 resolved_config.remove_todos = true;
             }
@@ -373,8 +374,9 @@ impl OutputWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::ResolvedConfig;
+    use crate::config::{Config, ConfigManager, ResolvedConfig};
     use crate::languages::config::LanguageConfig;
+    use tempfile::tempdir;
 
     fn default_resolved_config() -> ResolvedConfig {
         ResolvedConfig {
@@ -454,5 +456,55 @@ pub enum Commands {
 
         assert!(processed.contains("#[command(about = \"Create a template configuration file\")]"));
         assert!(!processed.contains("Create smart config"));
+    }
+
+    #[test]
+    fn respects_no_default_ignores_override() {
+        let dir = tempdir().expect("create temp dir");
+        let file_path = dir.path().join("sample.rs");
+        let source = r#"/// #![feature(never_type)]
+// NOTE: this would normally be preserved
+fn main() {}
+"#;
+
+        std::fs::write(&file_path, source).expect("write test file");
+
+        let config_manager = ConfigManager::from_single_config(dir.path(), Config::default())
+            .expect("config manager");
+
+        let mut processor = Processor::new();
+
+        let overrides_with_defaults = ProcessingOptions {
+            remove_todo: true,
+            remove_fixme: true,
+            remove_doc: true,
+            custom_preserve_patterns: Vec::new(),
+            use_default_ignores: true,
+            dry_run: true,
+            respect_gitignore: true,
+            traverse_git_repos: false,
+        };
+
+        let with_defaults = processor
+            .process_file_with_config(&file_path, &config_manager, Some(&overrides_with_defaults))
+            .expect("process with defaults");
+        assert!(with_defaults.processed_content.contains("NOTE"));
+        assert!(with_defaults.processed_content.contains("#![feature"));
+
+        let overrides_without_defaults = ProcessingOptions {
+            use_default_ignores: false,
+            ..overrides_with_defaults
+        };
+
+        let without_defaults = processor
+            .process_file_with_config(
+                &file_path,
+                &config_manager,
+                Some(&overrides_without_defaults),
+            )
+            .expect("process without defaults");
+        assert!(!without_defaults.processed_content.contains("NOTE"));
+        assert!(!without_defaults.processed_content.contains("#![feature"));
+        assert!(without_defaults.processed_content.contains("fn main()"));
     }
 }

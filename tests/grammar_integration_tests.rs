@@ -257,9 +257,9 @@ source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-javas
     let js_result = processor.process_file_with_config(&js_file, &config_manager, None);
     // This might succeed if JS is builtin, or fail if the grammar config is applied
     // Either way is valid - we're testing the configuration is parsed
-    if js_result.is_err() {
+    if let Err(error) = js_result {
         // If it fails, it should be due to git operations
-        let error_msg = js_result.unwrap_err().to_string();
+        let error_msg = error.to_string();
         assert!(
             error_msg.contains("git")
                 || error_msg.contains("Failed to load")

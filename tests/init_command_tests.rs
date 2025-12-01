@@ -205,12 +205,12 @@ fn test_init_command_config_completeness() {
     let config = parsed_config.unwrap();
 
     // Verify structure
-    assert_eq!(config.global.remove_todos, false);
-    assert_eq!(config.global.remove_fixme, false);
-    assert_eq!(config.global.remove_docs, false);
-    assert_eq!(config.global.use_default_ignores, true);
-    assert_eq!(config.global.respect_gitignore, true);
-    assert_eq!(config.global.traverse_git_repos, false);
+    assert!(!config.global.remove_todos);
+    assert!(!config.global.remove_fixme);
+    assert!(!config.global.remove_docs);
+    assert!(config.global.use_default_ignores);
+    assert!(config.global.respect_gitignore);
+    assert!(!config.global.traverse_git_repos);
 
     // Should have some preserve patterns
     assert!(!config.global.preserve_patterns.is_empty());
