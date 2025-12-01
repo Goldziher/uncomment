@@ -243,10 +243,12 @@ mod tests {
 
         let result = manager.get_language("nonexistent", &config);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Built-in language 'nonexistent' not found"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Built-in language 'nonexistent' not found")
+        );
     }
 
     #[test]
