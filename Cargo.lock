@@ -1251,7 +1251,7 @@ dependencies = [
 
 [[package]]
 name = "uncomment"
-version = "2.9.1"
+version = "2.9.2"
 dependencies = [
  "anyhow",
  "clap",
