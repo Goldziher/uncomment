@@ -44,9 +44,11 @@ fn main() {
     assert!(processed.comments_removed > 0);
 
     // The processed content should have comments removed
-    assert!(!processed
-        .processed_content
-        .contains("This is a line comment"));
+    assert!(
+        !processed
+            .processed_content
+            .contains("This is a line comment")
+    );
     assert!(!processed.processed_content.contains("Block comment"));
 }
 

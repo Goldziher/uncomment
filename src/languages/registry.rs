@@ -76,7 +76,7 @@ impl LanguageRegistry {
 
         match file_name {
             "bashrc" | ".bashrc" | "zshrc" | ".zshrc" | "zshenv" | ".zshenv" => {
-                return self.languages.get("shell")
+                return self.languages.get("shell");
             }
             _ => {}
         }

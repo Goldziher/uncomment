@@ -1,4 +1,4 @@
-use crate::languages::{get_handler, LanguageHandler};
+use crate::languages::{LanguageHandler, get_handler};
 use crate::rules::preservation::PreservationRule;
 use tree_sitter::Node;
 
