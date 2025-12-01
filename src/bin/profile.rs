@@ -171,38 +171,38 @@ fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>, Box<dyn std::error::Err
             .into_iter()
             .filter_map(|e| e.ok())
         {
-            if entry.file_type().is_file() {
-                if let Some(ext) = entry.path().extension() {
-                    let ext_str = ext.to_string_lossy();
-                    let supported = matches!(
-                        ext_str.as_ref(),
-                        "py" | "pyw"
-                            | "pyi"
-                            | "js"
-                            | "jsx"
-                            | "mjs"
-                            | "cjs"
-                            | "ts"
-                            | "tsx"
-                            | "mts"
-                            | "cts"
-                            | "rs"
-                            | "go"
-                            | "java"
-                            | "c"
-                            | "h"
-                            | "cpp"
-                            | "cc"
-                            | "cxx"
-                            | "hpp"
-                            | "hxx"
-                            | "rb"
-                            | "rake"
-                    );
+            if entry.file_type().is_file()
+                && let Some(ext) = entry.path().extension()
+            {
+                let ext_str = ext.to_string_lossy();
+                let supported = matches!(
+                    ext_str.as_ref(),
+                    "py" | "pyw"
+                        | "pyi"
+                        | "js"
+                        | "jsx"
+                        | "mjs"
+                        | "cjs"
+                        | "ts"
+                        | "tsx"
+                        | "mts"
+                        | "cts"
+                        | "rs"
+                        | "go"
+                        | "java"
+                        | "c"
+                        | "h"
+                        | "cpp"
+                        | "cc"
+                        | "cxx"
+                        | "hpp"
+                        | "hxx"
+                        | "rb"
+                        | "rake"
+                );
 
-                    if supported {
-                        files.push(entry.path().to_path_buf());
-                    }
+                if supported {
+                    files.push(entry.path().to_path_buf());
                 }
             }
         }
@@ -256,11 +256,10 @@ fn run_uncomment_with_stats(
     for file in files {
         if let Ok(result) =
             processor.process_file_with_config(file, &config_manager, Some(&options))
+            && result.original_content != result.processed_content
         {
-            if result.original_content != result.processed_content {
-                modified_files += 1;
-                total_comments += result.comments_removed;
-            }
+            modified_files += 1;
+            total_comments += result.comments_removed;
         }
     }
 

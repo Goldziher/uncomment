@@ -105,12 +105,11 @@ pub fn run_benchmark<P: AsRef<Path>>(
             processed_files += 1;
         } else if line.contains("Removed") && line.contains("comment(s)") {
             // Extract comment count: "  Removed 5 comment(s)"
-            if let Some(parts) = line.split("Removed ").nth(1) {
-                if let Some(count_str) = parts.split(" comment").next() {
-                    if let Ok(count) = count_str.trim().parse::<usize>() {
-                        total_comments_removed += count;
-                    }
-                }
+            if let Some(parts) = line.split("Removed ").nth(1)
+                && let Some(count_str) = parts.split(" comment").next()
+                && let Ok(count) = count_str.trim().parse::<usize>()
+            {
+                total_comments_removed += count;
             }
         }
     }
@@ -120,20 +119,19 @@ pub fn run_benchmark<P: AsRef<Path>>(
         if line.contains("Summary:") && line.contains("files processed") {
             // "[DRY RUN] Summary: 1000 files processed, 500 would be modified"
             if let Some(summary_part) = line.split("Summary: ").nth(1) {
-                if let Some(files_part) = summary_part.split(" files processed").next() {
-                    if let Ok(count) = files_part.trim().parse::<usize>() {
-                        total_files = count;
-                        processed_files = count; // Update with actual total
-                    }
+                if let Some(files_part) = summary_part.split(" files processed").next()
+                    && let Ok(count) = files_part.trim().parse::<usize>()
+                {
+                    total_files = count;
+                    processed_files = count; // Update with actual total
                 }
 
                 // Also try to parse modified count from the same line
-                if let Some(modified_part) = summary_part.split(", ").nth(1) {
-                    if let Some(modified_str) = modified_part.split(" ").next() {
-                        if let Ok(count) = modified_str.trim().parse::<usize>() {
-                            modified_files = count; // Update with summary count if available
-                        }
-                    }
+                if let Some(modified_part) = summary_part.split(", ").nth(1)
+                    && let Some(modified_str) = modified_part.split(' ').next()
+                    && let Ok(count) = modified_str.trim().parse::<usize>()
+                {
+                    modified_files = count; // Update with summary count if available
                 }
             }
         }
