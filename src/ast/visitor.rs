@@ -87,7 +87,12 @@ impl<'a> CommentVisitor<'a> {
                 comment_info = comment_info.with_documentation(is_doc);
             }
 
-            let should_preserve = self.should_preserve_comment(&comment_info);
+            let forced_preserve = self
+                .language_handler
+                .should_preserve_comment(&node, parent, self.source)
+                .unwrap_or(false);
+
+            let should_preserve = forced_preserve || self.should_preserve_comment(&comment_info);
             let comment_with_preservation = comment_info.with_preservation(should_preserve);
             self.comments.push(comment_with_preservation);
         }

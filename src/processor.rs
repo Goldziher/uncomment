@@ -402,6 +402,18 @@ mod tests {
         output
     }
 
+    fn process_go(source: &str, use_default_ignores: bool, remove_docs: bool) -> String {
+        let mut processor = Processor::new();
+        let language_config = LanguageConfig::go();
+        let mut resolved_config = default_resolved_config();
+        resolved_config.use_default_ignores = use_default_ignores;
+        resolved_config.remove_docs = remove_docs;
+        let (output, _) = processor
+            .process_content_with_config(source, &language_config, &resolved_config)
+            .expect("processing go source");
+        output
+    }
+
     #[test]
     fn preserves_strings_matching_comment_text() {
         let source = r#"fn main() {
@@ -506,5 +518,51 @@ fn main() {}
         assert!(!without_defaults.processed_content.contains("NOTE"));
         assert!(!without_defaults.processed_content.contains("#![feature"));
         assert!(without_defaults.processed_content.contains("fn main()"));
+    }
+
+    #[test]
+    fn preserves_go_embed_directives_even_without_default_ignores() {
+        let source = r#"package main
+
+//go:embed hello.txt
+var embedded string
+
+func main() { /* regular comment should be removed */ }
+"#;
+
+        let processed = process_go(source, false, true);
+        assert!(processed.contains("//go:embed hello.txt"));
+        assert!(!processed.contains("regular comment should be removed"));
+    }
+
+    #[test]
+    fn preserves_go_cgo_preamble_comments() {
+        let source = r#"package htmltomarkdown
+
+// #cgo LDFLAGS: -lhtml_to_markdown_ffi
+// #include <stdlib.h>
+// extern const char* html_to_markdown_version();
+import "C"
+
+func Version() string { return C.GoString(C.html_to_markdown_version()) /* regular comment should be removed */ }
+"#;
+
+        for use_default_ignores in [true, false] {
+            let processed = process_go(source, use_default_ignores, true);
+            assert!(
+                processed.contains("// #cgo LDFLAGS: -lhtml_to_markdown_ffi"),
+                "expected to preserve cgo preamble with use_default_ignores={use_default_ignores}"
+            );
+            assert!(
+                processed.contains("// #include <stdlib.h>"),
+                "expected to preserve cgo preamble with use_default_ignores={use_default_ignores}"
+            );
+            assert!(
+                processed.contains("// extern const char* html_to_markdown_version();"),
+                "expected to preserve cgo preamble with use_default_ignores={use_default_ignores}"
+            );
+            assert!(processed.contains("import \"C\""));
+            assert!(!processed.contains("regular comment should be removed"));
+        }
     }
 }

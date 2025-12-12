@@ -7,12 +7,28 @@ pub trait LanguageHandler {
         parent: Option<Node>,
         source: &str,
     ) -> Option<bool>;
+
+    fn should_preserve_comment(
+        &self,
+        node: &Node,
+        parent: Option<Node>,
+        source: &str,
+    ) -> Option<bool>;
 }
 
 pub struct DefaultHandler;
 
 impl LanguageHandler for DefaultHandler {
     fn is_documentation_comment(
+        &self,
+        _node: &Node,
+        _parent: Option<Node>,
+        _source: &str,
+    ) -> Option<bool> {
+        None
+    }
+
+    fn should_preserve_comment(
         &self,
         _node: &Node,
         _parent: Option<Node>,
@@ -61,6 +77,15 @@ impl LanguageHandler for PythonHandler {
             _ => Some(false),
         }
     }
+
+    fn should_preserve_comment(
+        &self,
+        _node: &Node,
+        _parent: Option<Node>,
+        _source: &str,
+    ) -> Option<bool> {
+        None
+    }
 }
 
 impl PythonHandler {
@@ -94,9 +119,44 @@ impl LanguageHandler for GoHandler {
             Some(false)
         }
     }
+
+    fn should_preserve_comment(
+        &self,
+        node: &Node,
+        parent: Option<Node>,
+        source: &str,
+    ) -> Option<bool> {
+        if node.kind() != "comment" {
+            return None;
+        }
+
+        let Ok(text) = node.utf8_text(source.as_bytes()) else {
+            return None;
+        };
+
+        if self.is_go_directive_comment(text) {
+            return Some(true);
+        }
+
+        if self.precedes_cgo_import(node, parent, source) {
+            return Some(true);
+        }
+
+        None
+    }
 }
 
 impl GoHandler {
+    fn is_go_directive_comment(&self, comment_text: &str) -> bool {
+        let trimmed = comment_text.trim_start();
+        trimmed.starts_with("//go:")
+            || trimmed.starts_with("/*go:")
+            || trimmed.starts_with("// +build")
+            || trimmed.starts_with("//+build")
+            || trimmed.starts_with("//line ")
+            || trimmed.starts_with("/*line ")
+    }
+
     fn precedes_declaration(&self, comment_node: &Node, parent: Option<Node>) -> bool {
         let parent = match parent {
             Some(p) => p,
@@ -137,6 +197,31 @@ impl GoHandler {
         }
 
         None
+    }
+
+    fn precedes_cgo_import(&self, comment_node: &Node, parent: Option<Node>, source: &str) -> bool {
+        let parent = match parent {
+            Some(p) => p,
+            None => return false,
+        };
+
+        let Some(next_sibling) = self.find_next_non_comment_sibling(comment_node, &parent) else {
+            return false;
+        };
+
+        if next_sibling.kind() != "import_declaration" {
+            return false;
+        }
+
+        self.import_declaration_includes_c(&next_sibling, source)
+    }
+
+    fn import_declaration_includes_c(&self, import_decl: &Node, source: &str) -> bool {
+        let Ok(text) = import_decl.utf8_text(source.as_bytes()) else {
+            return false;
+        };
+
+        text.contains("\"C\"") || text.contains("`C`")
     }
 }
 
