@@ -1297,11 +1297,11 @@ remove_docs = false"#,
 
         map.insert(
             "go".to_string(),
-            r#"[languages.go]
+            r##"[languages.go]
 name = "Go"
 extensions = [".go"]
 comment_nodes = ["comment"]
-preserve_patterns = ["go:generate", "nolint"]"#,
+preserve_patterns = ["go:build", "go:generate", "go:embed", "go:cgo", "+build", "nolint", "#cgo", "#include"]"##,
         );
 
         map.insert(
