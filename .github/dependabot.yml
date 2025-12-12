@@ -1,6 +1,5 @@
 version: 2
 updates:
-  # Rust dependencies
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
@@ -36,7 +35,6 @@ updates:
           - "minor"
           - "patch"
 
-  # npm dependencies (npm-package)
   - package-ecosystem: "npm"
     directory: "/npm-package"
     schedule:
@@ -55,7 +53,6 @@ updates:
     pull-request-branch-name:
       separator: "/"
     ignore:
-      # Ignore major version updates for critical dependencies
       - dependency-name: "tar"
         update-types: ["version-update:semver-major"]
     groups:
@@ -64,7 +61,6 @@ updates:
           - "minor"
           - "patch"
 
-  # Python dependencies (pip-package)
   - package-ecosystem: "pip"
     directory: "/pip-package"
     schedule:
@@ -83,7 +79,6 @@ updates:
     pull-request-branch-name:
       separator: "/"
     ignore:
-      # Pin requests to avoid breaking changes
       - dependency-name: "requests"
         update-types: ["version-update:semver-major"]
     groups:
@@ -92,7 +87,6 @@ updates:
           - "minor"
           - "patch"
 
-  # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

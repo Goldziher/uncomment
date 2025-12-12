@@ -17,13 +17,13 @@ function getPlatform() {
   if (type === "Linux") {
     if (arch === "x64") return "x86_64-unknown-linux-gnu";
     if (arch === "arm64") return "aarch64-unknown-linux-gnu";
-    return "x86_64-unknown-linux-gnu"; // fallback
+    return "x86_64-unknown-linux-gnu";
   }
 
   if (type === "Darwin") {
     if (arch === "x64") return "x86_64-apple-darwin";
     if (arch === "arm64") return "aarch64-apple-darwin";
-    return "x86_64-apple-darwin"; // fallback
+    return "x86_64-apple-darwin";
   }
 
   throw new Error(`Unsupported platform: ${type} ${arch}`);
@@ -52,7 +52,6 @@ function downloadWithRedirects(url, dest, maxRedirects = 5) {
         },
       },
       (res) => {
-        // Handle redirects
         if (
           res.statusCode >= 300 &&
           res.statusCode < 400 &&
@@ -82,7 +81,7 @@ function downloadWithRedirects(url, dest, maxRedirects = 5) {
         });
 
         file.on("error", (err) => {
-          fs.unlink(dest, () => {}); // Delete partial file
+          fs.unlink(dest, () => {});
           reject(err);
         });
       },
@@ -104,29 +103,24 @@ async function installBinary() {
     const binaryName =
       os.type() === "Windows_NT" ? "uncomment.exe" : "uncomment";
 
-    // Ensure bin directory exists
     if (!fs.existsSync(binDir)) {
       fs.mkdirSync(binDir, { recursive: true });
     }
 
     console.log(`Downloading uncomment binary from ${url}...`);
 
-    // Download the tar.gz file
     await downloadWithRedirects(url, tarPath);
 
     console.log("Extracting binary...");
 
-    // Extract the binary from tar.gz
     await tar.extract({
       file: tarPath,
       cwd: binDir,
       filter: (path) => path.endsWith(binaryName),
     });
 
-    // Clean up tar file
     fs.unlinkSync(tarPath);
 
-    // Make binary executable on Unix systems
     if (os.type() !== "Windows_NT") {
       const binaryPath = path.join(binDir, binaryName);
       fs.chmodSync(binaryPath, 0o755);

@@ -46,7 +46,6 @@ fn integration_test_uncomment_on_real_repos() {
                 "Failed to clone {}",
                 repo.url
             );
-            // Wait for files to stabilize after clone
             assert!(
                 wait_for_files_to_stabilize(&repo_path, 10),
                 "Repo files did not stabilize after clone"
@@ -77,7 +76,6 @@ fn integration_test_uncomment_on_real_repos() {
                 })
                 .unwrap_or("unknown");
 
-            // Parse AST before uncomment
             if !parse_ast(&file, lang) {
                 eprintln!(
                     "  [SKIP] Could not parse AST before uncomment: {}",
@@ -87,14 +85,12 @@ fn integration_test_uncomment_on_real_repos() {
                 continue;
             }
 
-            // Run uncomment
             assert!(
                 run_uncomment(&file),
                 "[FAIL] Uncomment failed: {}",
                 file.display()
             );
 
-            // Parse AST after uncomment
             if !parse_ast(&file, lang) {
                 eprintln!(
                     "  [FAIL] AST parse failed after uncomment: {}",
@@ -107,7 +103,6 @@ fn integration_test_uncomment_on_real_repos() {
         }
     }
 
-    // Report skipped files
     if !skipped_files.is_empty() {
         eprintln!("\nThe following files were skipped (could not parse before uncomment):");
         for f in &skipped_files {
@@ -115,9 +110,7 @@ fn integration_test_uncomment_on_real_repos() {
         }
     }
 
-    // Write failing files to fixtures/failing_files.txt (overwrite each run)
     if !failed_files.is_empty() {
-        // File::create will overwrite the file if it exists
         let mut file = std::fs::File::create("fixtures/failing_files.txt")
             .expect("Could not create failing_files.txt");
         for f in &failed_files {
@@ -125,7 +118,6 @@ fn integration_test_uncomment_on_real_repos() {
         }
     }
 
-    // Assert that there are no failed files
     if !failed_files.is_empty() {
         eprintln!("\nThe following files failed AST parsing after uncomment:");
         for f in &failed_files {

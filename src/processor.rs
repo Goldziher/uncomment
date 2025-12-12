@@ -414,6 +414,15 @@ mod tests {
         output
     }
 
+    fn process_language(source: &str, language_config: LanguageConfig) -> String {
+        let mut processor = Processor::new();
+        let resolved_config = default_resolved_config();
+        let (output, _) = processor
+            .process_content_with_config(source, &language_config, &resolved_config)
+            .expect("processing source");
+        output
+    }
+
     #[test]
     fn preserves_strings_matching_comment_text() {
         let source = r#"fn main() {
@@ -564,5 +573,86 @@ func Version() string { return C.GoString(C.html_to_markdown_version()) /* regul
             assert!(processed.contains("import \"C\""));
             assert!(!processed.contains("regular comment should be removed"));
         }
+    }
+
+    #[test]
+    fn removes_ruby_comments_without_touching_strings() {
+        let source = r#"# remove me
+puts "Hello # not a comment"
+"#;
+
+        let processed = process_language(source, LanguageConfig::ruby());
+        assert!(!processed.contains("# remove me"));
+        assert!(processed.contains("Hello # not a comment"));
+    }
+
+    #[test]
+    fn preserves_ruby_frozen_string_literal_magic_comment() {
+        let source = r#"# frozen_string_literal: true
+# remove me
+puts "ok"
+"#;
+
+        let processed = process_language(source, LanguageConfig::ruby());
+        assert!(processed.contains("# frozen_string_literal: true"));
+        assert!(!processed.contains("# remove me"));
+    }
+
+    #[test]
+    fn preserves_ruby_yard_doc_comments_by_default() {
+        let source = r#"# @param x [Integer]
+def foo(x)
+  x + 1
+end
+"#;
+
+        let processed = process_language(source, LanguageConfig::ruby());
+        assert!(processed.contains("# @param x [Integer]"));
+    }
+
+    #[test]
+    fn removes_php_comments_without_touching_strings() {
+        let source = r#"<?php
+// remove me
+$s = "// not a comment";
+echo $s;
+"#;
+
+        let processed = process_language(source, LanguageConfig::php());
+        assert!(!processed.contains("// remove me"));
+        assert!(processed.contains("\"// not a comment\""));
+    }
+
+    #[test]
+    fn removes_elixir_comments_without_touching_strings() {
+        let source = r##"# remove me
+IO.puts("# not a comment")
+"##;
+
+        let processed = process_language(source, LanguageConfig::elixir());
+        assert!(!processed.contains("# remove me"));
+        assert!(processed.contains("\"# not a comment\""));
+    }
+
+    #[test]
+    fn removes_toml_comments_without_touching_strings() {
+        let source = r##"# remove me
+key = "# not a comment"
+"##;
+
+        let processed = process_language(source, LanguageConfig::toml());
+        assert!(!processed.contains("# remove me"));
+        assert!(processed.contains("\"# not a comment\""));
+    }
+
+    #[test]
+    fn removes_csharp_comments_without_touching_strings() {
+        let source = r#"// remove me
+class C { void M() { var s = "// not a comment"; } }
+"#;
+
+        let processed = process_language(source, LanguageConfig::csharp());
+        assert!(!processed.contains("// remove me"));
+        assert!(processed.contains("\"// not a comment\""));
     }
 }

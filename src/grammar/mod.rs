@@ -44,6 +44,11 @@ impl GrammarManager {
             tree_sitter_typescript::LANGUAGE_TSX.into(),
         );
         static_languages.insert("go".to_string(), tree_sitter_go::LANGUAGE.into());
+        static_languages.insert("ruby".to_string(), tree_sitter_ruby::LANGUAGE.into());
+        static_languages.insert("php".to_string(), tree_sitter_php::LANGUAGE_PHP.into());
+        static_languages.insert("elixir".to_string(), tree_sitter_elixir::LANGUAGE.into());
+        static_languages.insert("toml".to_string(), tree_sitter_toml_ng::LANGUAGE.into());
+        static_languages.insert("csharp".to_string(), tree_sitter_c_sharp::LANGUAGE.into());
         static_languages.insert("java".to_string(), tree_sitter_java::LANGUAGE.into());
         static_languages.insert("c".to_string(), tree_sitter_c::LANGUAGE.into());
         static_languages.insert("cpp".to_string(), tree_sitter_cpp::LANGUAGE.into());
@@ -211,6 +216,11 @@ mod tests {
         assert!(languages.contains(&"javascript".to_string()));
         assert!(languages.contains(&"typescript".to_string()));
         assert!(languages.contains(&"go".to_string()));
+        assert!(languages.contains(&"ruby".to_string()));
+        assert!(languages.contains(&"php".to_string()));
+        assert!(languages.contains(&"elixir".to_string()));
+        assert!(languages.contains(&"toml".to_string()));
+        assert!(languages.contains(&"csharp".to_string()));
         assert!(languages.contains(&"java".to_string()));
         assert!(languages.contains(&"c".to_string()));
         assert!(languages.contains(&"cpp".to_string()));

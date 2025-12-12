@@ -151,7 +151,6 @@ impl Cli {
         } else if interactive {
             (crate::config::Config::interactive_template_clean()?, None)
         } else {
-            // Smart template based on detected files in current directory
             let current_dir =
                 std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
             let (template, info) = crate::config::Config::smart_template_with_info(&current_dir)?;

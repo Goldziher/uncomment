@@ -112,6 +112,40 @@ impl LanguageConfig {
         })
     }
 
+    pub fn ruby() -> Self {
+        Self::new(
+            "ruby",
+            vec!["rb", "rbw", "gemspec", "rake"],
+            vec!["comment"],
+            vec![],
+            || tree_sitter_ruby::LANGUAGE.into(),
+        )
+    }
+
+    pub fn php() -> Self {
+        Self::new("php", vec!["php", "phtml"], vec!["comment"], vec![], || {
+            tree_sitter_php::LANGUAGE_PHP.into()
+        })
+    }
+
+    pub fn elixir() -> Self {
+        Self::new("elixir", vec!["ex", "exs"], vec!["comment"], vec![], || {
+            tree_sitter_elixir::LANGUAGE.into()
+        })
+    }
+
+    pub fn toml() -> Self {
+        Self::new("toml", vec!["toml"], vec!["comment"], vec![], || {
+            tree_sitter_toml_ng::LANGUAGE.into()
+        })
+    }
+
+    pub fn csharp() -> Self {
+        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], || {
+            tree_sitter_c_sharp::LANGUAGE.into()
+        })
+    }
+
     pub fn java() -> Self {
         Self::new(
             "java",

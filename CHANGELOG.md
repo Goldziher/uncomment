@@ -6,9 +6,26 @@ This changelog is generated from git tags and commit history.
 
 ## [Unreleased]
 
+- _No changes yet._
+
+## [v2.10.0] - 2025-12-12
+
+### Added
+
+- Built-in language support: Ruby, PHP, Elixir, TOML, C#
+
 ### Fixed
 
-- fix(go): preserve embed and cgo directives (28f4949)
+- Preserve Go embed/cgo directives and cgo preambles
+- Preserve Ruby magic comments and YARD docs by default
+
+### Changed
+
+- Supported file detection now follows the language registry
+
+### Documentation
+
+- Added `CHANGELOG.md`
 
 ## [v2.9.2] - 2025-12-01
 

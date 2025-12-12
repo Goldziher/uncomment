@@ -1305,6 +1305,56 @@ preserve_patterns = ["go:build", "go:generate", "go:embed", "go:cgo", "+build", 
         );
 
         map.insert(
+            "rb".to_string(),
+            r#"[languages.ruby]
+name = "Ruby"
+extensions = [".rb", ".rbw", "gemspec", "rake"]
+comment_nodes = ["comment"]
+preserve_patterns = ["rubocop:", "frozen_string_literal:"]
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "php".to_string(),
+            r#"[languages.php]
+name = "PHP"
+extensions = [".php", ".phtml"]
+comment_nodes = ["comment"]
+preserve_patterns = []
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "ex".to_string(),
+            r#"[languages.elixir]
+name = "Elixir"
+extensions = [".ex", ".exs"]
+comment_nodes = ["comment"]
+preserve_patterns = []
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "toml".to_string(),
+            r#"[languages.toml]
+name = "TOML"
+extensions = [".toml"]
+comment_nodes = ["comment"]
+preserve_patterns = []
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "cs".to_string(),
+            r#"[languages.csharp]
+name = "CSharp"
+extensions = [".cs"]
+comment_nodes = ["comment"]
+preserve_patterns = []
+remove_docs = false"#,
+        );
+
+        map.insert(
             "java".to_string(),
             r#"[languages.java]
 name = "Java"

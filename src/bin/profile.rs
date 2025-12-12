@@ -19,7 +19,7 @@ struct ProfileCli {
     verbose: bool,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> anyhow::Result<()> {
     let cli = ProfileCli::parse();
 
     println!("🔬 UNCOMMENT PERFORMANCE PROFILER");
@@ -158,7 +158,7 @@ struct ProcessResult {
     total_comments: usize,
 }
 
-fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+fn collect_files(path: &PathBuf) -> anyhow::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     if path.is_file() {
@@ -211,7 +211,7 @@ fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>, Box<dyn std::error::Err
     Ok(files)
 }
 
-fn run_uncomment(files: &[PathBuf]) -> Result<Duration, Box<dyn std::error::Error>> {
+fn run_uncomment(files: &[PathBuf]) -> anyhow::Result<Duration> {
     let start = Instant::now();
 
     let config_manager = uncomment::config::ConfigManager::new(std::env::current_dir()?)?;
@@ -228,15 +228,13 @@ fn run_uncomment(files: &[PathBuf]) -> Result<Duration, Box<dyn std::error::Erro
     };
 
     for file in files {
-        let _ = processor.process_file_with_config(file, &config_manager, Some(&options));
+        processor.process_file_with_config(file, &config_manager, Some(&options))?;
     }
 
     Ok(start.elapsed())
 }
 
-fn run_uncomment_with_stats(
-    files: &[PathBuf],
-) -> Result<ProcessResult, Box<dyn std::error::Error>> {
+fn run_uncomment_with_stats(files: &[PathBuf]) -> anyhow::Result<ProcessResult> {
     let config_manager = uncomment::config::ConfigManager::new(std::env::current_dir()?)?;
     let mut processor = uncomment::processor::Processor::new_with_config(&config_manager);
     let options = uncomment::processor::ProcessingOptions {
@@ -254,10 +252,8 @@ fn run_uncomment_with_stats(
     let mut total_comments = 0;
 
     for file in files {
-        if let Ok(result) =
-            processor.process_file_with_config(file, &config_manager, Some(&options))
-            && result.original_content != result.processed_content
-        {
+        let result = processor.process_file_with_config(file, &config_manager, Some(&options))?;
+        if result.original_content != result.processed_content {
             modified_files += 1;
             total_comments += result.comments_removed;
         }

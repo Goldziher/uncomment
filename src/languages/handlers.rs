@@ -229,7 +229,117 @@ pub fn get_handler(language_name: &str) -> Box<dyn LanguageHandler> {
     match language_name.to_lowercase().as_str() {
         "python" => Box::new(PythonHandler),
         "go" => Box::new(GoHandler),
+        "ruby" => Box::new(RubyHandler),
         _ => Box::new(DefaultHandler),
+    }
+}
+
+pub struct RubyHandler;
+
+impl LanguageHandler for RubyHandler {
+    fn is_documentation_comment(
+        &self,
+        node: &Node,
+        parent: Option<Node>,
+        source: &str,
+    ) -> Option<bool> {
+        if node.kind() != "comment" {
+            return None;
+        }
+
+        let Ok(text) = node.utf8_text(source.as_bytes()) else {
+            return None;
+        };
+
+        if self.looks_like_yard_documentation(text) {
+            return Some(true);
+        }
+
+        if self.precedes_declaration(node, parent) {
+            return Some(true);
+        }
+
+        Some(false)
+    }
+
+    fn should_preserve_comment(
+        &self,
+        node: &Node,
+        _parent: Option<Node>,
+        source: &str,
+    ) -> Option<bool> {
+        if node.kind() != "comment" {
+            return None;
+        }
+
+        let Ok(text) = node.utf8_text(source.as_bytes()) else {
+            return None;
+        };
+
+        let trimmed = text.trim_start();
+        if !trimmed.starts_with('#') {
+            return None;
+        }
+
+        let magic_prefixes = [
+            "# frozen_string_literal:",
+            "# encoding:",
+            "# coding:",
+            "# typed:",
+        ];
+
+        if magic_prefixes
+            .iter()
+            .any(|prefix| trimmed.starts_with(prefix))
+        {
+            return Some(true);
+        }
+
+        None
+    }
+}
+
+impl RubyHandler {
+    fn looks_like_yard_documentation(&self, comment_text: &str) -> bool {
+        let trimmed = comment_text.trim_start();
+        trimmed.starts_with("# @") || trimmed.starts_with("# @!")
+    }
+
+    fn precedes_declaration(&self, comment_node: &Node, parent: Option<Node>) -> bool {
+        let parent = match parent {
+            Some(p) => p,
+            None => return false,
+        };
+
+        let Some(next_sibling) = self.find_next_non_comment_sibling(comment_node, &parent) else {
+            return false;
+        };
+
+        matches!(
+            next_sibling.kind(),
+            "method" | "singleton_method" | "class" | "module"
+        )
+    }
+
+    fn find_next_non_comment_sibling<'a>(
+        &self,
+        comment_node: &Node,
+        parent: &Node<'a>,
+    ) -> Option<Node<'a>> {
+        let mut cursor = parent.walk();
+        let mut found_comment = false;
+
+        for child in parent.children(&mut cursor) {
+            if found_comment && child.kind() != "comment" {
+                return Some(child);
+            }
+
+            if child.id() == comment_node.id() {
+                found_comment = true;
+            }
+        }
+
+        None
     }
 }
 

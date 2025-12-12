@@ -1,10 +1,10 @@
+use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
 use std::time::Instant;
 
-mod bench {
-    include!("../../bench/mod.rs");
-}
+#[path = "benchmark/bench.rs"]
+mod bench;
 
 #[derive(Parser)]
 #[command(
@@ -18,23 +18,14 @@ struct BenchmarkCli {
     #[arg(short, long)]
     target: PathBuf,
 
-    #[arg(short, long)]
-    sample_size: Option<usize>,
-
     #[arg(short, long, default_value = "1")]
     iterations: usize,
-
-    #[arg(short, long)]
-    language: Option<String>,
-
-    #[arg(short, long)]
-    memory_profile: bool,
 
     #[arg(short = 'j', long, default_value = "1")]
     threads: usize,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     let cli = BenchmarkCli::parse();
 
     if !cli.uncomment_binary.exists() {
@@ -55,14 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔧 Binary: {}", cli.uncomment_binary.display());
     println!("📁 Target: {}", cli.target.display());
     println!("🔄 Iterations: {}", cli.iterations);
-
-    if let Some(lang) = &cli.language {
-        println!("🗣️  Language filter: {lang}");
-    }
-
-    if cli.memory_profile {
-        println!("💾 Memory profiling: enabled");
-    }
+    println!("🧵 Threads: {}", cli.threads);
 
     let mut results = Vec::new();
     let overall_start = Instant::now();
@@ -70,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for iteration in 1..=cli.iterations {
         println!("\n🏃 Running iteration {}/{}...", iteration, cli.iterations);
 
-        let result = bench::run_benchmark(&cli.uncomment_binary, &cli.target, cli.sample_size)?;
+        let result = bench::run_benchmark(&cli.uncomment_binary, &cli.target, cli.threads)?;
 
         result.print_summary();
         results.push(result);
@@ -152,20 +136,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             last_result.files_per_second
         );
         println!("🎉 Performance is already optimized!");
-    }
-
-    if cli.sample_size.is_some() {
-        let estimated_full_time = 850_000.0 / last_result.files_per_second;
-        println!("\n📊 FULL CODEBASE ESTIMATE");
-        println!("=========================");
-        println!(
-            "🏢 For ~850k files (Armis-scale): ~{:.1} minutes",
-            estimated_full_time / 60.0
-        );
-
-        if estimated_full_time > 300.0 {
-            println!("⚠️  Consider optimization for large-scale usage");
-        }
     }
 
     println!("\n✅ Benchmark completed successfully!");
