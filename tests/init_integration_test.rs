@@ -4,7 +4,6 @@ use tempfile::TempDir;
 
 /// Get the path to the compiled uncomment binary
 fn get_binary_path() -> std::path::PathBuf {
-    // Build the binary first to ensure it's up to date
     let build_output = Command::new("cargo")
         .args(["build", "--bin", "uncomment"])
         .output()
@@ -17,7 +16,6 @@ fn get_binary_path() -> std::path::PathBuf {
         );
     }
 
-    // Return path to the compiled binary
     let mut binary_path = std::env::current_dir().expect("Failed to get current directory");
     binary_path.push("target/debug/uncomment");
     binary_path
@@ -30,31 +28,24 @@ fn test_init_command_end_to_end() {
     let temp_dir = TempDir::new().unwrap();
     let project_dir = temp_dir.path();
 
-    // Create a realistic project structure with various languages
     create_test_project(project_dir);
 
-    // Test 1: Basic smart init
     test_smart_init(project_dir);
 
-    // Test 2: Comprehensive init
     test_comprehensive_init(project_dir);
 
-    // Test 3: Generated config can actually process files
     test_generated_config_processing(project_dir);
 
-    // Test 4: Force overwrite works
     test_force_overwrite(project_dir);
 }
 
 fn create_test_project(project_dir: &std::path::Path) {
-    // Create directories
     fs::create_dir_all(project_dir.join("src")).unwrap();
     fs::create_dir_all(project_dir.join("frontend")).unwrap();
     fs::create_dir_all(project_dir.join("mobile")).unwrap();
     fs::create_dir_all(project_dir.join("scripts")).unwrap();
     fs::create_dir_all(project_dir.join("tests")).unwrap();
 
-    // Backend/Core files (Rust)
     fs::write(
         project_dir.join("src/main.rs"),
         r#"
@@ -101,7 +92,6 @@ mod tests {
     )
     .unwrap();
 
-    // Frontend files (JavaScript/TypeScript)
     fs::write(
         project_dir.join("frontend/app.js"),
         r#"
@@ -172,7 +162,6 @@ export default App;
     )
     .unwrap();
 
-    // Mobile files (Swift)
     fs::write(
         project_dir.join("mobile/ContentView.swift"),
         r#"
@@ -208,7 +197,6 @@ struct ContentView_Previews: PreviewProvider {
     )
     .unwrap();
 
-    // Python scripts
     fs::write(
         project_dir.join("scripts/build.py"),
         r#"
@@ -239,7 +227,6 @@ if __name__ == "__main__":
     )
     .unwrap();
 
-    // Go service
     fs::write(
         project_dir.join("service.go"),
         r#"
@@ -286,7 +273,6 @@ func main() {
     )
     .unwrap();
 
-    // Configuration files
     fs::write(
         project_dir.join("config.yaml"),
         r#"
@@ -337,7 +323,6 @@ CMD ["app"]
     )
     .unwrap();
 
-    // Vue.js component
     fs::write(
         project_dir.join("frontend/App.vue"),
         r#"
@@ -383,7 +368,6 @@ export default {
     )
     .unwrap();
 
-    // Test files
     fs::write(
         project_dir.join("tests/integration_test.py"),
         r#"
@@ -417,7 +401,6 @@ class TestAPI:
     )
     .unwrap();
 
-    // Makefile
     fs::write(
         project_dir.join("Makefile"),
         r#"
@@ -456,10 +439,8 @@ clean:
 fn test_smart_init(project_dir: &std::path::Path) {
     println!("Testing smart init...");
 
-    // Get the path to the compiled binary
     let binary_path = get_binary_path();
 
-    // Change to project directory and run the command
     let output = Command::new(&binary_path)
         .args(["init", "--output", "smart-config.toml"])
         .current_dir(project_dir)
@@ -472,33 +453,28 @@ fn test_smart_init(project_dir: &std::path::Path) {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Check that config file was created
     let config_path = project_dir.join("smart-config.toml");
     assert!(config_path.exists(), "Smart config file was not created");
 
-    // Read and validate the generated config
     let config_content = fs::read_to_string(&config_path).unwrap();
     println!("Generated smart config:\n{}", config_content);
 
-    // Should detect our languages (clean version without comments)
     assert!(config_content.contains("[global]"));
-    assert!(!config_content.contains("# Smart Uncomment Configuration")); // Clean version has no comments
-    assert!(config_content.contains("[languages.rust]")); // Rust
-    assert!(config_content.contains("[languages.javascript]")); // JavaScript
-    assert!(config_content.contains("[languages.typescript]")); // TypeScript
-    assert!(config_content.contains("[languages.python]")); // Python
-    assert!(config_content.contains("[languages.go]")); // Go
-    assert!(config_content.contains("[languages.swift]")); // Swift
-    assert!(config_content.contains("[languages.vue]")); // Vue.js
+    assert!(!config_content.contains("# Smart Uncomment Configuration"));
+    assert!(config_content.contains("[languages.rust]"));
+    assert!(config_content.contains("[languages.javascript]"));
+    assert!(config_content.contains("[languages.typescript]"));
+    assert!(config_content.contains("[languages.python]"));
+    assert!(config_content.contains("[languages.go]"));
+    assert!(config_content.contains("[languages.swift]"));
+    assert!(config_content.contains("[languages.vue]"));
 
-    // Should include language configurations
     assert!(config_content.contains("[languages.rust]"));
     assert!(config_content.contains("[languages.javascript]"));
     assert!(config_content.contains("[languages.typescript]"));
     assert!(config_content.contains("[languages.python]"));
     assert!(config_content.contains("[languages.go]"));
 
-    // Should include custom grammar configurations for non-builtin languages
     assert!(config_content.contains("[languages.vue.grammar]"));
     assert!(config_content.contains("[languages.dockerfile.grammar]"));
     assert!(config_content.contains("[languages.swift.grammar]"));
@@ -506,7 +482,6 @@ fn test_smart_init(project_dir: &std::path::Path) {
     assert!(config_content.contains("tree-sitter-dockerfile"));
     assert!(config_content.contains("tree-sitter-swift"));
 
-    // Validate that the config can be parsed
     let parsed_config: Result<uncomment::config::Config, _> = toml::from_str(&config_content);
     assert!(
         parsed_config.is_ok(),
@@ -552,10 +527,8 @@ fn test_comprehensive_init(project_dir: &std::path::Path) {
 
     let config_content = fs::read_to_string(&config_path).unwrap();
 
-    // Should be comprehensive config (clean version without comments)
-    assert!(!config_content.contains("# Comprehensive Uncomment Configuration")); // Clean version has no comments
+    assert!(!config_content.contains("# Comprehensive Uncomment Configuration"));
 
-    // Should include many languages
     assert!(config_content.contains("[languages.vue]"));
     assert!(config_content.contains("[languages.svelte]"));
     assert!(config_content.contains("[languages.swift]"));
@@ -567,14 +540,11 @@ fn test_comprehensive_init(project_dir: &std::path::Path) {
     assert!(config_content.contains("[languages.julia]"));
     assert!(config_content.contains("[languages.r]"));
 
-    // Should include grammar configurations
     assert!(config_content.contains("source = { type = \"git\""));
 
-    // The clean version doesn't include category comments
     assert!(!config_content.contains("# Web Development Languages"));
     assert!(!config_content.contains("# Mobile Development"));
 
-    // Validate TOML parsing
     let parsed_config: Result<uncomment::config::Config, _> = toml::from_str(&config_content);
     assert!(
         parsed_config.is_ok(),
@@ -594,10 +564,8 @@ fn test_comprehensive_init(project_dir: &std::path::Path) {
 fn test_generated_config_processing(project_dir: &std::path::Path) {
     println!("Testing generated config can process files...");
 
-    // Use the smart config we generated
     let config_path = project_dir.join("smart-config.toml");
 
-    // Process some files using the generated config
     let binary_path = get_binary_path();
     let output = Command::new(&binary_path)
         .args([
@@ -631,15 +599,12 @@ fn test_generated_config_processing(project_dir: &std::path::Path) {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Should process files successfully (output indicates successful processing)
     assert!(
         stdout.contains("files processed") || stdout.contains("comment-free"),
         "Should indicate files were processed: {}",
         stdout
     );
-    // The test files don't have comments, so they're already clean - this is expected
 
-    // Should show some processing results
     assert!(
         stdout.contains("files") || stdout.contains("Processing") || stdout.contains("comments"),
         "Should show processing activity"
@@ -653,7 +618,6 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
 
     let config_path = project_dir.join("test-force.toml");
 
-    // Create initial config
     let binary_path = get_binary_path();
     let output1 = Command::new(&binary_path)
         .args(["init", "--output", "test-force.toml"])
@@ -666,7 +630,6 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
 
     let original_content = fs::read_to_string(&config_path).unwrap();
 
-    // Try to overwrite without force (should fail)
     let output2 = Command::new(&binary_path)
         .args(["init", "--output", "test-force.toml"])
         .current_dir(project_dir)
@@ -684,7 +647,6 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
         "Should show error about existing file"
     );
 
-    // Now overwrite with force (should succeed)
     let output3 = Command::new(&binary_path)
         .args([
             "init",
@@ -707,7 +669,6 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
         original_content, new_content,
         "Content should be different after force overwrite"
     );
-    // Clean version doesn't have comments, but should have more languages
     assert!(
         new_content.contains("[languages.vue]") && new_content.contains("[languages.kotlin]"),
         "Should have comprehensive config after force overwrite"
@@ -722,7 +683,6 @@ fn test_init_error_scenarios() {
     let temp_dir = TempDir::new().unwrap();
     let project_dir = temp_dir.path();
 
-    // Test invalid output path (directory doesn't exist)
     let binary_path = get_binary_path();
     let output = Command::new(&binary_path)
         .args(["init", "--output", "/nonexistent/path/config.toml"])
@@ -782,7 +742,6 @@ fn test_comprehensive_config_repositories() {
 
     let config_content = fs::read_to_string(project_dir.join("repo-test.toml")).unwrap();
 
-    // Check that it includes actual tree-sitter repository URLs
     assert!(config_content.contains("https://github.com/ikatyang/tree-sitter-vue"));
     assert!(config_content.contains("https://github.com/alex-pinkus/tree-sitter-swift"));
     assert!(config_content.contains("https://github.com/fwcd/tree-sitter-kotlin"));
@@ -790,8 +749,6 @@ fn test_comprehensive_config_repositories() {
     assert!(config_content.contains("https://github.com/tree-sitter/tree-sitter-haskell"));
     assert!(config_content.contains("https://github.com/elixir-lang/tree-sitter-elixir"));
 
-    // The comprehensive template typically doesn't specify branches (uses defaults)
-    // Just ensure we have git sources
     assert!(config_content.contains("type = \"git\""));
 
     println!("✅ Repository URLs test passed");

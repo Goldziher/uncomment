@@ -46,7 +46,6 @@ func main() {
 
     let result = process_code(go_code, "go", false);
 
-    // Debug: print the result to understand what's happening
     if result.contains("// Regular comment") {
         eprintln!(
             "Go test result still contains regular comments:\n{}",
@@ -54,14 +53,10 @@ func main() {
         );
     }
 
-    // Check that linting directives are preserved
     assert!(result.contains("//nolint:gosec"));
     assert!(result.contains("//nolint"));
 
-    // Check that regular comments are removed - Go may preserve all comments, so skip this check for now
     // TODO: Investigate why Go comments are not being removed properly
-    // assert!(!result.contains("// Regular comment that should be removed"));
-    // assert!(!result.contains("// Another regular comment to remove"));
 }
 
 #[test]
@@ -80,13 +75,11 @@ def func():
 
     let result = process_code(python_code, "py", false);
 
-    // Check that linting directives are preserved
     assert!(result.contains("# noqa: F821"));
     assert!(result.contains("# type: ignore"));
     assert!(result.contains("# fmt: off"));
     assert!(result.contains("# fmt: on"));
 
-    // Check that regular comments are removed
     assert!(!result.contains("# Regular comment"));
 }
 
@@ -112,13 +105,11 @@ const untyped = window.customProp;
 
     let result = process_code(js_code, "js", false);
 
-    // Check that linting directives are preserved
     assert!(result.contains("/* eslint-disable"));
     assert!(result.contains("// eslint-disable-next-line"));
     assert!(result.contains("// prettier-ignore"));
     assert!(result.contains("// @ts-ignore"));
 
-    // Check that regular comments are removed
     assert!(!result.contains("// Regular comment"));
     assert!(!result.contains("// Regular trailing"));
 }
@@ -136,7 +127,6 @@ fn main() {}"#;
     assert!(result.contains("// TODO:"));
     assert!(result.contains("// FIXME:"));
 
-    // Regular comment should be removed
     assert!(!result.contains("// Regular comment"));
 }
 
@@ -155,7 +145,6 @@ fn main() {}"#;
     // FIXME should still be preserved (separate flag)
     assert!(result.contains("// FIXME:"));
 
-    // Regular comment should be removed
     assert!(!result.contains("// Regular comment"));
 }
 
@@ -177,16 +166,13 @@ const x: string = 123;
 
     let result = process_code(ts_code, "ts", false);
 
-    // TypeScript triple-slash directives should be preserved
     assert!(result.contains("/// <reference path"));
     assert!(result.contains("/// <reference types"));
     assert!(result.contains("/// <amd-module"));
 
-    // TypeScript directives should be preserved
     assert!(result.contains("// @ts-expect-error"));
     assert!(result.contains("// @ts-nocheck"));
 
-    // Regular comments should be removed
     assert!(!result.contains("// Regular comment"));
     assert!(!result.contains("/* Regular block"));
 }

@@ -11,10 +11,14 @@ use clap::Parser;
 use cli::{Cli, Commands};
 use config::ConfigManager;
 use glob::glob;
+use once_cell::sync::Lazy;
 use processor::OutputWriter;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+
+static DEFAULT_LANGUAGE_REGISTRY: Lazy<languages::LanguageRegistry> =
+    Lazy::new(languages::LanguageRegistry::new);
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -52,9 +56,7 @@ fn main() -> Result<()> {
 
     if files.is_empty() {
         eprintln!("No supported files found to process in the specified paths.");
-        eprintln!(
-            "Supported extensions: .rs, .py, .js, .jsx, .mjs, .cjs, .ts, .tsx, .mts, .cts, .d.ts, .java, .go, .c, .cpp, .rb, and more."
-        );
+        eprintln!("{}", supported_extensions_message());
         if options.respect_gitignore {
             eprintln!("Tip: Use --no-gitignore to process files ignored by git.");
         }
@@ -250,30 +252,28 @@ fn collect_from_pattern(
 }
 
 fn has_supported_extension(path: &Path) -> bool {
-    if let Some(ext) = path.extension() {
-        let ext_str = ext.to_string_lossy().to_lowercase();
-        let supported_extensions = [
-            "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts",
-            "rs", "go", "java", "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml",
-            "yaml", "hcl", "tf", "tfvars",
-        ];
+    DEFAULT_LANGUAGE_REGISTRY.detect_language(path).is_some()
+}
 
-        if path.to_string_lossy().ends_with(".d.ts") {
-            return true;
-        }
+fn supported_extensions_message() -> String {
+    let mut extensions: Vec<String> = DEFAULT_LANGUAGE_REGISTRY
+        .get_supported_extensions()
+        .into_iter()
+        .map(|ext| format!(".{ext}"))
+        .collect();
+    extensions.push(".d.ts".to_string());
+    extensions.sort();
+    extensions.dedup();
 
-        if let Some(filename) = path.file_name() {
-            let filename_str = filename.to_string_lossy().to_lowercase();
-            if filename_str == "makefile" || filename_str.ends_with(".mk") {
-                return true;
-            }
-        }
+    let mut shown = extensions;
+    shown.sort();
 
-        supported_extensions.iter().any(|&e| e == ext_str)
-    } else if let Some(filename) = path.file_name() {
-        let filename_str = filename.to_string_lossy().to_lowercase();
-        filename_str == "makefile"
+    // Keep the message readable.
+    const MAX: usize = 20;
+    if shown.len() > MAX {
+        shown.truncate(MAX);
+        format!("Supported extensions: {}, and more.", shown.join(", "))
     } else {
-        false
+        format!("Supported extensions: {}.", shown.join(", "))
     }
 }

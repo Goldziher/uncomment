@@ -8,7 +8,6 @@ fn test_python_docstring_detection() {
     let temp_dir = TempDir::new().unwrap();
     let root = temp_dir.path();
 
-    // Create config that removes docstrings but preserves other strings
     let config_content = r#"
 [global]
 remove_todos = false
@@ -24,7 +23,6 @@ remove_docs = true
 
     fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
 
-    // Create Python file with various string types
     let py_file = root.join("test_docstrings.py");
     let py_content = r#""""Module level docstring"""
 
@@ -55,7 +53,6 @@ def func_no_docstring():
 
     let uncomment_path = get_binary_path();
 
-    // Process the file
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["test_docstrings.py"])
@@ -68,25 +65,20 @@ def func_no_docstring():
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Check the result
     let result_content = fs::read_to_string(&py_file).unwrap();
 
-    // Docstrings should be removed
     assert!(!result_content.contains("Module level docstring"));
     assert!(!result_content.contains("Function docstring"));
     assert!(!result_content.contains("Class docstring"));
     assert!(!result_content.contains("Method docstring"));
 
-    // Regular strings should be preserved
     assert!(result_content.contains("This is not a docstring"));
     assert!(result_content.contains("Also not a docstring"));
     assert!(result_content.contains("Just a string"));
-    assert!(result_content.contains("string")); // return value
+    assert!(result_content.contains("string"));
 
-    // Non-docstring triple-quoted string should be preserved
     assert!(result_content.contains("Not a docstring because assignment comes first"));
 
-    // Regular comments should be removed (comment_nodes = ["comment"])
     assert!(!result_content.contains("# Regular comment"));
 }
 
@@ -95,7 +87,6 @@ fn test_python_docstring_vs_regular_strings() {
     let temp_dir = TempDir::new().unwrap();
     let root = temp_dir.path();
 
-    // Config that removes docstrings
     let config_content = r#"
 [global]
 remove_docs = true
@@ -110,7 +101,6 @@ remove_docs = true
 
     fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
 
-    // Python file with edge cases
     let py_file = root.join("test_edge_cases.py");
     let py_content = r#""""This is a module docstring"""
 
@@ -151,13 +141,11 @@ class MyClass:
 
     let result_content = fs::read_to_string(&py_file).unwrap();
 
-    // These should be removed (actual docstrings)
     assert!(!result_content.contains("This is a module docstring"));
     assert!(!result_content.contains("This is a function docstring"));
     assert!(!result_content.contains("This is a class docstring"));
     assert!(!result_content.contains("This is a method docstring"));
 
-    // These should be preserved (not docstrings)
     assert!(result_content.contains("This is NOT a docstring - it's an assignment"));
     assert!(result_content.contains("Regular string"));
     assert!(result_content.contains("This is NOT a docstring because assignment came first"));
@@ -168,7 +156,6 @@ class MyClass:
     assert!(result_content.contains("assignment comes first"));
 }
 
-// Helper function to get the binary path
 fn get_binary_path() -> std::path::PathBuf {
     std::env::current_exe()
         .unwrap()

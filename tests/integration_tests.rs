@@ -4,17 +4,8 @@ use tempfile::TempDir;
 
 #[test]
 fn test_gitignore_from_subdirectory() {
-    // Create a temporary directory for our test
     let temp_dir = TempDir::new().unwrap();
     let root = temp_dir.path();
-
-    // Create directory structure:
-    // /
-    // ├── .gitignore (containing ".next")
-    // └── subfolder/
-    //     ├── main.js
-    //     └── .next/
-    //         └── test.js
 
     let subfolder = root.join("subfolder");
     let next_folder = subfolder.join(".next");
@@ -22,10 +13,8 @@ fn test_gitignore_from_subdirectory() {
     fs::create_dir(&subfolder).unwrap();
     fs::create_dir(&next_folder).unwrap();
 
-    // Create .gitignore in root
     fs::write(root.join(".gitignore"), ".next\n").unwrap();
 
-    // Create test files with comments
     fs::write(
         subfolder.join("main.js"),
         "// Main file comment\nconst x = 1;",
@@ -37,14 +26,12 @@ fn test_gitignore_from_subdirectory() {
     )
     .unwrap();
 
-    // Initialize git repo
     Command::new("git")
         .current_dir(root)
         .args(["init"])
         .output()
         .unwrap();
 
-    // Build path to uncomment binary
     let uncomment_path = std::env::current_exe()
         .unwrap()
         .parent()
@@ -53,7 +40,6 @@ fn test_gitignore_from_subdirectory() {
         .unwrap()
         .join("uncomment");
 
-    // Run uncomment from subfolder with dry-run
     let output = Command::new(&uncomment_path)
         .current_dir(&subfolder)
         .args([".", "--dry-run"])
@@ -63,12 +49,10 @@ fn test_gitignore_from_subdirectory() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Debug output
     if !output.status.success() {
         panic!("Command failed with stderr: {}", stderr);
     }
 
-    // Should only process main.js, not test.js in .next folder
     assert!(
         stdout.contains("1 files processed"),
         "Expected to process only 1 file, but got: {}",
@@ -88,21 +72,17 @@ fn test_gitignore_from_subdirectory() {
 
 #[test]
 fn test_gitignore_with_no_gitignore_flag() {
-    // Create a temporary directory for our test
     let temp_dir = TempDir::new().unwrap();
     let root = temp_dir.path();
 
-    // Create same structure as above
     let subfolder = root.join("subfolder");
     let next_folder = subfolder.join(".next");
 
     fs::create_dir(&subfolder).unwrap();
     fs::create_dir(&next_folder).unwrap();
 
-    // Create .gitignore in root
     fs::write(root.join(".gitignore"), ".next\n").unwrap();
 
-    // Create test files with comments
     fs::write(
         subfolder.join("main.js"),
         "// Main file comment\nconst x = 1;",
@@ -114,14 +94,12 @@ fn test_gitignore_with_no_gitignore_flag() {
     )
     .unwrap();
 
-    // Initialize git repo
     Command::new("git")
         .current_dir(root)
         .args(["init"])
         .output()
         .unwrap();
 
-    // Build path to uncomment binary
     let uncomment_path = std::env::current_exe()
         .unwrap()
         .parent()
@@ -130,7 +108,6 @@ fn test_gitignore_with_no_gitignore_flag() {
         .unwrap()
         .join("uncomment");
 
-    // Run uncomment from subfolder with --no-gitignore flag
     let output = Command::new(&uncomment_path)
         .current_dir(&subfolder)
         .args([".", "--dry-run", "--no-gitignore"])
@@ -139,7 +116,6 @@ fn test_gitignore_with_no_gitignore_flag() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // With --no-gitignore, should process both files
     assert!(
         stdout.contains("2 files processed"),
         "Expected to process 2 files with --no-gitignore, but got: {}",
@@ -154,7 +130,6 @@ fn test_config_init_command() {
 
     let uncomment_path = get_binary_path();
 
-    // Test init command
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["init", "--output", "test_config.toml"])
@@ -167,11 +142,9 @@ fn test_config_init_command() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Verify config file was created
     let config_path = root.join("test_config.toml");
     assert!(config_path.exists(), "Config file was not created");
 
-    // Verify config file contents
     let config_content = fs::read_to_string(&config_path).unwrap();
     assert!(config_content.contains("[global]"));
     assert!(config_content.contains("remove_todos = false"));
@@ -195,7 +168,6 @@ preserve_patterns = ["KEEP"]
 
     fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
 
-    // Create test file with various comments
     let test_file = root.join("test.py");
     let test_content = r#"# Header comment
 # TODO: should be removed
@@ -209,7 +181,6 @@ def hello():
 
     let uncomment_path = get_binary_path();
 
-    // Run uncomment with the config
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["test.py"])
@@ -222,7 +193,6 @@ def hello():
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Check the result
     let result_content = fs::read_to_string(&test_file).unwrap();
 
     // TODO should be removed (due to config)
@@ -231,10 +201,8 @@ def hello():
     // FIXME should be preserved (due to config)
     assert!(result_content.contains("FIXME: should be preserved"));
 
-    // KEEP should be preserved (due to config)
     assert!(result_content.contains("KEEP: should be preserved"));
 
-    // Regular comments should be removed
     assert!(!result_content.contains("# Header comment"));
     assert!(!result_content.contains("# Regular comment"));
 }
@@ -252,7 +220,6 @@ remove_fixme = false
 "#;
     fs::write(root.join(".uncommentrc.toml"), root_config).unwrap();
 
-    // Create subdirectory
     let subdir = root.join("subdir");
     fs::create_dir(&subdir).unwrap();
 
@@ -264,7 +231,6 @@ remove_fixme = false
 "#;
     fs::write(subdir.join(".uncommentrc.toml"), sub_config).unwrap();
 
-    // Create test files
     let root_file = root.join("root_test.py");
     let sub_file = subdir.join("sub_test.py");
 
@@ -274,7 +240,6 @@ remove_fixme = false
 
     let uncomment_path = get_binary_path();
 
-    // Process both files
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["root_test.py", "subdir/sub_test.py"])
@@ -315,7 +280,6 @@ fn test_language_specific_configuration() {
     let temp_dir = TempDir::new().unwrap();
     let root = temp_dir.path();
 
-    // Create config with language-specific settings
     let config_content = r#"
 [global]
 remove_todos = false
@@ -338,7 +302,6 @@ preserve_patterns = ["@ts-ignore"]
 
     fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
 
-    // Create Python file
     let py_file = root.join("test.py");
     let py_content = r#""""This is a docstring"""
 # TODO: regular todo
@@ -346,7 +309,6 @@ preserve_patterns = ["@ts-ignore"]
 def hello(): pass"#;
     fs::write(&py_file, py_content).unwrap();
 
-    // Create JavaScript file
     let js_file = root.join("test.js");
     let js_content = r#"/**
  * This is a JSDoc comment
@@ -358,7 +320,6 @@ const x = 1;"#;
 
     let uncomment_path = get_binary_path();
 
-    // Process both files
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["test.py", "test.js"])
@@ -377,7 +338,6 @@ const x = 1;"#;
         String::from_utf8_lossy(&output.stdout)
     );
 
-    // Check Python file - docstring should be removed, mypy preserved
     let py_result = fs::read_to_string(&py_file).unwrap();
     assert!(
         !py_result.contains("This is a docstring"),
@@ -413,7 +373,6 @@ fn test_custom_config_file_path() {
     let temp_dir = TempDir::new().unwrap();
     let root = temp_dir.path();
 
-    // Create custom config file with different name
     let custom_config = r#"
 [global]
 remove_todos = true
@@ -423,7 +382,6 @@ preserve_patterns = ["CUSTOM"]
     let custom_config_path = root.join("my_custom_config.toml");
     fs::write(&custom_config_path, custom_config).unwrap();
 
-    // Create test file
     let test_file = root.join("test.py");
     let test_content =
         "# TODO: should be removed\n# CUSTOM: should be preserved\ndef hello(): pass";
@@ -431,7 +389,6 @@ preserve_patterns = ["CUSTOM"]
 
     let uncomment_path = get_binary_path();
 
-    // Run with custom config file
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["--config", "my_custom_config.toml", "test.py"])
@@ -444,7 +401,6 @@ preserve_patterns = ["CUSTOM"]
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Check result
     let result = fs::read_to_string(&test_file).unwrap();
     assert!(
         !result.contains("TODO: should be removed"),
@@ -461,7 +417,6 @@ fn test_pattern_based_configuration() {
     let temp_dir = TempDir::new().unwrap();
     let root = temp_dir.path();
 
-    // Create config with pattern-based rules
     let config_content = r#"
 [global]
 remove_todos = false
@@ -477,10 +432,8 @@ preserve_patterns = ["PRODUCTION"]
 
     fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
 
-    // Create directories
     fs::create_dir(root.join("src")).unwrap();
 
-    // Create test files
     let test_file = root.join("test_example.py");
     let src_file = root.join("src").join("main.py");
     let regular_file = root.join("regular.py");
@@ -498,24 +451,18 @@ def hello(): pass"#;
 
     let uncomment_path = get_binary_path();
 
-    // Process all files
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["test_example.py", "src/main.py", "regular.py"])
         .output()
         .unwrap();
 
-    // Note: Pattern matching is not yet implemented in the current codebase,
-    // so this test will demonstrate the current behavior and can be updated
-    // when pattern matching is implemented
     assert!(
         output.status.success(),
         "Command failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // For now, all files should behave according to global config
-    // since pattern matching is not yet implemented
     let test_result = fs::read_to_string(&test_file).unwrap();
     let src_result = fs::read_to_string(&src_file).unwrap();
     let regular_result = fs::read_to_string(&regular_file).unwrap();
@@ -534,7 +481,6 @@ fn test_config_validation_errors() {
     let temp_dir = TempDir::new().unwrap();
     let root = temp_dir.path();
 
-    // Create invalid config - malformed TOML that should fail parsing
     let invalid_config = r#"
 [global]
 remove_todos = "invalid_boolean_value"  # Should fail TOML parsing
@@ -543,19 +489,16 @@ invalid_syntax_here
 
     fs::write(root.join(".uncommentrc.toml"), invalid_config).unwrap();
 
-    // Create a test file
     fs::write(root.join("test.py"), "# comment\ndef hello(): pass").unwrap();
 
     let uncomment_path = get_binary_path();
 
-    // Run uncomment with explicit config flag - should fail with validation error
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["--config", ".uncommentrc.toml", "test.py"])
         .output()
         .unwrap();
 
-    // Should fail due to invalid config
     assert!(
         !output.status.success(),
         "Command should fail with invalid config"
@@ -584,14 +527,12 @@ remove_todos = false
 
     fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
 
-    // Create test file
     let test_file = root.join("test.py");
     fs::write(&test_file, "# TODO: test comment\ndef hello(): pass").unwrap();
 
     let uncomment_path = get_binary_path();
 
     // Run with CLI flag that would remove TODOs (CLI should override config in future)
-    // For now, this tests current behavior where config takes precedence
     let output = Command::new(&uncomment_path)
         .current_dir(root)
         .args(["--remove-todo", "test.py"])
@@ -606,11 +547,8 @@ remove_todos = false
 
     // Current behavior: config takes precedence, so TODO should be preserved
     let _result = fs::read_to_string(&test_file).unwrap();
-    // Note: This test documents current behavior and may need updating
-    // when CLI override logic is implemented
 }
 
-// Helper function to get the binary path
 fn get_binary_path() -> std::path::PathBuf {
     std::env::current_exe()
         .unwrap()

@@ -34,7 +34,7 @@ rules:
   - content: "Run cargo fmt before committing. Fix all cargo clippy warnings - aim for zero warnings. Use Rust idioms: prefer iter() over loops, use ? for error propagation, leverage pattern matching. Follow naming conventions: snake_case for functions/variables, PascalCase for types. Document public APIs with /// comments. Keep functions focused and under 50 lines when possible."
     name: Code Style and Linting
     priority: medium
-  - content: Use parallel processing for multiple files but parse serially within each file. Cache language parsers in GrammarManager to avoid reinitialization. Be mindful that tree-sitter parsing takes ~20-30ms per small file vs instant regex - prioritize accuracy over speed. Use benchmarks/performance.rs and cargo bench to measure changes. Profile with bin/profile.rs before optimizing.
+  - content: Use parallel processing for multiple files but parse serially within each file. Cache language parsers in GrammarManager to avoid reinitialization. Be mindful that tree-sitter parsing takes ~20-30ms per small file vs instant regex - prioritize accuracy over speed. Use the `benchmark` and `profile` binaries (feature `bench-tools`) to measure changes.
     name: Performance Considerations
     priority: medium
 sections:

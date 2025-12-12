@@ -464,13 +464,13 @@ Use the built-in tools to measure performance on your specific codebase:
 
 ```bash
 # Basic benchmark
-uncomment benchmark --target /path/to/repo
+benchmark --target /path/to/repo
 
 # Detailed benchmark with multiple iterations
-uncomment benchmark --target /path/to/repo --iterations 5 --threads 8
+benchmark --target /path/to/repo --iterations 5 --threads 8
 
 # Memory and performance profiling
-uncomment profile /path/to/repo
+profile --path /path/to/repo
 ```
 
 The accuracy gained through AST parsing is worth the small performance cost, and parallel processing makes it suitable for even the largest codebases.
@@ -486,18 +486,16 @@ uncomment/
 ├── fixtures/          # Test fixtures
 │   ├── languages/     # Language-specific test files
 │   └── repos/         # Repository test configurations
-├── bench/             # CLI benchmarking tool
-├── benchmarks/        # Rust micro-benchmarks
 ├── test-repos/        # Manual testing scripts
 └── scripts/           # Build and release scripts
 ```
 
 ### Benchmarking
 
-The project includes two types of benchmarking tools:
+The project includes optional benchmarking and profiling binaries (gated behind the `bench-tools` feature):
 
-- **`bench/`**: Custom CLI benchmarking tool for testing real-world performance on large codebases. Use via `cargo run --release --bin benchmark`.
-- **`benchmarks/`**: Standard Rust micro-benchmarks for testing specific functions and components. Run with `cargo bench`.
+- Run `benchmark` (real-world throughput on a codebase)
+- Run `profile` (repeatable timing runs + basic analysis)
 
 ### Testing
 

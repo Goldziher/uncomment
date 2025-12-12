@@ -35,7 +35,6 @@ def get_platform():
 
 def convert_version_to_git_tag(version):
     """Convert Python version format to git tag format."""
-    # Convert 2.1.1rc1 to 2.1.1-rc.1
     if "rc" in version:
         parts = version.split("rc")
         return f"{parts[0]}-rc.{parts[1]}"
@@ -60,12 +59,9 @@ def download_binary(url, dest_path):
             tmp_file.write(response.content)
             tmp_file.flush()
 
-            # Extract the binary from the tar.gz
             with tarfile.open(tmp_file.name, 'r:gz') as tar:
-                # Find the binary file in the archive
                 for member in tar.getmembers():
                     if member.name.endswith('uncomment') or member.name.endswith('uncomment.exe'):
-                        # Extract to destination
                         with tar.extractfile(member) as binary_file:
                             with open(dest_path, 'wb') as f:
                                 f.write(binary_file.read())
@@ -73,7 +69,6 @@ def download_binary(url, dest_path):
                 else:
                     raise RuntimeError(f"No binary found in archive from {url}")
 
-            # Clean up temp file
             os.unlink(tmp_file.name)
 
     except Exception as e:
@@ -95,18 +90,16 @@ def ensure_binary():
 
     binary_path = get_binary_path()
 
-    # Check if binary exists and is executable
     if binary_path.exists():
         if os.access(binary_path, os.X_OK):
             return str(binary_path)
 
-    # Download the binary
     print(f"Downloading uncomment binary v{__version__}...", file=sys.stderr)
     url = get_binary_url(__version__)
 
     try:
         download_binary(url, binary_path)
-        os.chmod(binary_path, 0o755)  # Make executable
+        os.chmod(binary_path, 0o755)
         print("Binary downloaded successfully!", file=sys.stderr)
         return str(binary_path)
     except Exception as e:
@@ -118,7 +111,6 @@ def run_uncomment(args):
     binary_path = ensure_binary()
 
     try:
-        # Run the binary and forward all output
         result = subprocess.run([binary_path] + args, check=False)
         sys.exit(result.returncode)
     except FileNotFoundError:

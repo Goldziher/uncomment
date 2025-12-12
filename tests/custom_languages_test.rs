@@ -12,7 +12,6 @@ fn test_custom_language_config_loading() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("uncomment.toml");
 
-    // Write a configuration with custom languages
     let config_content = r#"
 [global]
 remove_docs = false
@@ -48,10 +47,8 @@ source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sit
 
     fs::write(&config_path, config_content).unwrap();
 
-    // Load and validate the configuration
     let config = Config::from_file(&config_path).unwrap();
 
-    // Verify Ruby configuration
     assert!(config.languages.contains_key("ruby"));
     let ruby_config = &config.languages["ruby"];
     assert_eq!(ruby_config.name, "Ruby");
@@ -61,13 +58,11 @@ source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sit
         GrammarSource::Git { .. }
     ));
 
-    // Verify Swift configuration
     assert!(config.languages.contains_key("swift"));
     let swift_config = &config.languages["swift"];
     assert_eq!(swift_config.name, "Swift");
     assert_eq!(swift_config.extensions, vec!["swift"]);
 
-    // Verify Vue configuration
     assert!(config.languages.contains_key("vue"));
     let vue_config = &config.languages["vue"];
     assert_eq!(vue_config.name, "Vue");
@@ -89,7 +84,6 @@ source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sit
 fn test_custom_language_grammar_manager() {
     let mut grammar_manager = GrammarManager::new().unwrap();
 
-    // Test that requesting a non-builtin language with Git source would attempt to load it
     let config = GrammarConfig {
         source: GrammarSource::Git {
             url: "https://github.com/tree-sitter/tree-sitter-ruby".to_string(),
@@ -99,11 +93,9 @@ fn test_custom_language_grammar_manager() {
         ..Default::default()
     };
 
-    // This will fail in tests due to no network access, but we can verify the error
     let result = grammar_manager.get_language("ruby", &config);
     assert!(result.is_err());
 
-    // The error should be related to Git operations, not "language not found"
     let error_msg = result.unwrap_err().to_string();
     assert!(
         error_msg.contains("Failed to load Git grammar")
@@ -143,11 +135,9 @@ source = { type = "git", url = "https://github.com/fwcd/tree-sitter-kotlin", bra
 
     let config = Config::from_file(&config_path).unwrap();
 
-    // Rust should have builtin grammar (no grammar config)
     let rust_config = &config.languages["rust"];
     assert!(matches!(rust_config.grammar.source, GrammarSource::Builtin));
 
-    // Kotlin should have Git grammar
     let kotlin_config = &config.languages["kotlin"];
     assert!(matches!(
         kotlin_config.grammar.source,
@@ -179,7 +169,6 @@ source = { type = "git", url = "https://github.com/elixir-lang/tree-sitter-elixi
     let config_manager = uncomment::config::ConfigManager::new(temp_dir.path()).unwrap();
     let mut processor = Processor::new();
 
-    // Create an Elixir file
     let elixir_file = temp_dir.path().join("test.ex");
     let elixir_content = r#"
 # This is an Elixir comment
@@ -192,12 +181,10 @@ end
 "#;
     fs::write(&elixir_file, elixir_content).unwrap();
 
-    // Processing should fail gracefully with appropriate error
     let result = processor.process_file_with_config(&elixir_file, &config_manager, None);
     assert!(result.is_err());
 
     let error_msg = result.unwrap_err().to_string();
-    // Should fail because it can't load the Git grammar (no network in tests)
     assert!(
         error_msg.contains("Failed to load dynamic grammar")
             || error_msg.contains("Failed to load Git grammar")
@@ -261,10 +248,8 @@ source = { type = "library", path = "/path/to/lib.so" }
 
     let config = Config::from_file(&config_path).unwrap();
 
-    // Verify all languages loaded
     assert_eq!(config.languages.len(), 5);
 
-    // Check each grammar source type
     assert!(matches!(
         config.languages["python"].grammar.source,
         GrammarSource::Builtin
@@ -310,16 +295,13 @@ fn test_vuejs_configuration() {
         },
     };
 
-    // Verify configuration is valid
     assert_eq!(config.name, "Vue");
     assert!(config.extensions.contains(&"vue".to_string()));
     assert!(config.comment_nodes.contains(&"comment".to_string()));
 
-    // Test with grammar manager
     let mut grammar_manager = GrammarManager::new().unwrap();
     let result = grammar_manager.get_language("vue", &config.grammar);
 
-    // Will fail in test environment, but should attempt Git operations
     assert!(result.is_err());
     let error_msg = result.unwrap_err().to_string();
     assert!(error_msg.contains("Git") || error_msg.contains("grammar"));
