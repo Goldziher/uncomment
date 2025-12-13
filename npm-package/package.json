@@ -1,6 +1,6 @@
 {
   "name": "uncomment-cli",
-  "version": "2.10.1",
+  "version": "2.10.2",
   "description": "A fast Rust-based CLI tool for removing comments from source code",
   "main": "index.js",
   "bin": {
@@ -31,6 +31,7 @@
     "url": "https://github.com/Goldziher/uncomment/issues"
   },
   "dependencies": {
+    "adm-zip": "^0.5.12",
     "tar": "^6.0.0"
   },
   "files": [

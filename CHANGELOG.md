@@ -8,6 +8,18 @@ This changelog is generated from git tags and commit history.
 
 - _No changes yet._
 
+## [v2.10.2] - 2025-12-13
+
+### Changed
+
+- Aligned publishing workflows with `gitfluff`: GoReleaser-built GitHub release assets plus split registry publishing jobs (crates.io, npm, PyPI).
+- Publishing is now idempotent: if a version is already published, CI skips re-publishing instead of failing.
+- Windows release assets are now published as `.zip` archives (Linux/macOS remain `.tar.gz`).
+
+### Fixed
+
+- Python wrapper now downloads binaries without the `requests` dependency and caches per-version; use `UNCOMMENT_BINARY` to override the binary path.
+
 ## [v2.10.1] - 2025-12-13
 
 ### Fixed

@@ -1,17 +1,21 @@
-const https = require("https");
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const https = require("node:https");
+const http = require("node:http");
 const tar = require("tar");
+const AdmZip = require("adm-zip");
+
 const { version } = require("./package.json");
 
-function getPlatform() {
+function getPlatformTriple() {
   const type = os.type();
   const arch = os.arch();
 
   if (type === "Windows_NT") {
-    return arch === "x64" ? "x86_64-pc-windows-msvc" : "i686-pc-windows-msvc";
+    if (arch === "x64") return "x86_64-pc-windows-gnu";
+    if (arch === "ia32") return "i686-pc-windows-gnu";
+    throw new Error(`Unsupported Windows architecture: ${arch}`);
   }
 
   if (type === "Linux") {
@@ -30,9 +34,10 @@ function getPlatform() {
 }
 
 function getBinaryUrl() {
-  const platform = getPlatform();
+  const platform = getPlatformTriple();
   const baseUrl = `https://github.com/Goldziher/uncomment/releases/download/v${version}`;
-  return `${baseUrl}/uncomment-${platform}.tar.gz`;
+  const ext = platform.includes("windows") ? "zip" : "tar.gz";
+  return `${baseUrl}/uncomment-${platform}.${ext}`;
 }
 
 function downloadWithRedirects(url, dest, maxRedirects = 5) {
@@ -98,31 +103,50 @@ function downloadWithRedirects(url, dest, maxRedirects = 5) {
 async function installBinary() {
   try {
     const url = getBinaryUrl();
+    const isZip = url.endsWith(".zip");
     const binDir = path.join(__dirname, "bin");
-    const tarPath = path.join(binDir, "uncomment.tar.gz");
+    const archivePath = path.join(
+      binDir,
+      isZip ? "uncomment.zip" : "uncomment.tar.gz",
+    );
     const binaryName =
       os.type() === "Windows_NT" ? "uncomment.exe" : "uncomment";
+    const binaryPath = path.join(binDir, binaryName);
 
     if (!fs.existsSync(binDir)) {
       fs.mkdirSync(binDir, { recursive: true });
     }
 
+    if (fs.existsSync(binaryPath)) {
+      return;
+    }
+
     console.log(`Downloading uncomment binary from ${url}...`);
 
-    await downloadWithRedirects(url, tarPath);
+    await downloadWithRedirects(url, archivePath);
 
     console.log("Extracting binary...");
 
-    await tar.extract({
-      file: tarPath,
-      cwd: binDir,
-      filter: (path) => path.endsWith(binaryName),
-    });
+    if (isZip) {
+      const zip = new AdmZip(archivePath);
+      const entry = zip
+        .getEntries()
+        .find((e) => e.entryName.endsWith(binaryName));
+      if (!entry) {
+        throw new Error("Binary not found in downloaded archive");
+      }
+      zip.extractEntryTo(entry, binDir, false, true);
+    } else {
+      await tar.extract({
+        file: archivePath,
+        cwd: binDir,
+        filter: (entryPath) => entryPath.endsWith(binaryName),
+      });
+    }
 
-    fs.unlinkSync(tarPath);
+    fs.unlinkSync(archivePath);
 
     if (os.type() !== "Windows_NT") {
-      const binaryPath = path.join(binDir, binaryName);
       fs.chmodSync(binaryPath, 0o755);
     }
 
