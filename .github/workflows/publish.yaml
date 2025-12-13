@@ -30,6 +30,7 @@ jobs:
       crates_exists: ${{ steps.published.outputs.crates_exists }}
       npm_exists: ${{ steps.published.outputs.npm_exists }}
       pypi_exists: ${{ steps.published.outputs.pypi_exists }}
+      release_assets_exist: ${{ steps.release_assets.outputs.release_assets_exist }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -96,9 +97,28 @@ jobs:
           echo "  npm:       $npm_exists"
           echo "  PyPI:      $pypi_exists"
 
+      - name: Detect existing GitHub release assets
+        id: release_assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          release_assets_exist=false
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            count="$(gh release view "$tag" --json assets --jq '.assets | length')"
+            if [ "${count:-0}" -gt 0 ]; then
+              release_assets_exist=true
+            fi
+          fi
+
+          echo "release_assets_exist=$release_assets_exist" >> "$GITHUB_OUTPUT"
+          echo "GitHub release assets exist? $release_assets_exist"
+
   release_assets:
     name: Publish GitHub release assets
     needs: meta
+    if: needs.meta.outputs.release_assets_exist != 'true'
     runs-on: macos-latest
     steps:
       - name: Checkout
