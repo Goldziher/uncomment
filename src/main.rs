@@ -20,7 +20,21 @@ use std::sync::{Arc, Mutex};
 static DEFAULT_LANGUAGE_REGISTRY: Lazy<languages::LanguageRegistry> =
     Lazy::new(languages::LanguageRegistry::new);
 
+#[derive(Debug, Default)]
+struct UnsupportedFilesReport {
+    total: usize,
+    by_extension: std::collections::BTreeMap<String, usize>,
+    samples: Vec<PathBuf>,
+}
+
 fn main() -> Result<()> {
+    #[cfg(unix)]
+    unsafe {
+        // Avoid panicking on broken pipes (e.g. `uncomment ... | head`) by restoring
+        // SIGPIPE default behavior.
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+
     let cli = Cli::parse();
 
     if let Some(command) = &cli.command {
@@ -52,7 +66,10 @@ fn main() -> Result<()> {
         ConfigManager::new(&current_dir).context("Failed to initialize configuration manager")?
     };
 
-    let files = collect_files(&cli.args.paths, &options)?;
+    let mut unsupported_report = UnsupportedFilesReport::default();
+    let files = collect_files(&cli.args.paths, &options, &mut unsupported_report)?;
+
+    print_unsupported_files_report(&unsupported_report, cli.args.verbose);
 
     if files.is_empty() {
         eprintln!("No supported files found to process in the specified paths.");
@@ -78,11 +95,18 @@ fn main() -> Result<()> {
         .build_global()
         .unwrap();
 
-    let output_writer = Arc::new(OutputWriter::new(options.dry_run, cli.args.verbose));
+    let output_writer = Arc::new(OutputWriter::new(
+        options.dry_run,
+        cli.args.verbose,
+        options.dry_run && options.show_diff,
+    ));
 
     let total_files = files.len();
     let results = Arc::new(Mutex::new(Vec::new()));
     let modified_count = Arc::new(Mutex::new(0usize));
+    let important_removal_count = Arc::new(Mutex::new(0usize));
+    let important_removal_samples: Arc<Mutex<Vec<(PathBuf, processor::ImportantRemoval)>>> =
+        Arc::new(Mutex::new(Vec::new()));
 
     if num_threads == 1 {
         let mut processor = processor::Processor::new_with_config(&config_manager);
@@ -95,6 +119,19 @@ fn main() -> Result<()> {
 
                     if processed_file.modified {
                         *modified_count.lock().unwrap() += 1;
+                    }
+
+                    if !processed_file.important_removals.is_empty() {
+                        *important_removal_count.lock().unwrap() +=
+                            processed_file.important_removals.len();
+                        let mut samples = important_removal_samples.lock().unwrap();
+                        const MAX: usize = 20;
+                        for removal in &processed_file.important_removals {
+                            if samples.len() >= MAX {
+                                break;
+                            }
+                            samples.push((processed_file.path.clone(), removal.clone()));
+                        }
                     }
 
                     output_writer.write_file(&processed_file)?;
@@ -120,6 +157,19 @@ fn main() -> Result<()> {
                         *modified_count.lock().unwrap() += 1;
                     }
 
+                    if !processed_file.important_removals.is_empty() {
+                        *important_removal_count.lock().unwrap() +=
+                            processed_file.important_removals.len();
+                        let mut samples = important_removal_samples.lock().unwrap();
+                        const MAX: usize = 20;
+                        for removal in &processed_file.important_removals {
+                            if samples.len() >= MAX {
+                                break;
+                            }
+                            samples.push((processed_file.path.clone(), removal.clone()));
+                        }
+                    }
+
                     results.lock().unwrap().push(processed_file);
                 }
                 Err(e) => {
@@ -140,22 +190,49 @@ fn main() -> Result<()> {
     let modified_files = *modified_count.lock().unwrap();
     output_writer.print_summary(total_files, modified_files);
 
+    let important_removals = *important_removal_count.lock().unwrap();
+    if important_removals > 0 {
+        eprintln!(
+            "Warning: removed {important_removals} potentially important comment(s). Re-run with `--dry-run --diff` to inspect."
+        );
+        if cli.args.verbose {
+            eprintln!("Examples:");
+            for (path, removal) in important_removal_samples.lock().unwrap().iter() {
+                eprintln!(
+                    "  - {}:{} [{}] {}",
+                    path.display(),
+                    removal.line,
+                    removal.reason,
+                    removal.preview
+                );
+            }
+        }
+    }
+
     Ok(())
 }
 
-fn collect_files(paths: &[String], options: &processor::ProcessingOptions) -> Result<Vec<PathBuf>> {
+fn collect_files(
+    paths: &[String],
+    options: &processor::ProcessingOptions,
+    unsupported: &mut UnsupportedFilesReport,
+) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     for path_pattern in paths {
         let path = Path::new(path_pattern);
 
         if path.is_file() {
-            files.push(path.to_path_buf());
+            if has_supported_extension(path) {
+                files.push(path.to_path_buf());
+            } else {
+                record_unsupported_file(path, unsupported);
+            }
         } else if path.is_dir() {
             let pattern = format!("{}/**/*", path.display());
-            collect_from_pattern(&pattern, &mut files, options)?
+            collect_from_pattern(&pattern, &mut files, options, unsupported)?
         } else {
-            collect_from_pattern(path_pattern, &mut files, options)?
+            collect_from_pattern(path_pattern, &mut files, options, unsupported)?
         }
     }
 
@@ -169,6 +246,7 @@ fn collect_from_pattern(
     pattern: &str,
     files: &mut Vec<PathBuf>,
     options: &processor::ProcessingOptions,
+    unsupported: &mut UnsupportedFilesReport,
 ) -> Result<()> {
     if options.respect_gitignore {
         use ignore::WalkBuilder;
@@ -229,8 +307,12 @@ fn collect_from_pattern(
                         continue;
                     }
 
-                    if path.is_file() && has_supported_extension(path) {
-                        files.push(path.to_path_buf());
+                    if path.is_file() {
+                        if has_supported_extension(path) {
+                            files.push(path.to_path_buf());
+                        } else {
+                            record_unsupported_file(path, unsupported);
+                        }
                     }
                 }
                 Err(e) => eprintln!("Error reading path: {e}"),
@@ -240,8 +322,12 @@ fn collect_from_pattern(
         for entry in glob(pattern).context("Failed to parse glob pattern")? {
             match entry {
                 Ok(path) => {
-                    if path.is_file() && has_supported_extension(&path) {
-                        files.push(path);
+                    if path.is_file() {
+                        if has_supported_extension(&path) {
+                            files.push(path);
+                        } else {
+                            record_unsupported_file(&path, unsupported);
+                        }
                     }
                 }
                 Err(e) => eprintln!("Error reading path: {e}"),
@@ -249,6 +335,51 @@ fn collect_from_pattern(
         }
     }
     Ok(())
+}
+
+fn record_unsupported_file(path: &Path, report: &mut UnsupportedFilesReport) {
+    report.total += 1;
+
+    let extension = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| format!(".{}", s.to_lowercase()))
+        .unwrap_or_else(|| "<no extension>".to_string());
+
+    *report.by_extension.entry(extension).or_insert(0) += 1;
+
+    const MAX_SAMPLES: usize = 10;
+    if report.samples.len() < MAX_SAMPLES {
+        report.samples.push(path.to_path_buf());
+    }
+}
+
+fn print_unsupported_files_report(report: &UnsupportedFilesReport, verbose: bool) {
+    if report.total == 0 {
+        return;
+    }
+
+    let mut top: Vec<(&String, &usize)> = report.by_extension.iter().collect();
+    top.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+
+    const MAX_TOP: usize = 8;
+    let shown = top.into_iter().take(MAX_TOP).collect::<Vec<_>>();
+    let mut summary = String::new();
+    for (i, (ext, count)) in shown.iter().enumerate() {
+        if i > 0 {
+            summary.push_str(", ");
+        }
+        summary.push_str(&format!("{ext}={count}"));
+    }
+
+    eprintln!("Skipping {} unsupported file(s) ({summary}).", report.total);
+
+    if verbose && !report.samples.is_empty() {
+        eprintln!("Examples:");
+        for sample in &report.samples {
+            eprintln!("  - {}", sample.display());
+        }
+    }
 }
 
 fn has_supported_extension(path: &Path) -> bool {

@@ -223,6 +223,7 @@ fn run_uncomment(files: &[PathBuf]) -> anyhow::Result<Duration> {
         custom_preserve_patterns: vec![],
         use_default_ignores: true,
         dry_run: true,
+        show_diff: false,
         respect_gitignore: false,
         traverse_git_repos: false,
     };
@@ -244,6 +245,7 @@ fn run_uncomment_with_stats(files: &[PathBuf]) -> anyhow::Result<ProcessResult> 
         custom_preserve_patterns: vec![],
         use_default_ignores: true,
         dry_run: true,
+        show_diff: false,
         respect_gitignore: false,
         traverse_git_repos: false,
     };

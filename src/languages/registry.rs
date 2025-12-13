@@ -277,6 +277,13 @@ mod tests {
         assert!(registry.is_supported_extension("bash"));
         assert!(registry.is_supported_extension("zsh"));
 
+        // C/C++ headers are supported, but we preserve important header guard comments.
+        assert!(registry.is_supported_extension("h"));
+        assert!(registry.is_supported_extension("hpp"));
+        assert!(registry.is_supported_extension("hh"));
+        assert!(registry.is_supported_extension("hxx"));
+        assert!(registry.is_supported_extension("h++"));
+
         assert!(!registry.is_supported_extension("unknown"));
     }
 

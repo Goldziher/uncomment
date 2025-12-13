@@ -83,6 +83,13 @@ pub struct ProcessArgs {
     #[arg(short = 'n', long, help = "Show changes without modifying files")]
     pub dry_run: bool,
 
+    /// ~keep Show line-by-line diffs in dry-run mode
+    #[arg(
+        long = "diff",
+        help = "Show line-by-line diffs for modified files (only useful with --dry-run)"
+    )]
+    pub diff: bool,
+
     /// ~keep Show detailed processing information
     #[arg(short = 'v', long, help = "Show detailed processing information")]
     pub verbose: bool,
@@ -125,6 +132,7 @@ impl ProcessArgs {
             custom_preserve_patterns: self.ignore_patterns.clone(),
             use_default_ignores: !self.no_default_ignores,
             dry_run: self.dry_run,
+            show_diff: self.diff,
             respect_gitignore: !self.no_gitignore,
             traverse_git_repos: self.traverse_git_repos,
         }

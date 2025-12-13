@@ -230,7 +230,56 @@ pub fn get_handler(language_name: &str) -> Box<dyn LanguageHandler> {
         "python" => Box::new(PythonHandler),
         "go" => Box::new(GoHandler),
         "ruby" => Box::new(RubyHandler),
+        "c" | "cpp" => Box::new(CFamilyHandler),
         _ => Box::new(DefaultHandler),
+    }
+}
+
+pub struct CFamilyHandler;
+
+impl LanguageHandler for CFamilyHandler {
+    fn is_documentation_comment(
+        &self,
+        _node: &Node,
+        _parent: Option<Node>,
+        _source: &str,
+    ) -> Option<bool> {
+        None
+    }
+
+    fn should_preserve_comment(
+        &self,
+        node: &Node,
+        _parent: Option<Node>,
+        source: &str,
+    ) -> Option<bool> {
+        if node.kind() != "comment" {
+            return None;
+        }
+
+        if self.is_trailing_preprocessor_comment(node, source) {
+            return Some(true);
+        }
+
+        None
+    }
+}
+
+impl CFamilyHandler {
+    fn is_trailing_preprocessor_comment(&self, node: &Node, source: &str) -> bool {
+        let start = node.start_byte();
+        if start > source.len() {
+            return false;
+        }
+
+        let bytes = source.as_bytes();
+        let mut line_start = start;
+        while line_start > 0 && bytes[line_start - 1] != b'\n' {
+            line_start -= 1;
+        }
+
+        let before = &source[line_start..start];
+        before.trim_start().starts_with('#')
     }
 }
 

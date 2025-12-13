@@ -15,6 +15,7 @@ pub struct ProcessingOptions {
     pub custom_preserve_patterns: Vec<String>,
     pub use_default_ignores: bool,
     pub dry_run: bool,
+    pub show_diff: bool,
     pub respect_gitignore: bool,
     pub traverse_git_repos: bool,
 }
@@ -93,7 +94,7 @@ impl Processor {
             resolved_config.traverse_git_repos = overrides.traverse_git_repos;
         }
 
-        let (processed_content, comments_removed) =
+        let (processed_content, comments_removed, important_removals) =
             self.process_content_with_config(&content, &language_config, &resolved_config)?;
 
         Ok(ProcessedFile {
@@ -102,6 +103,7 @@ impl Processor {
             processed_content,
             modified: false,
             comments_removed,
+            important_removals,
         })
     }
 
@@ -110,7 +112,7 @@ impl Processor {
         content: &str,
         language_config: &crate::languages::config::LanguageConfig,
         resolved_config: &ResolvedConfig,
-    ) -> Result<(String, usize)> {
+    ) -> Result<(String, usize, Vec<ImportantRemoval>)> {
         let language = if let Some(grammar_config) = &resolved_config.grammar_config {
             self.grammar_manager
                 .get_language(&language_config.name, grammar_config)
@@ -147,9 +149,11 @@ impl Processor {
         let comments_to_remove = visitor.get_comments_to_remove();
         let comments_removed = comments_to_remove.len();
 
+        let important_removals = detect_important_removals(&comments_to_remove);
+
         let output = self.remove_comments_from_content(content, &comments_to_remove);
 
-        Ok((output, comments_removed))
+        Ok((output, comments_removed, important_removals))
     }
 
     fn create_preservation_rules_from_config(
@@ -157,6 +161,9 @@ impl Processor {
         config: &ResolvedConfig,
     ) -> Vec<PreservationRule> {
         let mut rules = Vec::new();
+
+        // Always preserve shebangs (#!...) as they can affect file executability.
+        rules.push(PreservationRule::shebang());
 
         // Always preserve ~keep
         rules.push(PreservationRule::pattern("~keep"));
@@ -281,16 +288,29 @@ pub struct ProcessedFile {
     pub processed_content: String,
     pub modified: bool,
     pub comments_removed: usize,
+    pub important_removals: Vec<ImportantRemoval>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ImportantRemoval {
+    pub line: usize,
+    pub reason: String,
+    pub preview: String,
 }
 
 pub struct OutputWriter {
     dry_run: bool,
     verbose: bool,
+    show_diff: bool,
 }
 
 impl OutputWriter {
-    pub fn new(dry_run: bool, verbose: bool) -> Self {
-        Self { dry_run, verbose }
+    pub fn new(dry_run: bool, verbose: bool, show_diff: bool) -> Self {
+        Self {
+            dry_run,
+            verbose,
+            show_diff,
+        }
     }
 
     pub fn write_file(&self, processed_file: &ProcessedFile) -> Result<()> {
@@ -308,7 +328,9 @@ impl OutputWriter {
             if self.verbose {
                 println!("  Removed {} comment(s)", processed_file.comments_removed);
             }
-            self.show_diff(processed_file)?;
+            if self.show_diff {
+                self.show_diff(processed_file)?;
+            }
         } else {
             std::fs::write(&processed_file.path, &processed_file.processed_content).with_context(
                 || format!("Failed to write file: {}", processed_file.path.display()),
@@ -371,6 +393,62 @@ impl OutputWriter {
     }
 }
 
+fn detect_important_removals(comments_to_remove: &[CommentInfo]) -> Vec<ImportantRemoval> {
+    comments_to_remove
+        .iter()
+        .filter_map(|comment| {
+            let trimmed = comment.content.trim_start();
+            let reason = if trimmed.starts_with("#!") {
+                Some("shebang".to_string())
+            } else if trimmed.starts_with("//go:")
+                || trimmed.starts_with("/*go:")
+                || trimmed.starts_with("//+build")
+                || trimmed.starts_with("// +build")
+                || trimmed.starts_with("//line ")
+                || trimmed.starts_with("/*line ")
+            {
+                Some("go directive".to_string())
+            } else if trimmed.contains("shellcheck") {
+                Some("shellcheck directive".to_string())
+            } else if trimmed.contains("eslint-")
+                || trimmed.contains("prettier-")
+                || trimmed.contains("@ts-")
+                || trimmed.contains("biome-")
+                || trimmed.contains("deno-")
+                || trimmed.contains("nolint")
+            {
+                Some("linter/formatter directive".to_string())
+            } else if trimmed.starts_with("#pragma")
+                || trimmed.contains("NOLINT")
+                || trimmed.contains("clang-format")
+            {
+                Some("compiler/formatter directive".to_string())
+            } else if trimmed.starts_with("# frozen_string_literal:")
+                || trimmed.starts_with("# encoding:")
+                || trimmed.starts_with("# coding:")
+                || trimmed.starts_with("# typed:")
+            {
+                Some("language magic comment".to_string())
+            } else {
+                None
+            }?;
+
+            let mut preview = trimmed.replace('\n', " ");
+            const MAX: usize = 120;
+            if preview.len() > MAX {
+                preview.truncate(MAX);
+                preview.push('…');
+            }
+
+            Some(ImportantRemoval {
+                line: comment.start_row + 1,
+                reason,
+                preview,
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,7 +474,7 @@ mod tests {
         let mut processor = Processor::new();
         let language_config = LanguageConfig::rust();
         let resolved_config = default_resolved_config();
-        let (output, _) = processor
+        let (output, _, _) = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing rust source");
         output
@@ -408,7 +486,7 @@ mod tests {
         let mut resolved_config = default_resolved_config();
         resolved_config.use_default_ignores = use_default_ignores;
         resolved_config.remove_docs = remove_docs;
-        let (output, _) = processor
+        let (output, _, _) = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing go source");
         output
@@ -417,7 +495,21 @@ mod tests {
     fn process_language(source: &str, language_config: LanguageConfig) -> String {
         let mut processor = Processor::new();
         let resolved_config = default_resolved_config();
-        let (output, _) = processor
+        let (output, _, _) = processor
+            .process_content_with_config(source, &language_config, &resolved_config)
+            .expect("processing source");
+        output
+    }
+
+    fn process_language_with_default_ignores(
+        source: &str,
+        language_config: LanguageConfig,
+        use_default_ignores: bool,
+    ) -> String {
+        let mut processor = Processor::new();
+        let mut resolved_config = default_resolved_config();
+        resolved_config.use_default_ignores = use_default_ignores;
+        let (output, _, _) = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing source");
         output
@@ -471,7 +563,7 @@ pub enum Commands {
         let mut config = default_resolved_config();
         config.remove_docs = true;
 
-        let (processed, _) = processor
+        let (processed, _, _) = processor
             .process_content_with_config(source, &language_config, &config)
             .expect("process doc comments");
 
@@ -502,6 +594,7 @@ fn main() {}
             custom_preserve_patterns: Vec::new(),
             use_default_ignores: true,
             dry_run: true,
+            show_diff: false,
             respect_gitignore: true,
             traverse_git_repos: false,
         };
@@ -599,6 +692,21 @@ puts "ok"
     }
 
     #[test]
+    fn preserves_shebangs_even_without_default_ignores() {
+        let source = r#"#!/usr/bin/env bash
+# remove me
+echo "ok"
+"#;
+
+        let processed =
+            process_language_with_default_ignores(source, LanguageConfig::shell(), false);
+
+        assert!(processed.starts_with("#!/usr/bin/env bash\n"));
+        assert!(!processed.contains("# remove me"));
+        assert!(processed.contains("echo \"ok\""));
+    }
+
+    #[test]
     fn preserves_ruby_yard_doc_comments_by_default() {
         let source = r#"# @param x [Integer]
 def foo(x)
@@ -621,6 +729,23 @@ echo $s;
         let processed = process_language(source, LanguageConfig::php());
         assert!(!processed.contains("// remove me"));
         assert!(processed.contains("\"// not a comment\""));
+    }
+
+    #[test]
+    fn preserves_c_header_guard_trailing_comments() {
+        let source = r#"#ifndef HTML_TO_MARKDOWN_H
+#define HTML_TO_MARKDOWN_H
+
+// remove me
+int x;
+
+#endif  /* HTML_TO_MARKDOWN_H */
+"#;
+
+        let processed = process_language(source, LanguageConfig::c());
+        assert!(processed.contains("#endif  /* HTML_TO_MARKDOWN_H */"));
+        assert!(!processed.contains("remove me"));
+        assert!(processed.contains("int x;"));
     }
 
     #[test]

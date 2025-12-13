@@ -17,6 +17,7 @@ fn process_code(content: &str, extension: &str, remove_todo: bool) -> String {
         custom_preserve_patterns: vec![],
         use_default_ignores: true,
         dry_run: false,
+        show_diff: false,
         respect_gitignore: false,
         traverse_git_repos: false,
     };

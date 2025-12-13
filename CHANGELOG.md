@@ -8,6 +8,21 @@ This changelog is generated from git tags and commit history.
 
 - _No changes yet._
 
+## [v2.10.1] - 2025-12-13
+
+### Fixed
+
+- Preserve shebang lines (e.g. `#!/usr/bin/env bash`) even when not on the first line, and even when `--no-default-ignores` is used
+- Avoid broken pipe panics when piping output (e.g. `uncomment ... | head`)
+- Preserve common auto-generated / do-not-edit file header comments
+- Preserve C/C++ preprocessor trailing comments (e.g. `#endif /* HEADER_GUARD */`)
+
+### Changed
+
+- Summarize unsupported files once (instead of printing per-file errors), with examples in `--verbose`
+- Make dry-run output quiet by default; add `--diff` to show line-by-line diffs
+- Detect and warn about potentially important comment removals (with examples in `--verbose`)
+
 ## [v2.10.0] - 2025-12-12
 
 ### Added
