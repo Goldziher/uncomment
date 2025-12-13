@@ -1,109 +1,123 @@
+from __future__ import annotations
+
 import os
 import platform
+import ssl
 import subprocess
 import sys
 import tempfile
 import tarfile
+import zipfile
 from pathlib import Path
-from urllib.request import urlopen, Request
 from urllib.error import URLError
+from urllib.request import Request, urlopen
+
+import certifi
 
 
-def get_platform():
-    """Determine the platform and architecture for binary selection."""
+def _platform_triple() -> str:
     system = platform.system().lower()
     machine = platform.machine().lower()
 
     if system == "windows":
-        if machine in ["amd64", "x86_64"]:
-            return "x86_64-pc-windows-msvc"
-        elif machine in ["x86", "i386", "i686"]:
-            return "i686-pc-windows-msvc"
+        if machine in {"amd64", "x86_64"}:
+            return "x86_64-pc-windows-gnu"
+        if machine in {"x86", "i386", "i686"}:
+            return "i686-pc-windows-gnu"
     elif system == "linux":
-        if machine in ["amd64", "x86_64"]:
+        if machine in {"amd64", "x86_64"}:
             return "x86_64-unknown-linux-gnu"
-        elif machine in ["aarch64", "arm64"]:
+        if machine in {"aarch64", "arm64"}:
             return "aarch64-unknown-linux-gnu"
     elif system == "darwin":
-        if machine in ["amd64", "x86_64"]:
+        if machine in {"amd64", "x86_64"}:
             return "x86_64-apple-darwin"
-        elif machine in ["aarch64", "arm64"]:
+        if machine in {"aarch64", "arm64"}:
             return "aarch64-apple-darwin"
 
     raise RuntimeError(f"Unsupported platform: {system} {machine}")
 
 
-def convert_version_to_git_tag(version):
-    """Convert Python version format to git tag format."""
+def _python_version_to_tag(version: str) -> str:
     if "rc" in version:
-        parts = version.split("rc")
-        return f"{parts[0]}-rc.{parts[1]}"
+        core, suffix = version.split("rc")
+        return f"{core}-rc.{suffix}"
     return version
 
 
-def get_binary_url(version):
-    """Get the download URL for the binary."""
-    platform_name = get_platform()
-    git_tag_version = convert_version_to_git_tag(version)
-    return f"https://github.com/Goldziher/uncomment/releases/download/v{git_tag_version}/uncomment-{platform_name}.tar.gz"
+def _asset(version: str) -> tuple[str, str]:
+    tag = _python_version_to_tag(version)
+    triple = _platform_triple()
+    ext = "zip" if "windows" in triple else "tar.gz"
+    url = (
+        f"https://github.com/Goldziher/uncomment/releases/download/"
+        f"v{tag}/uncomment-{triple}.{ext}"
+    )
+    return url, ext
 
 
-def download_binary(url, dest_path):
-    """Download and extract the binary from the given URL."""
+def _download(url: str, destination: Path) -> None:
+    request = Request(url, headers={"User-Agent": "uncomment-python-wrapper"})
+    context = ssl.create_default_context(cafile=certifi.where())
     try:
-        import requests
-        response = requests.get(url, headers={'User-Agent': 'uncomment-python-wrapper'}, allow_redirects=True)
-        response.raise_for_status()
-
-        with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp_file:
-            tmp_file.write(response.content)
-            tmp_file.flush()
-
-            with tarfile.open(tmp_file.name, 'r:gz') as tar:
-                for member in tar.getmembers():
-                    if member.name.endswith('uncomment') or member.name.endswith('uncomment.exe'):
-                        with tar.extractfile(member) as binary_file:
-                            with open(dest_path, 'wb') as f:
-                                f.write(binary_file.read())
-                        break
-                else:
-                    raise RuntimeError(f"No binary found in archive from {url}")
-
-            os.unlink(tmp_file.name)
-
-    except Exception as e:
-        raise RuntimeError(f"Failed to download binary from {url}: {e}")
+        with urlopen(request, timeout=30, context=context) as response:
+            if response.status != 200:
+                raise RuntimeError(f"HTTP {response.status}: {response.reason}")
+            destination.write_bytes(response.read())
+    except URLError as exc:
+        raise RuntimeError(f"Failed to download binary: {exc}") from exc
 
 
-def get_binary_path():
-    """Get the path where the binary should be stored."""
-    cache_dir = Path.home() / ".cache" / "uncomment"
+def _extract(archive: Path, ext: str, destination: Path) -> None:
+    if ext == "zip":
+        with zipfile.ZipFile(archive) as zf:
+            for name in zf.namelist():
+                if name.endswith("uncomment") or name.endswith("uncomment.exe"):
+                    with zf.open(name) as src, destination.open("wb") as dst:
+                        dst.write(src.read())
+                    return
+    else:
+        with tarfile.open(archive, "r:gz") as tar:
+            for member in tar.getmembers():
+                if member.name.endswith("uncomment") or member.name.endswith("uncomment.exe"):
+                    with tar.extractfile(member) as src, destination.open("wb") as dst:
+                        dst.write(src.read())
+                    return
+    raise RuntimeError("Binary not found in downloaded archive")
+
+
+def _cache_path(version: str) -> Path:
+    cache_dir = Path.home() / ".cache" / "uncomment" / version
     cache_dir.mkdir(parents=True, exist_ok=True)
-
-    ext = ".exe" if platform.system().lower() == "windows" else ""
-    return cache_dir / f"uncomment{ext}"
+    suffix = ".exe" if platform.system().lower() == "windows" else ""
+    return cache_dir / f"uncomment{suffix}"
 
 
 def ensure_binary():
     """Ensure the binary is available, downloading if necessary."""
     from . import __version__
 
-    binary_path = get_binary_path()
+    override = os.getenv("UNCOMMENT_BINARY")
+    if override:
+        return override
 
-    if binary_path.exists():
-        if os.access(binary_path, os.X_OK):
-            return str(binary_path)
-
-    print(f"Downloading uncomment binary v{__version__}...", file=sys.stderr)
-    url = get_binary_url(__version__)
-
-    try:
-        download_binary(url, binary_path)
-        os.chmod(binary_path, 0o755)
-        print("Binary downloaded successfully!", file=sys.stderr)
+    binary_path = _cache_path(__version__)
+    if binary_path.exists() and os.access(binary_path, os.X_OK):
         return str(binary_path)
-    except Exception as e:
-        raise RuntimeError(f"Failed to setup uncomment binary: {e}")
+
+    url, ext = _asset(__version__)
+    print(f"Downloading uncomment binary v{__version__}...", file=sys.stderr)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        archive_path = Path(tmpdir) / "uncomment.tar.gz"
+        _download(url, archive_path)
+        _extract(archive_path, ext, binary_path)
+
+    if platform.system().lower() != "windows":
+        binary_path.chmod(0o755)
+
+    print("Binary downloaded successfully!", file=sys.stderr)
+    return str(binary_path)
 
 
 def run_uncomment(args):
