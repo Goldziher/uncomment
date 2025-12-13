@@ -17,7 +17,6 @@ builds:
       - x86_64-apple-darwin
       - aarch64-apple-darwin
       - x86_64-pc-windows-gnu
-      - i686-pc-windows-gnu
 
 archives:
   - formats: [tar.gz]

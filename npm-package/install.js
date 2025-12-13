@@ -14,8 +14,7 @@ function getPlatformTriple() {
 
   if (type === "Windows_NT") {
     if (arch === "x64") return "x86_64-pc-windows-gnu";
-    if (arch === "ia32") return "i686-pc-windows-gnu";
-    throw new Error(`Unsupported Windows architecture: ${arch}`);
+    if (arch === "ia32") throw new Error("32-bit Windows is not supported");
   }
 
   if (type === "Linux") {

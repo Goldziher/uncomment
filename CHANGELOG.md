@@ -8,6 +8,13 @@ This changelog is generated from git tags and commit history.
 
 - _No changes yet._
 
+## [v2.10.3] - 2025-12-13
+
+### Changed
+
+- Switched crates.io publishing in CI to Trusted Publishing (OIDC), removing the need for a long-lived `CARGO_TOKEN`.
+- Windows release assets now target `x86_64-pc-windows-gnu` only (32-bit Windows is no longer supported by the binary wrappers).
+
 ## [v2.10.2] - 2025-12-13
 
 ### Changed
