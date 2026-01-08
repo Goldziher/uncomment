@@ -8,6 +8,12 @@ This changelog is generated from git tags and commit history.
 
 - _No changes yet._
 
+## [v2.10.4] - 2026-01-08
+
+### Changed
+
+- Updated Rust dependencies.
+
 ## [v2.10.3] - 2025-12-13
 
 ### Changed
