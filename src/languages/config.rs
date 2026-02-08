@@ -219,6 +219,12 @@ impl LanguageConfig {
             || tree_sitter_bash::LANGUAGE.into(),
         )
     }
+
+    pub fn nix() -> Self {
+        Self::new("nix", vec!["nix"], vec!["comment"], vec![], || {
+            tree_sitter_nix::LANGUAGE.into()
+        })
+    }
 }
 
 #[cfg(test)]

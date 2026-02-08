@@ -40,6 +40,7 @@ impl LanguageRegistry {
             LanguageConfig::hcl(),
             LanguageConfig::make(),
             LanguageConfig::shell(),
+            LanguageConfig::nix(),
         ];
 
         for config in configs {

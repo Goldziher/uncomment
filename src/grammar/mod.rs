@@ -57,6 +57,7 @@ impl GrammarManager {
         static_languages.insert("hcl".to_string(), tree_sitter_hcl::LANGUAGE.into());
         static_languages.insert("make".to_string(), tree_sitter_make::LANGUAGE.into());
         static_languages.insert("shell".to_string(), tree_sitter_bash::LANGUAGE.into());
+        static_languages.insert("nix".to_string(), tree_sitter_nix::LANGUAGE.into());
 
         Ok(Self {
             loader,
