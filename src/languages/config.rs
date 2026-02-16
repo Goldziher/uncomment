@@ -28,15 +28,21 @@ impl LanguageConfig {
     }
 
     pub fn supports_extension(&self, extension: &str) -> bool {
-        self.extensions.contains(&extension.to_lowercase())
+        self.extensions
+            .iter()
+            .any(|configured| configured.eq_ignore_ascii_case(extension))
     }
 
     pub fn is_comment_type(&self, node_type: &str) -> bool {
-        self.comment_types.contains(&node_type.to_string())
+        self.comment_types
+            .iter()
+            .any(|configured| configured == node_type)
     }
 
     pub fn is_doc_comment_type(&self, node_type: &str) -> bool {
-        self.doc_comment_types.contains(&node_type.to_string())
+        self.doc_comment_types
+            .iter()
+            .any(|configured| configured == node_type)
     }
 
     pub fn get_comment_types(&self) -> &[String] {

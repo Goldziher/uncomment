@@ -27,6 +27,9 @@ struct UnsupportedFilesReport {
     samples: Vec<PathBuf>,
 }
 
+type ImportantRemovalSample = (Arc<PathBuf>, processor::ImportantRemoval);
+type SharedImportantRemovalSamples = Arc<Mutex<Vec<ImportantRemovalSample>>>;
+
 fn main() -> Result<()> {
     #[cfg(unix)]
     unsafe {
@@ -105,8 +108,7 @@ fn main() -> Result<()> {
     let results = Arc::new(Mutex::new(Vec::new()));
     let modified_count = Arc::new(Mutex::new(0usize));
     let important_removal_count = Arc::new(Mutex::new(0usize));
-    let important_removal_samples: Arc<Mutex<Vec<(PathBuf, processor::ImportantRemoval)>>> =
-        Arc::new(Mutex::new(Vec::new()));
+    let important_removal_samples: SharedImportantRemovalSamples = Arc::new(Mutex::new(Vec::new()));
 
     if num_threads == 1 {
         let mut processor = processor::Processor::new_with_config(&config_manager);
@@ -126,11 +128,14 @@ fn main() -> Result<()> {
                             processed_file.important_removals.len();
                         let mut samples = important_removal_samples.lock().unwrap();
                         const MAX: usize = 20;
-                        for removal in &processed_file.important_removals {
-                            if samples.len() >= MAX {
-                                break;
+                        let remaining = MAX.saturating_sub(samples.len());
+                        if remaining > 0 {
+                            let sample_path = Arc::new(processed_file.path.clone());
+                            for removal in
+                                processed_file.important_removals.drain(..).take(remaining)
+                            {
+                                samples.push((Arc::clone(&sample_path), removal));
                             }
-                            samples.push((processed_file.path.clone(), removal.clone()));
                         }
                     }
 
@@ -162,11 +167,14 @@ fn main() -> Result<()> {
                             processed_file.important_removals.len();
                         let mut samples = important_removal_samples.lock().unwrap();
                         const MAX: usize = 20;
-                        for removal in &processed_file.important_removals {
-                            if samples.len() >= MAX {
-                                break;
+                        let remaining = MAX.saturating_sub(samples.len());
+                        if remaining > 0 {
+                            let sample_path = Arc::new(processed_file.path.clone());
+                            for removal in
+                                processed_file.important_removals.drain(..).take(remaining)
+                            {
+                                samples.push((Arc::clone(&sample_path), removal));
                             }
-                            samples.push((processed_file.path.clone(), removal.clone()));
                         }
                     }
 
@@ -260,7 +268,7 @@ fn collect_from_pattern(
 
         let pattern_path_buf = PathBuf::from(pattern_path);
         let absolute_pattern = if pattern_path_buf.is_absolute() {
-            pattern_path_buf.clone()
+            pattern_path_buf
         } else {
             std::env::current_dir()
                 .unwrap_or_else(|_| PathBuf::from("."))
@@ -279,12 +287,12 @@ fn collect_from_pattern(
 
         let (walk_root, filter_prefix) = if let Some(root) = git_root {
             if absolute_pattern.starts_with(&root) {
-                (root, Some(absolute_pattern.clone()))
+                (root, Some(absolute_pattern))
             } else {
-                (absolute_pattern.clone(), None)
+                (absolute_pattern, None)
             }
         } else {
-            (absolute_pattern.clone(), None)
+            (absolute_pattern, None)
         };
 
         let walker = WalkBuilder::new(walk_root)

@@ -47,8 +47,8 @@ pub struct CommentVisitor<'a> {
     source: &'a str,
     preservation_rules: &'a [PreservationRule],
     comments: Vec<CommentInfo>,
-    comment_node_types: Vec<String>,
-    doc_comment_node_types: Vec<String>,
+    comment_node_types: &'a [String],
+    doc_comment_node_types: &'a [String],
     language_handler: Box<dyn LanguageHandler>,
 }
 
@@ -57,11 +57,11 @@ impl<'a> CommentVisitor<'a> {
     pub fn new_with_language(
         source: &'a str,
         preservation_rules: &'a [PreservationRule],
-        comment_node_types: Vec<String>,
-        doc_comment_node_types: Vec<String>,
-        language_name: String,
+        comment_node_types: &'a [String],
+        doc_comment_node_types: &'a [String],
+        language_name: &str,
     ) -> Self {
-        let language_handler = get_handler(&language_name);
+        let language_handler = get_handler(language_name);
         Self {
             source,
             preservation_rules,
@@ -104,22 +104,29 @@ impl<'a> CommentVisitor<'a> {
     }
 
     #[must_use]
-    pub fn get_comments_to_remove(&self) -> Vec<CommentInfo> {
+    pub fn get_comments_to_remove(&self) -> Vec<&CommentInfo> {
         self.comments
             .iter()
             .filter(|comment| !comment.should_preserve)
-            .cloned()
             .collect()
     }
 
     fn is_comment_node(&self, node: &Node, parent: Option<Node>) -> bool {
         let kind = node.kind();
 
-        if self.comment_node_types.contains(&kind.to_string()) {
+        if self
+            .comment_node_types
+            .iter()
+            .any(|node_type| node_type == kind)
+        {
             return true;
         }
 
-        if self.doc_comment_node_types.contains(&kind.to_string()) {
+        if self
+            .doc_comment_node_types
+            .iter()
+            .any(|node_type| node_type == kind)
+        {
             if let Some(is_doc) =
                 self.language_handler
                     .is_documentation_comment(node, parent, self.source)
@@ -183,13 +190,8 @@ mod tests {
         let rules = vec![PreservationRule::Pattern("TODO".to_string())];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let visitor = CommentVisitor::new_with_language(
-            source,
-            &rules,
-            comment_types,
-            doc_types,
-            "test".to_string(),
-        );
+        let visitor =
+            CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
         assert_eq!(visitor.source, source);
         assert_eq!(visitor.comments.len(), 0);
     }
@@ -200,13 +202,8 @@ mod tests {
         let rules = vec![];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let _visitor = CommentVisitor::new_with_language(
-            source,
-            &rules,
-            comment_types,
-            doc_types,
-            "test".to_string(),
-        );
+        let _visitor =
+            CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
 
         assert!(matches!("comment", "comment"));
         assert!(matches!("line_comment", "line_comment"));
@@ -220,13 +217,8 @@ mod tests {
         let rules = vec![PreservationRule::Pattern("TODO".to_string())];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let mut visitor = CommentVisitor::new_with_language(
-            source,
-            &rules,
-            comment_types,
-            doc_types,
-            "test".to_string(),
-        );
+        let mut visitor =
+            CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
 
         visitor.comments.push(
             create_mock_comment("// TODO: Keep this", "line_comment").with_preservation(true),

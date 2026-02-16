@@ -1535,18 +1535,23 @@ source = { type = "git", url = "https://github.com/MunifTanjim/tree-sitter-lua" 
         merged.global.traverse_git_repos = other.global.traverse_git_repos;
 
         let mut patterns = merged.global.preserve_patterns.clone();
-        patterns.extend(other.global.preserve_patterns.clone());
+        patterns.extend(other.global.preserve_patterns.iter().cloned());
         patterns.sort();
         patterns.dedup();
         merged.global.preserve_patterns = patterns;
 
-        for (name, config) in &other.languages {
-            merged.languages.insert(name.clone(), config.clone());
-        }
-
-        for (pattern, config) in &other.patterns {
-            merged.patterns.insert(pattern.clone(), config.clone());
-        }
+        merged.languages.extend(
+            other
+                .languages
+                .iter()
+                .map(|(name, config)| (name.clone(), config.clone())),
+        );
+        merged.patterns.extend(
+            other
+                .patterns
+                .iter()
+                .map(|(pattern, config)| (pattern.clone(), config.clone())),
+        );
 
         merged
     }
@@ -1649,11 +1654,12 @@ impl ConfigManager {
 
     fn resolve_config_for_path(&self, path: &Path) -> ResolvedConfig {
         let mut base_config = Config::default();
+        let global_config_path = Self::global_config_path();
 
         if let Some((_, global_config)) = self
             .configs
             .iter()
-            .find(|(config_path, _)| Self::global_config_path() == Some(config_path.clone()))
+            .find(|(config_path, _)| global_config_path.as_ref() == Some(config_path))
         {
             base_config = base_config.merge_with(global_config);
         }
@@ -1735,7 +1741,7 @@ impl ConfigManager {
 
             config
                 .preserve_patterns
-                .extend(lang_config.preserve_patterns.clone());
+                .extend(lang_config.preserve_patterns.iter().cloned());
             config.preserve_patterns.sort();
             config.preserve_patterns.dedup();
 
@@ -1749,17 +1755,17 @@ impl ConfigManager {
     }
 
     pub fn get_language_config(&self, language_name: &str) -> Option<LanguageConfig> {
-        let name_lower = language_name.to_lowercase();
-
         for (_, config) in self.configs.iter().rev() {
             if let Some(lang_config) = config.languages.get(language_name) {
                 return Some(lang_config.clone());
             }
 
-            for (key, lang_config) in &config.languages {
-                if key.to_lowercase() == name_lower {
-                    return Some(lang_config.clone());
-                }
+            if let Some((_, lang_config)) = config
+                .languages
+                .iter()
+                .find(|(key, _)| key.eq_ignore_ascii_case(language_name))
+            {
+                return Some(lang_config.clone());
             }
         }
         None

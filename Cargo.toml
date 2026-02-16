@@ -36,7 +36,7 @@ tree-sitter-bash = "0.25.1"
 tree-sitter-haskell = "0.23.1"
 tree-sitter-loader = "0.26.5"
 libloading = "0.9"
-toml = "0.9.11"
+toml = "1.0.1"
 serde = { version = "1.0", features = ["derive"] }
 glob = "0.3.3"
 ignore = "0.4.25"
@@ -50,10 +50,10 @@ dirs = "6.0"
 saphyr = "0.0.6"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.180"
+libc = "0.2.182"
 
 [dev-dependencies]
-tempfile = "3.24.0"
+tempfile = "3.25.0"
 pretty_assertions = "1.4"
 
 [lib]
