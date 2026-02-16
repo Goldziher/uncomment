@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -451,17 +451,11 @@ extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
 preserve_patterns = ["swiftlint:", "TODO:", "FIXME:"]
 
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift" }
-
 [languages.kotlin]
 name = "Kotlin"
 extensions = [".kt", ".kts"]
-comment_nodes = ["line_comment", "multiline_comment"]
+comment_nodes = ["line_comment", "block_comment"]
 preserve_patterns = ["ktlint:", "TODO:", "FIXME:"]
-
-[languages.kotlin.grammar]
-source = { type = "git", url = "https://github.com/fwcd/tree-sitter-kotlin" }
 
 [languages.dart]
 name = "Dart"
@@ -487,17 +481,11 @@ extensions = [".ex", ".exs"]
 comment_nodes = ["comment"]
 preserve_patterns = ["credo:", "dialyzer:", "TODO:", "FIXME:"]
 
-[languages.elixir.grammar]
-source = { type = "git", url = "https://github.com/elixir-lang/tree-sitter-elixir" }
-
 [languages.haskell]
 name = "Haskell"
 extensions = [".hs", ".lhs"]
 comment_nodes = ["comment"]
 preserve_patterns = ["hlint:", "TODO:", "FIXME:"]
-
-[languages.haskell.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-haskell" }
 
 [languages.julia]
 name = "Julia"
@@ -523,17 +511,11 @@ extensions = [".lua"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
 
-[languages.lua.grammar]
-source = { type = "git", url = "https://github.com/MunifTanjim/tree-sitter-lua" }
-
 [languages.nix]
 name = "Nix"
 extensions = [".nix"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
-
-[languages.nix.grammar]
-source = { type = "git", url = "https://github.com/cstrahan/tree-sitter-nix" }
 
 [patterns."tests/**/*"]
 remove_todos = true
@@ -581,8 +563,9 @@ use_default_ignores = true  # Use built-in ignore patterns
 respect_gitignore = true    # Respect .gitignore files
 traverse_git_repos = false # Traverse into nested git repos
 
-# Language-specific configurations with custom grammars
-# These languages use dynamic tree-sitter grammars from the internet
+# Language-specific configurations
+# Entries with [languages.<name>.grammar] use dynamic grammars.
+# Entries without a grammar section rely on built-in parsers.
 
 # Web Development Languages
 [languages.vue]
@@ -619,17 +602,11 @@ extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
 preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
 
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
-
 [languages.kotlin]
 name = "Kotlin"
 extensions = [".kt", ".kts"]
-comment_nodes = ["line_comment", "multiline_comment"]
+comment_nodes = ["line_comment", "block_comment"]
 preserve_patterns = ["@Suppress", "ktlint:"]
-
-[languages.kotlin.grammar]
-source = { type = "git", url = "https://github.com/fwcd/tree-sitter-kotlin" }
 
 [languages.dart]
 name = "Dart"
@@ -666,17 +643,11 @@ extensions = [".hs", ".lhs"]
 comment_nodes = ["comment"]
 preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]
 
-[languages.haskell.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-haskell", branch = "master" }
-
 [languages.elixir]
 name = "Elixir"
 extensions = [".ex", ".exs"]
 comment_nodes = ["comment"]
 preserve_patterns = ["@doc", "@moduledoc"]
-
-[languages.elixir.grammar]
-source = { type = "git", url = "https://github.com/elixir-lang/tree-sitter-elixir" }
 
 [languages.elm]
 name = "Elm"
@@ -727,16 +698,10 @@ name = "Nix"
 extensions = [".nix"]
 comment_nodes = ["comment"]
 
-[languages.nix.grammar]
-source = { type = "git", url = "https://github.com/nix-community/tree-sitter-nix", branch = "master" }
-
 [languages.lua]
 name = "Lua"
 extensions = [".lua"]
 comment_nodes = ["comment"]
-
-[languages.lua.grammar]
-source = { type = "git", url = "https://github.com/MunifTanjim/tree-sitter-lua" }
 
 # Shell Scripting
 [languages.fish]
@@ -812,7 +777,8 @@ remove_fixme = false
             "rs", "go", "java", "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml",
             "yaml", "hcl", "tf", "tfvars", "vue", "svelte", "astro", "swift", "kt", "kts", "dart",
             "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj", "cljs", "cljc", "edn", "r", "jl",
-            "nix", "lua", "fish",
+            "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl", "xslt",
+            "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
         ];
 
         for entry in WalkDir::new(project_dir.as_ref())
@@ -875,8 +841,25 @@ traverse_git_repos = false
         }
         config.push('\n');
 
+        let mut configured_keys = HashSet::new();
         for ext in detected_languages.keys() {
-            if let Some(lang_config) = language_configs.get(ext) {
+            let lookup_key = match ext.as_str() {
+                "py" | "pyw" | "pyi" | "pyx" | "pxd" => "py",
+                "js" | "jsx" | "mjs" | "cjs" => "js",
+                "ts" | "tsx" | "mts" | "cts" => "ts",
+                "swift" => "swift",
+                "kt" | "kts" => "kt",
+                "hs" | "lhs" => "hs",
+                "html" | "htm" | "xhtml" => "html",
+                "xml" | "xsd" | "xsl" | "xslt" | "svg" => "xml",
+                "ps1" | "psm1" | "psd1" => "ps1",
+                "ini" | "cfg" | "conf" => "ini",
+                other => other,
+            };
+
+            if configured_keys.insert(lookup_key)
+                && let Some(lang_config) = language_configs.get(lookup_key)
+            {
                 config.push_str(lang_config);
                 config.push('\n');
             }
@@ -919,7 +902,8 @@ preserve_patterns = []
             "rs", "go", "java", "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml",
             "yaml", "hcl", "tf", "tfvars", "vue", "svelte", "astro", "swift", "kt", "kts", "dart",
             "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj", "cljs", "cljc", "edn", "r", "jl",
-            "nix", "lua", "fish",
+            "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl", "xslt",
+            "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
         ];
 
         for entry in WalkDir::new(project_dir.as_ref())
@@ -962,6 +946,13 @@ preserve_patterns = []
                             "nix" => "Nix",
                             "lua" => "Lua",
                             "fish" => "Fish",
+                            "html" | "htm" | "xhtml" => "HTML",
+                            "css" => "CSS",
+                            "xml" | "xsd" | "xsl" | "xslt" | "svg" => "XML",
+                            "sql" => "SQL",
+                            "ps1" | "psm1" | "psd1" => "PowerShell",
+                            "proto" => "Proto",
+                            "ini" | "cfg" | "conf" => "INI",
                             _ => &ext_str,
                         };
                         *detected_languages.entry(lang_name.to_string()).or_insert(0) += 1;
@@ -1039,6 +1030,13 @@ traverse_git_repos = false
                 "Nix" => "nix",
                 "Lua" => "lua",
                 "Fish" => "fish",
+                "HTML" => "html",
+                "CSS" => "css",
+                "XML" => "xml",
+                "SQL" => "sql",
+                "PowerShell" => "ps1",
+                "Proto" => "proto",
+                "INI" => "ini",
                 "Docker" => "dockerfile",
                 "Makefile" => "make",
                 _ => continue,
@@ -1385,14 +1383,104 @@ comment_nodes = ["comment"]
 source = { type = "git", url = "https://github.com/camdencheek/tree-sitter-dockerfile" }"#,
         );
 
-        map.insert("swift".to_string(), r#"[languages.swift]
+        map.insert(
+            "swift".to_string(),
+            r#"[languages.swift]
 name = "Swift"
 extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
-preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]"#,
+        );
 
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }"#);
+        map.insert(
+            "kt".to_string(),
+            r#"[languages.kotlin]
+name = "Kotlin"
+extensions = [".kt", ".kts"]
+comment_nodes = ["line_comment", "block_comment"]
+preserve_patterns = ["@Suppress", "ktlint:"]"#,
+        );
+
+        map.insert(
+            "hs".to_string(),
+            r#"[languages.haskell]
+name = "Haskell"
+extensions = [".hs", ".lhs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]"#,
+        );
+
+        map.insert(
+            "html".to_string(),
+            r#"[languages.html]
+name = "HTML"
+extensions = [".html", ".htm", ".xhtml"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "css".to_string(),
+            r#"[languages.css]
+name = "CSS"
+extensions = [".css"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "xml".to_string(),
+            r#"[languages.xml]
+name = "XML"
+extensions = [".xml", ".xsd", ".xsl", ".xslt", ".svg"]
+comment_nodes = ["Comment"]"#,
+        );
+
+        map.insert(
+            "sql".to_string(),
+            r#"[languages.sql]
+name = "SQL"
+extensions = [".sql"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "lua".to_string(),
+            r#"[languages.lua]
+name = "Lua"
+extensions = [".lua"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "nix".to_string(),
+            r#"[languages.nix]
+name = "Nix"
+extensions = [".nix"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "ps1".to_string(),
+            r#"[languages.powershell]
+name = "PowerShell"
+extensions = [".ps1", ".psm1", ".psd1"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "proto".to_string(),
+            r#"[languages.proto]
+name = "Proto"
+extensions = [".proto"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "ini".to_string(),
+            r#"[languages.ini]
+name = "INI"
+extensions = [".ini", ".cfg", ".conf"]
+comment_nodes = ["comment"]"#,
+        );
 
         map
     }
@@ -1418,25 +1506,22 @@ preserve_patterns = ["eslint-", "prettier-ignore"]
 [languages.svelte.grammar]
 source = { type = "git", url = "https://github.com/Himujjal/tree-sitter-svelte", branch = "master" }"#);
 
-        map.insert("swift", r#"[languages.swift]
+        map.insert(
+            "swift",
+            r#"[languages.swift]
 name = "Swift"
 extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
-preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
-
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }"#);
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]"#,
+        );
 
         map.insert(
             "kotlin",
             r#"[languages.kotlin]
 name = "Kotlin"
 extensions = [".kt", ".kts"]
-comment_nodes = ["line_comment", "multiline_comment"]
-preserve_patterns = ["@Suppress", "ktlint:"]
-
-[languages.kotlin.grammar]
-source = { type = "git", url = "https://github.com/fwcd/tree-sitter-kotlin" }"#,
+comment_nodes = ["line_comment", "block_comment"]
+preserve_patterns = ["@Suppress", "ktlint:"]"#,
         );
 
         map.insert("dart", r#"[languages.dart]
@@ -1460,14 +1545,14 @@ preserve_patterns = ["zig fmt:"]
 source = { type = "git", url = "https://github.com/maxxnino/tree-sitter-zig" }"#,
         );
 
-        map.insert("haskell", r#"[languages.haskell]
+        map.insert(
+            "haskell",
+            r#"[languages.haskell]
 name = "Haskell"
 extensions = [".hs", ".lhs"]
 comment_nodes = ["comment"]
-preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]
-
-[languages.haskell.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-haskell", branch = "master" }"#);
+preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]"#,
+        );
 
         map.insert(
             "elixir",
@@ -1475,10 +1560,7 @@ source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-haske
 name = "Elixir"
 extensions = [".ex", ".exs"]
 comment_nodes = ["comment"]
-preserve_patterns = ["@doc", "@moduledoc"]
-
-[languages.elixir.grammar]
-source = { type = "git", url = "https://github.com/elixir-lang/tree-sitter-elixir" }"#,
+preserve_patterns = ["@doc", "@moduledoc"]"#,
         );
 
         map.insert(
@@ -1502,23 +1584,20 @@ preserve_patterns = ["@doc", "@inline", "@noinline"]
 [languages.julia.grammar]
 source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-julia", branch = "master" }"#);
 
-        map.insert("nix", r#"[languages.nix]
+        map.insert(
+            "nix",
+            r#"[languages.nix]
 name = "Nix"
 extensions = [".nix"]
-comment_nodes = ["comment"]
-
-[languages.nix.grammar]
-source = { type = "git", url = "https://github.com/nix-community/tree-sitter-nix", branch = "master" }"#);
+comment_nodes = ["comment"]"#,
+        );
 
         map.insert(
             "lua",
             r#"[languages.lua]
 name = "Lua"
 extensions = [".lua"]
-comment_nodes = ["comment"]
-
-[languages.lua.grammar]
-source = { type = "git", url = "https://github.com/MunifTanjim/tree-sitter-lua" }"#,
+comment_nodes = ["comment"]"#,
         );
 
         map

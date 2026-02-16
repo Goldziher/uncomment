@@ -477,10 +477,10 @@ fn test_smart_init(project_dir: &std::path::Path) {
 
     assert!(config_content.contains("[languages.vue.grammar]"));
     assert!(config_content.contains("[languages.dockerfile.grammar]"));
-    assert!(config_content.contains("[languages.swift.grammar]"));
+    assert!(!config_content.contains("[languages.swift.grammar]"));
     assert!(config_content.contains("tree-sitter-vue"));
     assert!(config_content.contains("tree-sitter-dockerfile"));
-    assert!(config_content.contains("tree-sitter-swift"));
+    assert!(!config_content.contains("tree-sitter-swift"));
 
     let parsed_config: Result<uncomment::config::Config, _> = toml::from_str(&config_content);
     assert!(
@@ -743,11 +743,16 @@ fn test_comprehensive_config_repositories() {
     let config_content = fs::read_to_string(project_dir.join("repo-test.toml")).unwrap();
 
     assert!(config_content.contains("https://github.com/ikatyang/tree-sitter-vue"));
-    assert!(config_content.contains("https://github.com/alex-pinkus/tree-sitter-swift"));
-    assert!(config_content.contains("https://github.com/fwcd/tree-sitter-kotlin"));
     assert!(config_content.contains("https://github.com/Himujjal/tree-sitter-svelte"));
-    assert!(config_content.contains("https://github.com/tree-sitter/tree-sitter-haskell"));
-    assert!(config_content.contains("https://github.com/elixir-lang/tree-sitter-elixir"));
+    assert!(config_content.contains("https://github.com/UserNobody14/tree-sitter-dart"));
+    assert!(config_content.contains("https://github.com/maxxnino/tree-sitter-zig"));
+    assert!(config_content.contains("https://github.com/tree-sitter/tree-sitter-julia"));
+    assert!(config_content.contains("https://github.com/r-lib/tree-sitter-r"));
+
+    assert!(!config_content.contains("https://github.com/alex-pinkus/tree-sitter-swift"));
+    assert!(!config_content.contains("https://github.com/fwcd/tree-sitter-kotlin"));
+    assert!(!config_content.contains("https://github.com/tree-sitter/tree-sitter-haskell"));
+    assert!(!config_content.contains("https://github.com/elixir-lang/tree-sitter-elixir"));
 
     assert!(config_content.contains("type = \"git\""));
 

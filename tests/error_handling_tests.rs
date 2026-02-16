@@ -259,13 +259,13 @@ name = "Rust"
 extensions = ["rs"]
 comment_nodes = ["line_comment", "block_comment"]
 
-# Invalid custom grammar - should fall back or error gracefully
-[languages.swift]
-name = "Swift"
-extensions = ["swift"]
+# Invalid custom grammar - should error gracefully
+[languages.vue]
+name = "Vue"
+extensions = ["vue"]
 comment_nodes = ["comment"]
 
-[languages.swift.grammar]
+[languages.vue.grammar]
 type = "git"
 url = "https://invalid-url-that-does-not-exist.com/grammar.git"
 "#;
@@ -281,13 +281,13 @@ url = "https://invalid-url-that-does-not-exist.com/grammar.git"
     let rust_result = processor.process_file_with_config(&rust_file, &config_manager, None);
     assert!(rust_result.is_ok());
 
-    let swift_file = temp_dir.path().join("test.swift");
-    fs::write(&swift_file, "// Comment\nfunc main() {}").unwrap();
+    let vue_file = temp_dir.path().join("test.vue");
+    fs::write(&vue_file, "<!-- Comment -->\n<template><div/></template>").unwrap();
 
-    let swift_result = processor.process_file_with_config(&swift_file, &config_manager, None);
-    assert!(swift_result.is_err());
+    let vue_result = processor.process_file_with_config(&vue_file, &config_manager, None);
+    assert!(vue_result.is_err());
 
-    let error_msg = swift_result.unwrap_err().to_string();
+    let error_msg = vue_result.unwrap_err().to_string();
     assert!(!error_msg.is_empty());
 }
 

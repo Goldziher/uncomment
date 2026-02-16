@@ -41,6 +41,18 @@ impl LanguageRegistry {
             LanguageConfig::hcl(),
             LanguageConfig::make(),
             LanguageConfig::shell(),
+            LanguageConfig::haskell(),
+            LanguageConfig::html(),
+            LanguageConfig::css(),
+            LanguageConfig::xml(),
+            LanguageConfig::sql(),
+            LanguageConfig::kotlin(),
+            LanguageConfig::swift(),
+            LanguageConfig::lua(),
+            LanguageConfig::nix(),
+            LanguageConfig::powershell(),
+            LanguageConfig::proto(),
+            LanguageConfig::ini(),
         ];
 
         for config in configs {
@@ -259,6 +271,18 @@ mod tests {
             registry.detect_language_by_extension("go").unwrap().name,
             "go"
         );
+        assert_eq!(
+            registry.detect_language_by_extension("html").unwrap().name,
+            "html"
+        );
+        assert_eq!(
+            registry.detect_language_by_extension("sql").unwrap().name,
+            "sql"
+        );
+        assert_eq!(
+            registry.detect_language_by_extension("ps1").unwrap().name,
+            "powershell"
+        );
 
         assert!(registry.detect_language_by_extension("unknown").is_none());
     }
@@ -277,6 +301,18 @@ mod tests {
         assert!(languages.contains(&"c".to_string()));
         assert!(languages.contains(&"cpp".to_string()));
         assert!(languages.contains(&"shell".to_string()));
+        assert!(languages.contains(&"haskell".to_string()));
+        assert!(languages.contains(&"html".to_string()));
+        assert!(languages.contains(&"css".to_string()));
+        assert!(languages.contains(&"xml".to_string()));
+        assert!(languages.contains(&"sql".to_string()));
+        assert!(languages.contains(&"kotlin".to_string()));
+        assert!(languages.contains(&"swift".to_string()));
+        assert!(languages.contains(&"lua".to_string()));
+        assert!(languages.contains(&"nix".to_string()));
+        assert!(languages.contains(&"powershell".to_string()));
+        assert!(languages.contains(&"proto".to_string()));
+        assert!(languages.contains(&"ini".to_string()));
     }
 
     #[test]
@@ -294,6 +330,18 @@ mod tests {
         assert!(registry.is_supported_extension("sh"));
         assert!(registry.is_supported_extension("bash"));
         assert!(registry.is_supported_extension("zsh"));
+        assert!(registry.is_supported_extension("hs"));
+        assert!(registry.is_supported_extension("html"));
+        assert!(registry.is_supported_extension("css"));
+        assert!(registry.is_supported_extension("xml"));
+        assert!(registry.is_supported_extension("sql"));
+        assert!(registry.is_supported_extension("kt"));
+        assert!(registry.is_supported_extension("swift"));
+        assert!(registry.is_supported_extension("lua"));
+        assert!(registry.is_supported_extension("nix"));
+        assert!(registry.is_supported_extension("ps1"));
+        assert!(registry.is_supported_extension("proto"));
+        assert!(registry.is_supported_extension("ini"));
 
         // C/C++ headers are supported, but we preserve important header guard comments.
         assert!(registry.is_supported_extension("h"));
