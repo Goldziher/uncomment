@@ -4,6 +4,7 @@ use crate::grammar::GrammarManager;
 use crate::languages::registry::LanguageRegistry;
 use crate::rules::preservation::PreservationRule;
 use anyhow::{Context, Result};
+use std::borrow::Cow;
 use std::path::Path;
 use tree_sitter::Parser;
 
@@ -65,11 +66,18 @@ impl Processor {
 
         let language_config = self
             .registry
-            .detect_language(path)
-            .with_context(|| format!("Unsupported file type: {}", path.display()))?
-            .clone();
+            .detect_language_arc(path)
+            .with_context(|| format!("Unsupported file type: {}", path.display()))?;
 
-        let language_name = language_config.name.to_lowercase();
+        let language_name = if language_config
+            .name
+            .bytes()
+            .all(|byte| !byte.is_ascii_uppercase())
+        {
+            Cow::Borrowed(language_config.name.as_str())
+        } else {
+            Cow::Owned(language_config.name.to_lowercase())
+        };
 
         let mut resolved_config =
             config_manager.get_config_for_file_with_language(path, &language_name);
@@ -88,14 +96,14 @@ impl Processor {
             if !overrides.custom_preserve_patterns.is_empty() {
                 resolved_config
                     .preserve_patterns
-                    .extend(overrides.custom_preserve_patterns.clone());
+                    .extend(overrides.custom_preserve_patterns.iter().cloned());
             }
             resolved_config.respect_gitignore = overrides.respect_gitignore;
             resolved_config.traverse_git_repos = overrides.traverse_git_repos;
         }
 
         let (processed_content, comments_removed, important_removals) =
-            self.process_content_with_config(&content, &language_config, &resolved_config)?;
+            self.process_content_with_config(&content, language_config.as_ref(), &resolved_config)?;
 
         Ok(ProcessedFile {
             path: path.to_path_buf(),
@@ -140,9 +148,9 @@ impl Processor {
         let mut visitor = CommentVisitor::new_with_language(
             content,
             &preservation_rules,
-            language_config.comment_types.clone(),
-            language_config.doc_comment_types.clone(),
-            language_config.name.clone(),
+            &language_config.comment_types,
+            &language_config.doc_comment_types,
+            &language_config.name,
         );
         visitor.visit_node(tree.root_node());
 
@@ -213,7 +221,7 @@ impl Processor {
     fn remove_comments_from_content(
         &self,
         content: &str,
-        comments_to_remove: &[CommentInfo],
+        comments_to_remove: &[&CommentInfo],
     ) -> String {
         if comments_to_remove.is_empty() {
             return content.to_string();
@@ -221,33 +229,28 @@ impl Processor {
 
         let mut bytes = content.as_bytes().to_vec();
 
-        let mut deduped = comments_to_remove.to_vec();
-        deduped.sort_by(|a, b| {
-            a.start_byte
-                .cmp(&b.start_byte)
-                .then(b.end_byte.cmp(&a.end_byte))
-        });
+        let mut ranges: Vec<(usize, usize)> = comments_to_remove
+            .iter()
+            .map(|comment| (comment.start_byte, comment.end_byte))
+            .collect();
+        ranges.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
 
-        let mut filtered: Vec<CommentInfo> = Vec::new();
-        for comment in deduped {
+        let mut filtered: Vec<(usize, usize)> = Vec::with_capacity(ranges.len());
+        for (start, end) in ranges {
             if let Some(previous) = filtered.last()
-                && comment.start_byte >= previous.start_byte
-                && comment.end_byte <= previous.end_byte
+                && start >= previous.0
+                && end <= previous.1
             {
                 continue;
             }
-            filtered.push(comment);
+            filtered.push((start, end));
         }
 
-        let mut sorted_comments = filtered;
-        sorted_comments.sort_by(|a, b| b.start_byte.cmp(&a.start_byte));
-
-        for comment in sorted_comments {
-            if comment.start_byte >= bytes.len() {
+        for (start, end) in filtered.into_iter().rev() {
+            if start >= bytes.len() {
                 continue;
             }
-            let start = comment.start_byte;
-            let end = comment.end_byte.min(bytes.len());
+            let end = end.min(bytes.len());
             if start >= end {
                 continue;
             }
@@ -294,7 +297,7 @@ pub struct ProcessedFile {
 #[derive(Debug, Clone)]
 pub struct ImportantRemoval {
     pub line: usize,
-    pub reason: String,
+    pub reason: Cow<'static, str>,
     pub preview: String,
 }
 
@@ -393,13 +396,14 @@ impl OutputWriter {
     }
 }
 
-fn detect_important_removals(comments_to_remove: &[CommentInfo]) -> Vec<ImportantRemoval> {
+fn detect_important_removals(comments_to_remove: &[&CommentInfo]) -> Vec<ImportantRemoval> {
     comments_to_remove
         .iter()
+        .copied()
         .filter_map(|comment| {
             let trimmed = comment.content.trim_start();
             let reason = if trimmed.starts_with("#!") {
-                Some("shebang".to_string())
+                Some(Cow::Borrowed("shebang"))
             } else if trimmed.starts_with("//go:")
                 || trimmed.starts_with("/*go:")
                 || trimmed.starts_with("//+build")
@@ -407,9 +411,9 @@ fn detect_important_removals(comments_to_remove: &[CommentInfo]) -> Vec<Importan
                 || trimmed.starts_with("//line ")
                 || trimmed.starts_with("/*line ")
             {
-                Some("go directive".to_string())
+                Some(Cow::Borrowed("go directive"))
             } else if trimmed.contains("shellcheck") {
-                Some("shellcheck directive".to_string())
+                Some(Cow::Borrowed("shellcheck directive"))
             } else if trimmed.contains("eslint-")
                 || trimmed.contains("prettier-")
                 || trimmed.contains("@ts-")
@@ -417,26 +421,36 @@ fn detect_important_removals(comments_to_remove: &[CommentInfo]) -> Vec<Importan
                 || trimmed.contains("deno-")
                 || trimmed.contains("nolint")
             {
-                Some("linter/formatter directive".to_string())
+                Some(Cow::Borrowed("linter/formatter directive"))
             } else if trimmed.starts_with("#pragma")
                 || trimmed.contains("NOLINT")
                 || trimmed.contains("clang-format")
             {
-                Some("compiler/formatter directive".to_string())
+                Some(Cow::Borrowed("compiler/formatter directive"))
             } else if trimmed.starts_with("# frozen_string_literal:")
                 || trimmed.starts_with("# encoding:")
                 || trimmed.starts_with("# coding:")
                 || trimmed.starts_with("# typed:")
             {
-                Some("language magic comment".to_string())
+                Some(Cow::Borrowed("language magic comment"))
             } else {
                 None
             }?;
 
-            let mut preview = trimmed.replace('\n', " ");
+            let normalized_preview = if trimmed.contains('\n') {
+                Cow::Owned(trimmed.replace('\n', " "))
+            } else {
+                Cow::Borrowed(trimmed)
+            };
+
+            let mut preview = normalized_preview.into_owned();
             const MAX: usize = 120;
             if preview.len() > MAX {
-                preview.truncate(MAX);
+                let mut cut = MAX;
+                while cut > 0 && !preview.is_char_boundary(cut) {
+                    cut -= 1;
+                }
+                preview.truncate(cut);
                 preview.push('…');
             }
 

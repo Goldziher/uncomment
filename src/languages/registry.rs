@@ -1,9 +1,10 @@
 use crate::languages::config::LanguageConfig;
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct LanguageRegistry {
-    languages: HashMap<String, LanguageConfig>,
+    languages: HashMap<String, Arc<LanguageConfig>>,
     extension_map: HashMap<String, String>,
 }
 
@@ -48,8 +49,8 @@ impl LanguageRegistry {
     }
 
     pub fn register_language(&mut self, config: LanguageConfig) {
-        let name = config.name.clone();
-        let name_lower = name.to_lowercase();
+        let config = Arc::new(config);
+        let name_lower = config.name.to_lowercase();
 
         for extension in &config.extensions {
             let normalized_ext = extension.trim_start_matches('.').to_lowercase();
@@ -61,14 +62,30 @@ impl LanguageRegistry {
     }
 
     pub fn get_language(&self, name: &str) -> Option<&LanguageConfig> {
-        self.languages.get(&name.to_lowercase())
+        self.languages.get(&name.to_lowercase()).map(Arc::as_ref)
+    }
+
+    #[must_use]
+    pub fn get_language_arc(&self, name: &str) -> Option<Arc<LanguageConfig>> {
+        self.languages.get(&name.to_lowercase()).cloned()
     }
 
     pub fn detect_language(&self, file_path: &Path) -> Option<&LanguageConfig> {
+        let language_name = self.detect_language_name(file_path)?;
+        self.languages.get(language_name).map(Arc::as_ref)
+    }
+
+    #[must_use]
+    pub fn detect_language_arc(&self, file_path: &Path) -> Option<Arc<LanguageConfig>> {
+        let language_name = self.detect_language_name(file_path)?;
+        self.languages.get(language_name).cloned()
+    }
+
+    fn detect_language_name(&self, file_path: &Path) -> Option<&str> {
         let file_name = file_path.file_name()?.to_str()?;
 
         match file_name {
-            "Makefile" | "makefile" | "GNUmakefile" => return self.languages.get("make"),
+            "Makefile" | "makefile" | "GNUmakefile" => return Some("make"),
             _ => {}
         }
 
@@ -76,25 +93,24 @@ impl LanguageRegistry {
             || file_name.ends_with(".d.mts")
             || file_name.ends_with(".d.cts")
         {
-            return self.languages.get("typescript");
+            return Some("typescript");
         }
 
         match file_name {
             "bashrc" | ".bashrc" | "zshrc" | ".zshrc" | "zshenv" | ".zshenv" => {
-                return self.languages.get("shell");
+                return Some("shell");
             }
             _ => {}
         }
 
         let extension = file_path.extension()?.to_str()?.to_lowercase();
-        let language_name = self.extension_map.get(&extension)?;
-        self.languages.get(language_name)
+        self.extension_map.get(&extension).map(String::as_str)
     }
 
     pub fn detect_language_by_extension(&self, extension: &str) -> Option<&LanguageConfig> {
         let normalized_ext = extension.trim_start_matches('.').to_lowercase();
         let language_name = self.extension_map.get(&normalized_ext)?;
-        self.languages.get(language_name)
+        self.languages.get(language_name).map(Arc::as_ref)
     }
 
     pub fn get_supported_languages(&self) -> Vec<String> {
@@ -125,7 +141,9 @@ impl LanguageRegistry {
     }
 
     pub fn get_all_languages(&self) -> impl Iterator<Item = (&String, &LanguageConfig)> {
-        self.languages.iter()
+        self.languages
+            .iter()
+            .map(|(name, config)| (name, config.as_ref()))
     }
 
     pub fn register_configured_languages(
@@ -134,7 +152,7 @@ impl LanguageRegistry {
     ) {
         for config in config_languages.values() {
             let name_lower = config.name.to_lowercase();
-            if let Some(existing_config) = self.languages.get(&name_lower).cloned() {
+            if let Some(existing_config) = self.languages.get(&name_lower) {
                 let updated_config = LanguageConfig {
                     name: config.name.clone(),
                     extensions: config.extensions.clone(),
