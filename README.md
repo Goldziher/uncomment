@@ -36,22 +36,37 @@ Your support helps maintain and improve this tool for the community! 🚀
 - Java (.java)
 - C (.c, .h)
 - C++ (.cpp, .cc, .cxx, .hpp, .hxx)
+- C# (.cs)
 - Ruby (.rb, .rake, .gemspec)
+- PHP (.php, .phtml)
+- Elixir (.ex, .exs)
+- TOML (.toml)
+- JSON (.json)
+- JSON with Comments (.jsonc)
 - YAML (.yml, .yaml)
 - HCL/Terraform (.hcl, .tf, .tfvars)
 - Makefile (Makefile, .mk)
 - Shell/Bash (.sh, .bash, .zsh, .bashrc, .zshrc)
 - Haskell (.hs, .lhs)
-- JSON with Comments (.jsonc)
+- HTML (.html, .htm, .xhtml)
+- CSS (.css)
+- XML (.xml, .xsd, .xsl, .xslt, .svg)
+- SQL (.sql)
+- Kotlin (.kt, .kts)
+- Swift (.swift)
+- Lua (.lua)
+- Nix (.nix)
+- PowerShell (.ps1, .psm1, .psd1)
+- Protobuf (.proto)
+- INI-like configs (.ini, .cfg, .conf)
 
 ### Extensible to Any Language
 
 Through the configuration system, you can add support for any language with a tree-sitter grammar, including:
 
 - Vue, Svelte, Astro (Web frameworks)
-- Swift, Kotlin, Dart (Mobile development)
-- Zig, Nim (Systems programming)
-- Elixir, Clojure, Julia (Functional/Scientific)
+- Dart, Zig (additional ecosystems)
+- R, Julia, Clojure, Elm (data/functional)
 - And many more...
 
 ## Installation
@@ -311,15 +326,15 @@ remove_docs = false
 You can extend support to any language with a tree-sitter grammar:
 
 ```toml
-# Add Swift support via Git
-[languages.swift]
-name = "Swift"
-extensions = ["swift"]
-comment_nodes = ["comment", "multiline_comment"]
-preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+# Add Vue support via Git
+[languages.vue]
+name = "Vue"
+extensions = ["vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
 
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
+[languages.vue.grammar]
+source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
 
 # Use a local grammar
 [languages.custom]

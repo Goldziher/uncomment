@@ -225,6 +225,106 @@ impl LanguageConfig {
             || tree_sitter_bash::LANGUAGE.into(),
         )
     }
+
+    pub fn haskell() -> Self {
+        Self::new(
+            "haskell",
+            vec!["hs", "lhs"],
+            vec!["comment"],
+            vec![],
+            || tree_sitter_haskell::LANGUAGE.into(),
+        )
+    }
+
+    pub fn html() -> Self {
+        Self::new(
+            "html",
+            vec!["html", "htm", "xhtml"],
+            vec!["comment"],
+            vec![],
+            || tree_sitter_html::LANGUAGE.into(),
+        )
+    }
+
+    pub fn css() -> Self {
+        Self::new("css", vec!["css"], vec!["comment"], vec![], || {
+            tree_sitter_css::LANGUAGE.into()
+        })
+    }
+
+    pub fn xml() -> Self {
+        Self::new(
+            "xml",
+            vec!["xml", "xsd", "xsl", "xslt", "svg"],
+            vec!["Comment"],
+            vec![],
+            || tree_sitter_xml::LANGUAGE_XML.into(),
+        )
+    }
+
+    pub fn sql() -> Self {
+        Self::new("sql", vec!["sql"], vec!["comment"], vec![], || {
+            tree_sitter_sequel::LANGUAGE.into()
+        })
+    }
+
+    pub fn kotlin() -> Self {
+        Self::new(
+            "kotlin",
+            vec!["kt", "kts"],
+            vec!["line_comment", "block_comment"],
+            vec![],
+            || tree_sitter_kotlin_ng::LANGUAGE.into(),
+        )
+    }
+
+    pub fn swift() -> Self {
+        Self::new(
+            "swift",
+            vec!["swift"],
+            vec!["comment", "multiline_comment"],
+            vec![],
+            || tree_sitter_swift::LANGUAGE.into(),
+        )
+    }
+
+    pub fn lua() -> Self {
+        Self::new("lua", vec!["lua"], vec!["comment"], vec![], || {
+            tree_sitter_lua::LANGUAGE.into()
+        })
+    }
+
+    pub fn nix() -> Self {
+        Self::new("nix", vec!["nix"], vec!["comment"], vec![], || {
+            tree_sitter_nix::LANGUAGE.into()
+        })
+    }
+
+    pub fn powershell() -> Self {
+        Self::new(
+            "powershell",
+            vec!["ps1", "psm1", "psd1"],
+            vec!["comment"],
+            vec![],
+            || tree_sitter_powershell::LANGUAGE.into(),
+        )
+    }
+
+    pub fn proto() -> Self {
+        Self::new("proto", vec!["proto"], vec!["comment"], vec![], || {
+            tree_sitter_proto::LANGUAGE.into()
+        })
+    }
+
+    pub fn ini() -> Self {
+        Self::new(
+            "ini",
+            vec!["ini", "cfg", "conf"],
+            vec!["comment"],
+            vec![],
+            || tree_sitter_ini::LANGUAGE.into(),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -287,6 +387,18 @@ mod tests {
             LanguageConfig::c(),
             LanguageConfig::cpp(),
             LanguageConfig::shell(),
+            LanguageConfig::haskell(),
+            LanguageConfig::html(),
+            LanguageConfig::css(),
+            LanguageConfig::xml(),
+            LanguageConfig::sql(),
+            LanguageConfig::kotlin(),
+            LanguageConfig::swift(),
+            LanguageConfig::lua(),
+            LanguageConfig::nix(),
+            LanguageConfig::powershell(),
+            LanguageConfig::proto(),
+            LanguageConfig::ini(),
         ];
 
         for lang in languages {

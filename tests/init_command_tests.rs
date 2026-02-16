@@ -65,7 +65,9 @@ fn test_init_command_comprehensive() {
 
     assert!(content.contains("source = { type = \"git\""));
     assert!(content.contains("tree-sitter-vue"));
-    assert!(content.contains("tree-sitter-swift"));
+    assert!(!content.contains("tree-sitter-swift"));
+    assert!(!content.contains("[languages.swift.grammar]"));
+    assert!(!content.contains("[languages.kotlin.grammar]"));
 
     assert!(!content.contains("# Web Development Languages"));
     assert!(!content.contains("# Mobile Development"));

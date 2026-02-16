@@ -794,4 +794,139 @@ class C { void M() { var s = "// not a comment"; } }
         assert!(!processed.contains("// remove me"));
         assert!(processed.contains("\"// not a comment\""));
     }
+
+    #[test]
+    fn removes_haskell_comments_without_touching_strings() {
+        let source = r#"-- remove me
+main = putStrLn "-- not a comment"
+"#;
+
+        let processed = process_language(source, LanguageConfig::haskell());
+        assert!(!processed.contains("-- remove me"));
+        assert!(processed.contains("\"-- not a comment\""));
+    }
+
+    #[test]
+    fn removes_html_comments_without_touching_content() {
+        let source = r#"<!-- remove me -->
+<div>Hello</div>
+"#;
+
+        let processed = process_language(source, LanguageConfig::html());
+        assert!(!processed.contains("remove me"));
+        assert!(processed.contains("<div>Hello</div>"));
+    }
+
+    #[test]
+    fn removes_css_comments_without_touching_strings() {
+        let source = r#"/* remove me */
+.a::before { content: "/* not a comment */"; }
+"#;
+
+        let processed = process_language(source, LanguageConfig::css());
+        assert!(!processed.contains("remove me"));
+        assert!(processed.contains("\"/* not a comment */\""));
+    }
+
+    #[test]
+    fn removes_xml_comments_without_touching_text() {
+        let source = r#"<!-- remove me -->
+<root>hello</root>
+"#;
+
+        let processed = process_language(source, LanguageConfig::xml());
+        assert!(!processed.contains("remove me"));
+        assert!(processed.contains("<root>hello</root>"));
+    }
+
+    #[test]
+    fn removes_sql_comments_without_touching_strings() {
+        let source = r#"-- remove me
+SELECT '-- not a comment' as val;
+"#;
+
+        let processed = process_language(source, LanguageConfig::sql());
+        assert!(!processed.contains("-- remove me"));
+        assert!(processed.contains("'-- not a comment'"));
+    }
+
+    #[test]
+    fn removes_kotlin_comments_without_touching_strings() {
+        let source = r#"// remove me
+fun main() { val s = "// not a comment" }
+"#;
+
+        let processed = process_language(source, LanguageConfig::kotlin());
+        assert!(!processed.contains("// remove me"));
+        assert!(processed.contains("\"// not a comment\""));
+    }
+
+    #[test]
+    fn removes_swift_comments_without_touching_strings() {
+        let source = r#"// remove me
+let s = "// not a comment"
+"#;
+
+        let processed = process_language(source, LanguageConfig::swift());
+        assert!(!processed.contains("// remove me"));
+        assert!(processed.contains("\"// not a comment\""));
+    }
+
+    #[test]
+    fn removes_lua_comments_without_touching_strings() {
+        let source = r#"-- remove me
+local s = "-- not a comment"
+"#;
+
+        let processed = process_language(source, LanguageConfig::lua());
+        assert!(!processed.contains("-- remove me"));
+        assert!(processed.contains("\"-- not a comment\""));
+    }
+
+    #[test]
+    fn removes_nix_comments_without_touching_strings() {
+        let source = r##"# remove me
+let s = "# not a comment"; in s
+"##;
+
+        let processed = process_language(source, LanguageConfig::nix());
+        assert!(!processed.contains("# remove me"));
+        assert!(processed.contains("\"# not a comment\""));
+    }
+
+    #[test]
+    fn removes_powershell_comments_without_touching_strings() {
+        let source = r##"# remove me
+$s = "# not a comment"
+Write-Output $s
+"##;
+
+        let processed = process_language(source, LanguageConfig::powershell());
+        assert!(!processed.contains("# remove me"));
+        assert!(processed.contains("\"# not a comment\""));
+    }
+
+    #[test]
+    fn removes_proto_comments_without_touching_strings() {
+        let source = r#"// remove me
+syntax = "proto3";
+message A { string s = 1 [default = "// not a comment"]; }
+"#;
+
+        let processed = process_language(source, LanguageConfig::proto());
+        assert!(!processed.contains("// remove me"));
+        assert!(processed.contains("\"// not a comment\""));
+    }
+
+    #[test]
+    fn removes_ini_comments_without_touching_values() {
+        let source = r#"; remove me
+[section]
+key = # not a comment
+"#;
+
+        let processed = process_language(source, LanguageConfig::ini());
+        assert!(!processed.contains("; remove me"));
+        assert!(processed.contains("key = # not a comment"));
+    }
 }

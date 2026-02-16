@@ -8,6 +8,23 @@ This changelog is generated from git tags and commit history.
 
 - _No changes yet._
 
+## [v2.11.0] - 2026-02-16
+
+### Added
+
+- Built-in language support for Haskell, HTML, CSS, XML, SQL, Kotlin, Swift, Lua, Nix, PowerShell, Protocol Buffers, and INI.
+- Language fixtures and coverage for the new built-in grammars.
+
+### Changed
+
+- Updated tree-sitter dependencies and static grammar registrations for expanded built-in language support.
+- Expanded language registry mappings and smart-init extension detection for newly supported languages.
+- Updated tests to reflect built-in grammar behavior for languages that no longer require dynamic grammar configuration.
+
+### Documentation
+
+- Updated README language coverage and dynamic grammar examples to reflect the current built-in language set.
+
 ## [v2.10.4] - 2026-01-08
 
 ### Changed

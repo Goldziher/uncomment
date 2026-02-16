@@ -57,6 +57,21 @@ impl GrammarManager {
         static_languages.insert("hcl".to_string(), tree_sitter_hcl::LANGUAGE.into());
         static_languages.insert("make".to_string(), tree_sitter_make::LANGUAGE.into());
         static_languages.insert("shell".to_string(), tree_sitter_bash::LANGUAGE.into());
+        static_languages.insert("haskell".to_string(), tree_sitter_haskell::LANGUAGE.into());
+        static_languages.insert("html".to_string(), tree_sitter_html::LANGUAGE.into());
+        static_languages.insert("css".to_string(), tree_sitter_css::LANGUAGE.into());
+        static_languages.insert("xml".to_string(), tree_sitter_xml::LANGUAGE_XML.into());
+        static_languages.insert("sql".to_string(), tree_sitter_sequel::LANGUAGE.into());
+        static_languages.insert("kotlin".to_string(), tree_sitter_kotlin_ng::LANGUAGE.into());
+        static_languages.insert("swift".to_string(), tree_sitter_swift::LANGUAGE.into());
+        static_languages.insert("lua".to_string(), tree_sitter_lua::LANGUAGE.into());
+        static_languages.insert(
+            "powershell".to_string(),
+            tree_sitter_powershell::LANGUAGE.into(),
+        );
+        static_languages.insert("proto".to_string(), tree_sitter_proto::LANGUAGE.into());
+        static_languages.insert("ini".to_string(), tree_sitter_ini::LANGUAGE.into());
+        static_languages.insert("nix".to_string(), tree_sitter_nix::LANGUAGE.into());
 
         Ok(Self {
             loader,
@@ -229,6 +244,18 @@ mod tests {
         assert!(languages.contains(&"hcl".to_string()));
         assert!(languages.contains(&"make".to_string()));
         assert!(languages.contains(&"shell".to_string()));
+        assert!(languages.contains(&"haskell".to_string()));
+        assert!(languages.contains(&"html".to_string()));
+        assert!(languages.contains(&"css".to_string()));
+        assert!(languages.contains(&"xml".to_string()));
+        assert!(languages.contains(&"sql".to_string()));
+        assert!(languages.contains(&"kotlin".to_string()));
+        assert!(languages.contains(&"swift".to_string()));
+        assert!(languages.contains(&"lua".to_string()));
+        assert!(languages.contains(&"powershell".to_string()));
+        assert!(languages.contains(&"proto".to_string()));
+        assert!(languages.contains(&"ini".to_string()));
+        assert!(languages.contains(&"nix".to_string()));
     }
 
     #[test]
@@ -244,6 +271,9 @@ mod tests {
 
         let js_lang = manager.get_language("javascript", &config);
         assert!(js_lang.is_ok());
+
+        let html_lang = manager.get_language("html", &config);
+        assert!(html_lang.is_ok());
     }
 
     #[test]

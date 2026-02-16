@@ -1,0 +1,2 @@
+-- Lua comment
+print("Hello")
