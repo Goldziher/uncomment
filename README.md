@@ -16,8 +16,7 @@ Your support helps maintain and improve this tool for the community! 🚀
 - **No False Positives**: Never removes comment-like content from strings
 - **Smart Preservation**: Keeps important metadata, TODOs, FIXMEs, and language-specific patterns
 - **Parallel Processing**: Multi-threaded processing for improved performance
-- **Extensible**: Support any language with tree-sitter grammar through configuration
-- **Dynamic Grammar Loading**: Load grammars from Git, local paths, or pre-compiled libraries
+- **306 Languages**: Powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) with automatic grammar downloading
 - **Configuration System**: TOML-based configuration for project-specific settings
 - **Smart Init Command**: Automatically generate configuration based on your project
 - **Fast**: Leverages tree-sitter's optimized parsing
@@ -59,15 +58,28 @@ Your support helps maintain and improve this tool for the community! 🚀
 - PowerShell (.ps1, .psm1, .psd1)
 - Protobuf (.proto)
 - INI-like configs (.ini, .cfg, .conf)
+- Dockerfile (Dockerfile, Dockerfile.*)
+- Scala (.scala, .sc)
+- Dart (.dart)
+- R (.r, .R)
+- Julia (.jl)
+- Zig (.zig)
+- Clojure (.clj, .cljs, .cljc, .edn)
+- Elm (.elm)
+- Erlang (.erl, .hrl)
+- Vue (.vue)
+- Svelte (.svelte)
+- SCSS (.scss)
+- LaTeX (.tex, .sty, .cls)
+- Fish (.fish)
+- Perl (.pl, .pm)
+- Groovy (.groovy, .gradle)
+- OCaml (.ml, .mli)
+- Fortran (.f90, .f95, .f03, .f08)
 
-### Extensible to Any Language
+### 306 Languages Available
 
-Through the configuration system, you can add support for any language with a tree-sitter grammar, including:
-
-- Vue, Svelte, Astro (Web frameworks)
-- Dart, Zig (additional ecosystems)
-- R, Julia, Clojure, Elm (data/functional)
-- And many more...
+Powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack), uncomment can process any of 306 supported languages. Languages not listed above can be added via configuration — grammars are downloaded automatically on first use.
 
 ## Installation
 
@@ -164,12 +176,12 @@ Detected languages in your project:
 - 150 rust files
 - 89 typescript files
 - 45 python files
-- 12 vue files (requires custom grammar)
-- 8 dockerfile files (requires custom grammar)
+- 12 vue files
+- 8 dockerfile files
 
 Generated .uncommentrc.toml with configurations for detected languages.
 
-# Comprehensive mode - includes configurations for 25+ languages
+# Comprehensive mode - includes configurations for 49 built-in languages
 $ uncomment init --comprehensive
 Generated comprehensive configuration with all supported languages.
 
@@ -324,39 +336,19 @@ remove_fixme = false
 remove_docs = false
 ```
 
-### Dynamic Grammar Loading
+### Adding Languages via Configuration
 
-You can extend support to any language with a tree-sitter grammar:
+Uncomment supports 306 languages through [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack). To add a language not in the built-in list, define it in your `.uncommentrc.toml`:
 
 ```toml
-# Add Vue support via Git
-[languages.vue]
-name = "Vue"
-extensions = ["vue"]
+[languages.hare]
+name = "Hare"
+extensions = ["ha"]
 comment_nodes = ["comment"]
-preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
-
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
-
-# Use a local grammar
-[languages.custom]
-name = "Custom Language"
-extensions = ["custom"]
-comment_nodes = ["comment"]
-
-[languages.custom.grammar]
-source = { type = "local", path = "/path/to/tree-sitter-custom" }
-
-# Use a pre-compiled library
-[languages.proprietary]
-name = "Proprietary Language"
-extensions = ["prop"]
-comment_nodes = ["comment"]
-
-[languages.proprietary.grammar]
-source = { type = "library", path = "/usr/local/lib/libtree-sitter-proprietary.so" }
+preserve_patterns = ["TODO", "FIXME"]
 ```
+
+The grammar is downloaded automatically on first use. No manual grammar configuration needed.
 
 ### Configuration Merging
 
@@ -382,25 +374,14 @@ Unlike regex-based tools, uncomment uses tree-sitter to build a proper Abstract 
 
 The tool is built with a modular, extensible architecture:
 
-1. **Language Registry**: Manages both built-in and dynamically loaded languages
-2. **Grammar Manager**: Handles loading grammars from Git, local paths, or compiled libraries
+1. **Language Registry**: Manages 49 built-in languages with extensible configuration
+2. **tree-sitter-language-pack**: Provides [306 language grammars](https://github.com/kreuzberg-dev/tree-sitter-language-pack) with automatic downloading
 3. **Configuration System**: TOML-based hierarchical configuration with merging
 4. **AST Visitor**: Traverses the tree-sitter AST to find comments
 5. **Preservation Engine**: Applies rules to determine what to keep
 6. **Output Generator**: Produces clean code with comments removed
 
-### Key Components
-
-- **Dynamic Grammar Loading**: Automatically downloads and compiles tree-sitter grammars
-- **Grammar Caching**: Caches compiled grammars for performance
-- **Configuration Discovery**: Searches for configs in project hierarchy
-- **Pattern Matching**: File-pattern-specific configuration overrides
-
 ## Adding New Languages
-
-With the new configuration system, you can add languages without modifying code:
-
-### Method 1: Using Configuration (Recommended)
 
 Add to your `.uncommentrc.toml`:
 
@@ -410,18 +391,9 @@ name = "My Language"
 extensions = ["ml", "mli"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO", "FIXME"]
-
-[languages.mylang.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-mylang", branch = "main" }
 ```
 
-### Method 2: Built-in Support
-
-For frequently used languages:
-
-1. Add the tree-sitter parser dependency to `Cargo.toml`
-2. Register the language in `src/grammar/mod.rs`
-3. Add language configuration in `src/languages/registry.rs`
+Any of the [306 languages](https://github.com/kreuzberg-dev/tree-sitter-language-pack) supported by tree-sitter-language-pack will work — grammars are downloaded automatically on first use.
 
 ## Git Hooks
 

@@ -136,12 +136,13 @@ comment_nodes = ["line_comment", "block_comment"]
     let rust_result = processor.process_file_with_config(&rust_file, &config_manager, None);
     assert!(rust_result.is_ok());
 
-    let vue_file = temp_dir.path().join("test.vue");
-    fs::write(&vue_file, "<!-- Comment -->\n<template><div/></template>").unwrap();
+    // Unsupported extension should fail gracefully
+    let unknown_file = temp_dir.path().join("test.xyz");
+    fs::write(&unknown_file, "// Comment").unwrap();
 
-    let vue_result = processor.process_file_with_config(&vue_file, &config_manager, None);
-    assert!(vue_result.is_err());
+    let unknown_result = processor.process_file_with_config(&unknown_file, &config_manager, None);
+    assert!(unknown_result.is_err());
 
-    let error_msg = vue_result.unwrap_err().to_string();
-    assert!(!error_msg.is_empty());
+    let error_msg = unknown_result.unwrap_err().to_string();
+    assert!(error_msg.contains("Unsupported file type"));
 }

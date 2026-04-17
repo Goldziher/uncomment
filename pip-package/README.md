@@ -10,7 +10,7 @@ A blazing fast Rust-based command-line tool that removes comments from your sour
 - 🚀 **Lightning Fast** - Built in Rust for maximum performance
 - 🎯 **100% Accurate** - Never accidentally removes code that looks like comments
 - 🛡️ **Safe by Default** - Preview changes before applying them
-- 🌍 **Multi-language** - Supports Python, JS, TS, Rust, Go, Java, C/C++, and more
+- 🌍 **Multi-language** - 49 built-in languages, 306 available via [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack)
 - 🔧 **Zero Dependencies** - Downloads a self-contained binary
 
 ## Installation
@@ -103,7 +103,7 @@ uncomment --threads 8 entire_project/
 ## Supported Languages
 
 While this tool works great for Python, it also supports:
-JavaScript, TypeScript, Rust, Go, Java, C/C++, Ruby, YAML, Terraform/HCL, Makefile, and more!
+49 built-in languages including JavaScript, TypeScript, Rust, Go, Java, C/C++, Ruby, Dockerfile, Scala, Dart, and many more. 306 total languages available via [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack).
 
 ## Documentation
 
