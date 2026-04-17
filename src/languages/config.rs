@@ -138,7 +138,7 @@ impl LanguageConfig {
     }
 
     pub fn csharp() -> Self {
-        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], "c_sharp")
+        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], "csharp")
     }
 
     pub fn java() -> Self {
