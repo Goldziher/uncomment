@@ -45,7 +45,7 @@ saphyr = "0.0.6"
 serde = { version = "1.0", features = ["derive"] }
 toml = "1.1.2"
 tree-sitter = "0.26.8"
-tree-sitter-language-pack = "1.6"
+tree-sitter-language-pack = "1.6.1"
 walkdir = "2.5"
 
 [target.'cfg(unix)'.dependencies]

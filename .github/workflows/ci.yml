@@ -16,7 +16,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  TSLP_LANGUAGES: "rust,python,javascript,typescript,tsx,go,ruby,php,elixir,toml,c_sharp,java,c,cpp,json,yaml,hcl,make,bash,haskell,html,css,xml,sql,kotlin,swift,lua,nix,powershell,proto,ini,dockerfile,scala,dart,r,julia,zig,clojure,elm,erlang,vue,svelte,scss,latex,fish,perl,groovy,ocaml,fortran"
+  TSLP_LANGUAGES: "rust,python,javascript,typescript,tsx,go,ruby,php,elixir,toml,csharp,java,c,cpp,json,yaml,hcl,make,bash,haskell,html,css,xml,sql,kotlin,swift,lua,nix,powershell,proto,ini,dockerfile,scala,dart,r,julia,zig,clojure,elm,erlang,vue,svelte,scss,latex,fish,perl,groovy,ocaml,fortran"
   TSLP_LINK_MODE: static
 
 jobs:
