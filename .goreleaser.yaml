@@ -38,3 +38,20 @@ release:
     ---
 
     Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+
+brews:
+  - name: uncomment
+    description: "A fast, accurate comment removal tool using tree-sitter for AST parsing"
+    homepage: "https://github.com/Goldziher/uncomment"
+    license: "MIT"
+    repository:
+      owner: Goldziher
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      branch: main
+    directory: Formula
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    skip_upload: false
