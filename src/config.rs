@@ -66,40 +66,6 @@ pub struct GlobalConfig {
     pub traverse_git_repos: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct GrammarConfig {
-    #[serde(default)]
-    pub source: GrammarSource,
-
-    pub version: Option<String>,
-
-    pub library_path: Option<PathBuf>,
-
-    #[serde(default)]
-    pub compile_flags: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum GrammarSource {
-    #[default]
-    Builtin,
-
-    Git {
-        url: String,
-        branch: Option<String>,
-        path: Option<String>,
-    },
-
-    Local {
-        path: PathBuf,
-    },
-
-    Library {
-        path: PathBuf,
-    },
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LanguageConfig {
     pub name: String,
@@ -123,9 +89,6 @@ pub struct LanguageConfig {
     pub remove_docs: Option<bool>,
 
     pub use_default_ignores: Option<bool>,
-
-    #[serde(default)]
-    pub grammar: GrammarConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,7 +117,6 @@ pub struct ResolvedConfig {
     pub respect_gitignore: bool,
     pub traverse_git_repos: bool,
     pub language_config: Option<LanguageConfig>,
-    pub grammar_config: Option<GrammarConfig>,
 }
 
 #[derive(Debug)]
@@ -261,27 +223,6 @@ extensions = ["rb", "rbw", "gemspec", "rake"]
 comment_nodes = ["comment"]
 preserve_patterns = ["rubocop:", "frozen_string_literal:"]
 
-[languages.ruby.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-ruby" }
-
-[languages.vue]
-name = "Vue"
-extensions = [".vue"]
-comment_nodes = ["comment", "template_element"]
-preserve_patterns = ["eslint-", "prettier-", "vue-", "@vue/"]
-
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/ikatyang/tree-sitter-vue" }
-
-[languages.swift]
-name = "Swift"
-extensions = [".swift"]
-comment_nodes = ["comment", "multiline_comment"]
-preserve_patterns = ["swiftlint:", "TODO:", "FIXME:"]
-
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift" }
-
 [patterns."tests/**/*"]
 remove_todos = true
 
@@ -347,18 +288,12 @@ extensions = ["rb", "rbw", "gemspec", "rake"]
 comment_nodes = ["comment"]
 preserve_patterns = ["rubocop:", "frozen_string_literal:"]
 
-[languages.ruby.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-ruby", branch = "master" }
-
 # Example: Add Vue.js support
 [languages.vue]
 name = "Vue"
 extensions = [".vue"]
 comment_nodes = ["comment"]
 preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
-
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
 
 # Example: Add Swift support
 [languages.swift]
@@ -367,27 +302,16 @@ extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
 preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
 
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
-
-# Example: Use a local grammar directory
 # [languages.custom]
 # name = "Custom Language"
 # extensions = ["cst"]
 # comment_nodes = ["comment"]
 #
-# [languages.custom.grammar]
-# source = { type = "local", path = "/path/to/grammar-dir" }
-
-# Example: Use a pre-compiled grammar library
 # [languages.proprietary]
 # name = "Proprietary"
 # extensions = ["prop"]
 # comment_nodes = ["comment"]
 #
-# [languages.proprietary.grammar]
-# source = { type = "library", path = "/usr/local/lib/libtree-sitter-proprietary.so" }
-
 # Pattern-based rules for specific file patterns
 [patterns."tests/**/*.py"]
 # Apply different rules to test files
@@ -424,26 +348,17 @@ extensions = [".vue"]
 comment_nodes = ["comment", "template_element"]
 preserve_patterns = ["eslint-", "prettier-", "vue-", "@vue/"]
 
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/ikatyang/tree-sitter-vue" }
-
 [languages.svelte]
 name = "Svelte"
 extensions = [".svelte"]
 comment_nodes = ["comment", "text"]
 preserve_patterns = ["eslint-", "prettier-", "svelte-"]
 
-[languages.svelte.grammar]
-source = { type = "git", url = "https://github.com/Himujjal/tree-sitter-svelte" }
-
 [languages.astro]
 name = "Astro"
 extensions = [".astro"]
 comment_nodes = ["comment", "frontmatter"]
 preserve_patterns = ["astro-", "eslint-"]
-
-[languages.astro.grammar]
-source = { type = "git", url = "https://github.com/virchau13/tree-sitter-astro" }
 
 [languages.swift]
 name = "Swift"
@@ -463,17 +378,11 @@ extensions = [".dart"]
 comment_nodes = ["comment", "documentation_comment"]
 preserve_patterns = ["ignore:", "TODO:", "FIXME:"]
 
-[languages.dart.grammar]
-source = { type = "git", url = "https://github.com/UserNobody14/tree-sitter-dart" }
-
 [languages.zig]
 name = "Zig"
 extensions = [".zig"]
 comment_nodes = ["line_comment", "doc_comment"]
 preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
-
-[languages.zig.grammar]
-source = { type = "git", url = "https://github.com/maxxnino/tree-sitter-zig" }
 
 [languages.elixir]
 name = "Elixir"
@@ -493,17 +402,11 @@ extensions = [".jl"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
 
-[languages.julia.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-julia" }
-
 [languages.r]
 name = "R"
 extensions = [".r", ".R"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
-
-[languages.r.grammar]
-source = { type = "git", url = "https://github.com/r-lib/tree-sitter-r" }
 
 [languages.lua]
 name = "Lua"
@@ -564,8 +467,6 @@ respect_gitignore = true    # Respect .gitignore files
 traverse_git_repos = false # Traverse into nested git repos
 
 # Language-specific configurations
-# Entries with [languages.<name>.grammar] use dynamic grammars.
-# Entries without a grammar section rely on built-in parsers.
 
 # Web Development Languages
 [languages.vue]
@@ -574,26 +475,17 @@ extensions = [".vue"]
 comment_nodes = ["comment"]
 preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
 
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
-
 [languages.svelte]
 name = "Svelte"
 extensions = [".svelte"]
 comment_nodes = ["comment"]
 preserve_patterns = ["eslint-", "prettier-ignore"]
 
-[languages.svelte.grammar]
-source = { type = "git", url = "https://github.com/Himujjal/tree-sitter-svelte", branch = "master" }
-
 [languages.astro]
 name = "Astro"
 extensions = [".astro"]
 comment_nodes = ["comment"]
 preserve_patterns = ["eslint-", "prettier-ignore"]
-
-[languages.astro.grammar]
-source = { type = "git", url = "https://github.com/virchau13/tree-sitter-astro", branch = "master" }
 
 # Mobile Development
 [languages.swift]
@@ -614,9 +506,6 @@ extensions = [".dart"]
 comment_nodes = ["comment"]
 preserve_patterns = ["ignore:", "ignore_for_file:"]
 
-[languages.dart.grammar]
-source = { type = "git", url = "https://github.com/UserNobody14/tree-sitter-dart", branch = "master" }
-
 # Systems Programming
 [languages.zig]
 name = "Zig"
@@ -624,17 +513,11 @@ extensions = [".zig"]
 comment_nodes = ["line_comment"]
 preserve_patterns = ["zig fmt:"]
 
-[languages.zig.grammar]
-source = { type = "git", url = "https://github.com/maxxnino/tree-sitter-zig" }
-
 [languages.nim]
 name = "Nim"
 extensions = ["nim", "nims"]
 comment_nodes = ["comment"]
 preserve_patterns = ["pragma:"]
-
-[languages.nim.grammar]
-source = { type = "git", url = "https://github.com/alaviss/tree-sitter-nim" }
 
 # Functional Programming
 [languages.haskell]
@@ -654,16 +537,10 @@ name = "Elm"
 extensions = ["elm"]
 comment_nodes = ["line_comment", "block_comment"]
 
-[languages.elm.grammar]
-source = { type = "git", url = "https://github.com/razzeee/tree-sitter-elm" }
-
 [languages.clojure]
 name = "Clojure"
 extensions = ["clj", "cljs", "cljc", "edn"]
 comment_nodes = ["comment"]
-
-[languages.clojure.grammar]
-source = { type = "git", url = "https://github.com/sogaiu/tree-sitter-clojure", branch = "master" }
 
 # Data Science & ML
 [languages.r]
@@ -672,26 +549,17 @@ extensions = [".r", ".R"]
 comment_nodes = ["comment"]
 preserve_patterns = ["@param", "@return", "@export"]
 
-[languages.r.grammar]
-source = { type = "git", url = "https://github.com/r-lib/tree-sitter-r" }
-
 [languages.julia]
 name = "Julia"
 extensions = [".jl"]
 comment_nodes = ["comment"]
 preserve_patterns = ["@doc", "@inline", "@noinline"]
 
-[languages.julia.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-julia", branch = "master" }
-
 # DevOps & Configuration
 [languages.dockerfile]
 name = "Dockerfile"
 extensions = ["dockerfile"]
 comment_nodes = ["comment"]
-
-[languages.dockerfile.grammar]
-source = { type = "git", url = "https://github.com/camdencheek/tree-sitter-dockerfile" }
 
 [languages.nix]
 name = "Nix"
@@ -708,9 +576,6 @@ comment_nodes = ["comment"]
 name = "Fish"
 extensions = ["fish"]
 comment_nodes = ["comment"]
-
-[languages.fish.grammar]
-source = { type = "git", url = "https://github.com/ram02z/tree-sitter-fish", branch = "master" }
 
 # Override built-in languages with custom settings
 [languages.python]
@@ -1363,24 +1228,21 @@ preserve_patterns = ["@SuppressWarnings", "@Override"]
 remove_docs = false"#,
         );
 
-        map.insert("vue".to_string(), r#"[languages.vue]
+        map.insert(
+            "vue".to_string(),
+            r#"[languages.vue]
 name = "Vue"
 extensions = [".vue"]
 comment_nodes = ["comment"]
-preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
-
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }"#);
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]"#,
+        );
 
         map.insert(
             "dockerfile".to_string(),
             r#"[languages.dockerfile]
 name = "Dockerfile"
 extensions = ["dockerfile"]
-comment_nodes = ["comment"]
-
-[languages.dockerfile.grammar]
-source = { type = "git", url = "https://github.com/camdencheek/tree-sitter-dockerfile" }"#,
+comment_nodes = ["comment"]"#,
         );
 
         map.insert(
@@ -1488,23 +1350,23 @@ comment_nodes = ["comment"]"#,
     fn get_extended_language_mappings() -> std::collections::HashMap<&'static str, &'static str> {
         let mut map = std::collections::HashMap::new();
 
-        map.insert("vue", r#"[languages.vue]
+        map.insert(
+            "vue",
+            r#"[languages.vue]
 name = "Vue"
 extensions = [".vue"]
 comment_nodes = ["comment"]
-preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]"#,
+        );
 
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }"#);
-
-        map.insert("svelte", r#"[languages.svelte]
+        map.insert(
+            "svelte",
+            r#"[languages.svelte]
 name = "Svelte"
 extensions = [".svelte"]
 comment_nodes = ["comment"]
-preserve_patterns = ["eslint-", "prettier-ignore"]
-
-[languages.svelte.grammar]
-source = { type = "git", url = "https://github.com/Himujjal/tree-sitter-svelte", branch = "master" }"#);
+preserve_patterns = ["eslint-", "prettier-ignore"]"#,
+        );
 
         map.insert(
             "swift",
@@ -1524,14 +1386,14 @@ comment_nodes = ["line_comment", "block_comment"]
 preserve_patterns = ["@Suppress", "ktlint:"]"#,
         );
 
-        map.insert("dart", r#"[languages.dart]
+        map.insert(
+            "dart",
+            r#"[languages.dart]
 name = "Dart"
 extensions = [".dart"]
 comment_nodes = ["comment"]
-preserve_patterns = ["ignore:", "ignore_for_file:"]
-
-[languages.dart.grammar]
-source = { type = "git", url = "https://github.com/UserNobody14/tree-sitter-dart", branch = "master" }"#);
+preserve_patterns = ["ignore:", "ignore_for_file:"]"#,
+        );
 
         map.insert(
             "zig",
@@ -1539,10 +1401,7 @@ source = { type = "git", url = "https://github.com/UserNobody14/tree-sitter-dart
 name = "Zig"
 extensions = [".zig"]
 comment_nodes = ["line_comment"]
-preserve_patterns = ["zig fmt:"]
-
-[languages.zig.grammar]
-source = { type = "git", url = "https://github.com/maxxnino/tree-sitter-zig" }"#,
+preserve_patterns = ["zig fmt:"]"#,
         );
 
         map.insert(
@@ -1569,20 +1428,17 @@ preserve_patterns = ["@doc", "@moduledoc"]"#,
 name = "R"
 extensions = [".r", ".R"]
 comment_nodes = ["comment"]
-preserve_patterns = ["@param", "@return", "@export"]
-
-[languages.r.grammar]
-source = { type = "git", url = "https://github.com/r-lib/tree-sitter-r" }"#,
+preserve_patterns = ["@param", "@return", "@export"]"#,
         );
 
-        map.insert("julia", r#"[languages.julia]
+        map.insert(
+            "julia",
+            r#"[languages.julia]
 name = "Julia"
 extensions = [".jl"]
 comment_nodes = ["comment"]
-preserve_patterns = ["@doc", "@inline", "@noinline"]
-
-[languages.julia.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-julia", branch = "master" }"#);
+preserve_patterns = ["@doc", "@inline", "@noinline"]"#,
+        );
 
         map.insert(
             "nix",
@@ -1776,7 +1632,6 @@ impl ConfigManager {
             respect_gitignore: base_config.global.respect_gitignore,
             traverse_git_repos: base_config.global.traverse_git_repos,
             language_config: None,
-            grammar_config: None,
         }
     }
 
@@ -1824,9 +1679,6 @@ impl ConfigManager {
             config.preserve_patterns.sort();
             config.preserve_patterns.dedup();
 
-            if !matches!(lang_config.grammar.source, GrammarSource::Builtin) {
-                config.grammar_config = Some(lang_config.grammar.clone());
-            }
             config.language_config = Some(lang_config);
         }
 
@@ -1893,146 +1745,10 @@ mod tests {
                 remove_fixme: None,
                 remove_docs: None,
                 use_default_ignores: None,
-                grammar: GrammarConfig::default(),
             },
         );
 
         assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn test_grammar_config_integration() {
-        let mut config = Config::default();
-
-        let language_config = LanguageConfig {
-            name: "test_lang".to_string(),
-            extensions: vec!["test".to_string()],
-            comment_nodes: vec!["comment".to_string()],
-            doc_comment_nodes: vec!["doc_comment".to_string()],
-            preserve_patterns: vec![],
-            remove_todos: None,
-            remove_fixme: None,
-            remove_docs: None,
-            use_default_ignores: None,
-            grammar: GrammarConfig {
-                source: GrammarSource::Git {
-                    url: "https://github.com/test/test-grammar".to_string(),
-                    branch: Some("main".to_string()),
-                    path: None,
-                },
-                version: Some("1.0.0".to_string()),
-                library_path: None,
-                compile_flags: vec!["--optimize".to_string()],
-            },
-        };
-
-        config
-            .languages
-            .insert("test_lang".to_string(), language_config);
-
-        assert!(config.validate().is_ok());
-
-        let lang_config = config.languages.get("test_lang").unwrap();
-        assert!(matches!(
-            lang_config.grammar.source,
-            GrammarSource::Git { .. }
-        ));
-        assert_eq!(lang_config.grammar.version, Some("1.0.0".to_string()));
-        assert_eq!(lang_config.grammar.compile_flags, vec!["--optimize"]);
-    }
-
-    #[test]
-    fn test_grammar_config_defaults() {
-        let default_config = GrammarConfig::default();
-        assert!(matches!(default_config.source, GrammarSource::Builtin));
-        assert!(default_config.version.is_none());
-        assert!(default_config.library_path.is_none());
-        assert!(default_config.compile_flags.is_empty());
-    }
-
-    #[test]
-    fn test_grammar_source_serialization() {
-        let git_source = GrammarSource::Git {
-            url: "https://github.com/test/grammar".to_string(),
-            branch: Some("main".to_string()),
-            path: Some("grammar".to_string()),
-        };
-
-        let serialized = toml::to_string(&git_source).unwrap();
-        let deserialized: GrammarSource = toml::from_str(&serialized).unwrap();
-        assert!(matches!(deserialized, GrammarSource::Git { .. }));
-
-        let local_source = GrammarSource::Local {
-            path: "/path/to/grammar".into(),
-        };
-
-        let serialized = toml::to_string(&local_source).unwrap();
-        let deserialized: GrammarSource = toml::from_str(&serialized).unwrap();
-        assert!(matches!(deserialized, GrammarSource::Local { .. }));
-
-        let library_source = GrammarSource::Library {
-            path: "/path/to/lib.so".into(),
-        };
-
-        let serialized = toml::to_string(&library_source).unwrap();
-        let deserialized: GrammarSource = toml::from_str(&serialized).unwrap();
-        assert!(matches!(deserialized, GrammarSource::Library { .. }));
-
-        let builtin_source = GrammarSource::Builtin;
-        let serialized = toml::to_string(&builtin_source).unwrap();
-        let deserialized: GrammarSource = toml::from_str(&serialized).unwrap();
-        assert!(matches!(deserialized, GrammarSource::Builtin));
-    }
-
-    #[test]
-    fn test_config_manager_with_grammar_configs() {
-        let temp_dir = tempfile::TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("uncomment.toml");
-
-        let config_content = r#"
-[global]
-remove_docs = false
-
-[languages.swift]
-name = "Swift"
-extensions = [".swift"]
-comment_nodes = ["comment"]
-doc_comment_nodes = ["doc_comment"]
-remove_docs = true
-
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
-version = "1.0.0"
-"#;
-
-        std::fs::write(&config_path, config_content).unwrap();
-
-        let manager = ConfigManager::new(temp_dir.path()).unwrap();
-
-        let resolved =
-            manager.get_config_for_file_with_language(temp_dir.path().join("test.swift"), "swift");
-
-        assert!(resolved.grammar_config.is_some());
-        let grammar_config = resolved.grammar_config.unwrap();
-        assert!(matches!(grammar_config.source, GrammarSource::Git { .. }));
-        assert_eq!(grammar_config.version, Some("1.0.0".to_string()));
-        assert!(resolved.remove_docs);
-
-        let resolved_default =
-            manager.get_config_for_file_with_language(temp_dir.path().join("test.rs"), "rust");
-
-        assert!(resolved_default.grammar_config.is_none());
-    }
-
-    #[test]
-    fn test_resolved_config_grammar_integration() {
-        let temp_dir = tempfile::TempDir::new().unwrap();
-        let manager = ConfigManager::new(temp_dir.path()).unwrap();
-
-        let resolved = manager.get_config_for_file(temp_dir.path().join("test.rs"));
-        assert!(resolved.grammar_config.is_none());
-
-        let _: Option<GrammarConfig> = resolved.grammar_config;
     }
 
     #[test]

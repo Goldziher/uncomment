@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use tree_sitter::Language;
 
 #[derive(Debug, Clone)]
 pub struct LanguageConfig {
@@ -7,7 +6,7 @@ pub struct LanguageConfig {
     pub extensions: Vec<String>,
     pub comment_types: Vec<String>,
     pub doc_comment_types: Vec<String>,
-    pub tree_sitter_lang: fn() -> Language,
+    pub tslp_name: String,
 }
 
 impl LanguageConfig {
@@ -16,14 +15,14 @@ impl LanguageConfig {
         extensions: Vec<&str>,
         comment_types: Vec<&str>,
         doc_comment_types: Vec<&str>,
-        tree_sitter_lang: fn() -> Language,
+        tslp_name: &str,
     ) -> Self {
         Self {
             name: name.to_string(),
             extensions: extensions.iter().map(|&s| s.to_string()).collect(),
             comment_types: comment_types.iter().map(|&s| s.to_string()).collect(),
             doc_comment_types: doc_comment_types.iter().map(|&s| s.to_string()).collect(),
-            tree_sitter_lang,
+            tslp_name: tslp_name.to_string(),
         }
     }
 
@@ -53,10 +52,6 @@ impl LanguageConfig {
         &self.doc_comment_types
     }
 
-    pub fn tree_sitter_language(&self) -> Language {
-        (self.tree_sitter_lang)()
-    }
-
     pub fn get_all_comment_types(&self) -> HashSet<String> {
         let mut types = HashSet::new();
         types.extend(self.comment_types.iter().cloned());
@@ -72,7 +67,7 @@ impl LanguageConfig {
             vec!["rs"],
             vec!["line_comment", "block_comment"],
             vec!["doc_comment", "inner_doc_comment", "outer_doc_comment"],
-            || tree_sitter_rust::LANGUAGE.into(),
+            "rust",
         )
     }
 
@@ -82,7 +77,7 @@ impl LanguageConfig {
             vec!["py", "pyw", "pyi", "pyx", "pxd"],
             vec!["comment"],
             vec!["string"],
-            || tree_sitter_python::LANGUAGE.into(),
+            "python",
         )
     }
 
@@ -92,7 +87,7 @@ impl LanguageConfig {
             vec!["js", "jsx", "mjs", "cjs"],
             vec!["comment"],
             vec!["comment"],
-            || tree_sitter_javascript::LANGUAGE.into(),
+            "javascript",
         )
     }
 
@@ -102,20 +97,16 @@ impl LanguageConfig {
             vec!["ts", "mts", "cts", "d.ts", "d.mts", "d.cts"],
             vec!["comment"],
             vec!["comment"],
-            || tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+            "typescript",
         )
     }
 
     pub fn tsx() -> Self {
-        Self::new("tsx", vec!["tsx"], vec!["comment"], vec!["comment"], || {
-            tree_sitter_typescript::LANGUAGE_TSX.into()
-        })
+        Self::new("tsx", vec!["tsx"], vec!["comment"], vec!["comment"], "tsx")
     }
 
     pub fn go() -> Self {
-        Self::new("go", vec!["go"], vec!["comment"], vec!["comment"], || {
-            tree_sitter_go::LANGUAGE.into()
-        })
+        Self::new("go", vec!["go"], vec!["comment"], vec!["comment"], "go")
     }
 
     pub fn ruby() -> Self {
@@ -124,32 +115,30 @@ impl LanguageConfig {
             vec!["rb", "rbw", "gemspec", "rake"],
             vec!["comment"],
             vec![],
-            || tree_sitter_ruby::LANGUAGE.into(),
+            "ruby",
         )
     }
 
     pub fn php() -> Self {
-        Self::new("php", vec!["php", "phtml"], vec!["comment"], vec![], || {
-            tree_sitter_php::LANGUAGE_PHP.into()
-        })
+        Self::new("php", vec!["php", "phtml"], vec!["comment"], vec![], "php")
     }
 
     pub fn elixir() -> Self {
-        Self::new("elixir", vec!["ex", "exs"], vec!["comment"], vec![], || {
-            tree_sitter_elixir::LANGUAGE.into()
-        })
+        Self::new(
+            "elixir",
+            vec!["ex", "exs"],
+            vec!["comment"],
+            vec![],
+            "elixir",
+        )
     }
 
     pub fn toml() -> Self {
-        Self::new("toml", vec!["toml"], vec!["comment"], vec![], || {
-            tree_sitter_toml_ng::LANGUAGE.into()
-        })
+        Self::new("toml", vec!["toml"], vec!["comment"], vec![], "toml")
     }
 
     pub fn csharp() -> Self {
-        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], || {
-            tree_sitter_c_sharp::LANGUAGE.into()
-        })
+        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], "csharp")
     }
 
     pub fn java() -> Self {
@@ -158,18 +147,12 @@ impl LanguageConfig {
             vec!["java"],
             vec!["line_comment", "block_comment"],
             vec!["block_comment"],
-            || tree_sitter_java::LANGUAGE.into(),
+            "java",
         )
     }
 
     pub fn c() -> Self {
-        Self::new(
-            "c",
-            vec!["c", "h"],
-            vec!["comment"],
-            vec!["comment"],
-            || tree_sitter_c::LANGUAGE.into(),
-        )
+        Self::new("c", vec!["c", "h"], vec!["comment"], vec!["comment"], "c")
     }
 
     pub fn cpp() -> Self {
@@ -178,26 +161,20 @@ impl LanguageConfig {
             vec!["cpp", "cxx", "cc", "c++", "hpp", "hxx", "hh", "h++"],
             vec!["comment"],
             vec!["comment"],
-            || tree_sitter_cpp::LANGUAGE.into(),
+            "cpp",
         )
     }
 
     pub fn json() -> Self {
-        Self::new("json", vec!["json"], vec![], vec![], || {
-            tree_sitter_json::LANGUAGE.into()
-        })
+        Self::new("json", vec!["json"], vec![], vec![], "json")
     }
 
     pub fn jsonc() -> Self {
-        Self::new("jsonc", vec!["jsonc"], vec!["comment"], vec![], || {
-            tree_sitter_json::LANGUAGE.into()
-        })
+        Self::new("jsonc", vec!["jsonc"], vec!["comment"], vec![], "json")
     }
 
     pub fn yaml() -> Self {
-        Self::new("yaml", vec!["yaml", "yml"], vec!["comment"], vec![], || {
-            tree_sitter_yaml::LANGUAGE.into()
-        })
+        Self::new("yaml", vec!["yaml", "yml"], vec!["comment"], vec![], "yaml")
     }
 
     pub fn hcl() -> Self {
@@ -206,14 +183,12 @@ impl LanguageConfig {
             vec!["hcl", "tf", "tfvars"],
             vec!["comment"],
             vec![],
-            || tree_sitter_hcl::LANGUAGE.into(),
+            "hcl",
         )
     }
 
     pub fn make() -> Self {
-        Self::new("make", vec!["mk"], vec!["comment"], vec![], || {
-            tree_sitter_make::LANGUAGE.into()
-        })
+        Self::new("make", vec!["mk"], vec!["comment"], vec![], "make")
     }
 
     pub fn shell() -> Self {
@@ -222,7 +197,7 @@ impl LanguageConfig {
             vec!["sh", "bash", "zsh"],
             vec!["comment"],
             vec!["comment"],
-            || tree_sitter_bash::LANGUAGE.into(),
+            "bash",
         )
     }
 
@@ -232,7 +207,7 @@ impl LanguageConfig {
             vec!["hs", "lhs"],
             vec!["comment"],
             vec![],
-            || tree_sitter_haskell::LANGUAGE.into(),
+            "haskell",
         )
     }
 
@@ -242,14 +217,12 @@ impl LanguageConfig {
             vec!["html", "htm", "xhtml"],
             vec!["comment"],
             vec![],
-            || tree_sitter_html::LANGUAGE.into(),
+            "html",
         )
     }
 
     pub fn css() -> Self {
-        Self::new("css", vec!["css"], vec!["comment"], vec![], || {
-            tree_sitter_css::LANGUAGE.into()
-        })
+        Self::new("css", vec!["css"], vec!["comment"], vec![], "css")
     }
 
     pub fn xml() -> Self {
@@ -258,14 +231,12 @@ impl LanguageConfig {
             vec!["xml", "xsd", "xsl", "xslt", "svg"],
             vec!["Comment"],
             vec![],
-            || tree_sitter_xml::LANGUAGE_XML.into(),
+            "xml",
         )
     }
 
     pub fn sql() -> Self {
-        Self::new("sql", vec!["sql"], vec!["comment"], vec![], || {
-            tree_sitter_sequel::LANGUAGE.into()
-        })
+        Self::new("sql", vec!["sql"], vec!["comment"], vec![], "sql")
     }
 
     pub fn kotlin() -> Self {
@@ -274,7 +245,7 @@ impl LanguageConfig {
             vec!["kt", "kts"],
             vec!["line_comment", "block_comment"],
             vec![],
-            || tree_sitter_kotlin_ng::LANGUAGE.into(),
+            "kotlin",
         )
     }
 
@@ -284,20 +255,16 @@ impl LanguageConfig {
             vec!["swift"],
             vec!["comment", "multiline_comment"],
             vec![],
-            || tree_sitter_swift::LANGUAGE.into(),
+            "swift",
         )
     }
 
     pub fn lua() -> Self {
-        Self::new("lua", vec!["lua"], vec!["comment"], vec![], || {
-            tree_sitter_lua::LANGUAGE.into()
-        })
+        Self::new("lua", vec!["lua"], vec!["comment"], vec![], "lua")
     }
 
     pub fn nix() -> Self {
-        Self::new("nix", vec!["nix"], vec!["comment"], vec![], || {
-            tree_sitter_nix::LANGUAGE.into()
-        })
+        Self::new("nix", vec!["nix"], vec!["comment"], vec![], "nix")
     }
 
     pub fn powershell() -> Self {
@@ -306,14 +273,12 @@ impl LanguageConfig {
             vec!["ps1", "psm1", "psd1"],
             vec!["comment"],
             vec![],
-            || tree_sitter_powershell::LANGUAGE.into(),
+            "powershell",
         )
     }
 
     pub fn proto() -> Self {
-        Self::new("proto", vec!["proto"], vec!["comment"], vec![], || {
-            tree_sitter_proto::LANGUAGE.into()
-        })
+        Self::new("proto", vec!["proto"], vec!["comment"], vec![], "proto")
     }
 
     pub fn ini() -> Self {
@@ -322,7 +287,7 @@ impl LanguageConfig {
             vec!["ini", "cfg", "conf"],
             vec!["comment"],
             vec![],
-            || tree_sitter_ini::LANGUAGE.into(),
+            "ini",
         )
     }
 }

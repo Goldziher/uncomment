@@ -1,7 +1,6 @@
 mod ast;
 mod cli;
 mod config;
-mod grammar;
 pub mod languages;
 pub mod processor;
 mod rules;

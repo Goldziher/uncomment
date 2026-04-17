@@ -84,8 +84,8 @@ The following languages are included as builtins and don't require custom gramma
 
 Most languages have tree-sitter grammars available. Search for `tree-sitter-[language]` on GitHub. Popular grammar repositories:
 
-- https://github.com/tree-sitter
-- https://github.com/tree-sitter-grammars
+- <https://github.com/tree-sitter>
+- <https://github.com/tree-sitter-grammars>
 
 ## Caching
 

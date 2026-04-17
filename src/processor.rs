@@ -1,6 +1,5 @@
 use crate::ast::visitor::{CommentInfo, CommentVisitor};
 use crate::config::{ConfigManager, ResolvedConfig};
-use crate::grammar::GrammarManager;
 use crate::languages::registry::LanguageRegistry;
 use crate::rules::preservation::PreservationRule;
 use anyhow::{Context, Result};
@@ -24,7 +23,6 @@ pub struct ProcessingOptions {
 pub struct Processor {
     parser: Parser,
     registry: LanguageRegistry,
-    grammar_manager: GrammarManager,
 }
 
 impl Default for Processor {
@@ -38,7 +36,6 @@ impl Processor {
         Self {
             parser: Parser::new(),
             registry: LanguageRegistry::new(),
-            grammar_manager: GrammarManager::new().expect("Failed to initialize GrammarManager"),
         }
     }
 
@@ -51,7 +48,6 @@ impl Processor {
         Self {
             parser: Parser::new(),
             registry,
-            grammar_manager: GrammarManager::new().expect("Failed to initialize GrammarManager"),
         }
     }
 
@@ -121,18 +117,13 @@ impl Processor {
         language_config: &crate::languages::config::LanguageConfig,
         resolved_config: &ResolvedConfig,
     ) -> Result<(String, usize, Vec<ImportantRemoval>)> {
-        let language = if let Some(grammar_config) = &resolved_config.grammar_config {
-            self.grammar_manager
-                .get_language(&language_config.name, grammar_config)
-                .with_context(|| {
-                    format!(
-                        "Failed to load dynamic grammar for {}",
-                        language_config.name
-                    )
-                })?
-        } else {
-            language_config.tree_sitter_language()
-        };
+        let language = tree_sitter_language_pack::get_language(&language_config.tslp_name)
+            .with_context(|| {
+                format!(
+                    "Failed to load grammar for '{}' (tslp name: '{}')",
+                    language_config.name, language_config.tslp_name
+                )
+            })?;
 
         self.parser
             .set_language(&language)
@@ -480,7 +471,6 @@ mod tests {
             respect_gitignore: true,
             traverse_git_repos: false,
             language_config: None,
-            grammar_config: None,
         }
     }
 

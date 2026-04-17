@@ -2,7 +2,7 @@ use std::fs;
 use tempfile::TempDir;
 use uncomment::{config::ConfigManager, processor::Processor};
 
-/// Test processor integration with grammar manager for builtin grammars
+/// Test processor integration with tslp grammars for builtin languages
 #[test]
 fn test_processor_with_builtin_grammars() {
     let temp_dir = TempDir::new().unwrap();
@@ -49,28 +49,10 @@ fn main() {
     assert!(!processed.processed_content.contains("Block comment"));
 }
 
-/// Test processor with custom grammar configuration (will fail in test environment)
+/// Test processor with swift - now available via tslp
 #[test]
-fn test_processor_with_custom_grammar_config() {
+fn test_processor_with_swift() {
     let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("uncomment.toml");
-
-    let config_content = r#"
-[global]
-remove_docs = false
-
-[languages.swift]
-name = "Swift"
-extensions = ["swift"]
-comment_nodes = ["comment", "multiline_comment"]
-doc_comment_nodes = ["doc_comment"]
-
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
-"#;
-
-    fs::write(&config_path, config_content).unwrap();
-
     let config_manager = ConfigManager::new(temp_dir.path()).unwrap();
     let mut processor = Processor::new();
 
@@ -85,174 +67,50 @@ func hello() {
     fs::write(&test_file, test_content).unwrap();
 
     let result = processor.process_file_with_config(&test_file, &config_manager, None);
+    assert!(result.is_ok());
 
-    assert!(result.is_err());
-    let error_msg = result.unwrap_err().to_string();
+    let processed = result.unwrap();
     assert!(
-        error_msg.contains("Unsupported file type")
-            || error_msg.contains("Failed to load Git grammar")
-            || error_msg.contains("Failed to load dynamic grammar")
+        !processed
+            .processed_content
+            .contains("This is a Swift comment")
+    );
+    assert!(!processed.processed_content.contains("Block comment"));
+    assert!(
+        processed
+            .processed_content
+            .contains("print(\"Hello, Swift!\")")
     );
 }
 
-/// Test processor fallback behavior when dynamic grammar fails
+/// Test multiple languages with tslp
 #[test]
-fn test_processor_fallback_to_builtin() {
+fn test_processor_multiple_languages() {
     let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("uncomment.toml");
-
-    let config_content = r#"
-[global]
-remove_docs = false
-
-[languages.rust]
-name = "Rust"
-extensions = ["rs"]
-comment_nodes = ["line_comment", "block_comment"]
-doc_comment_nodes = ["doc_comment"]
-
-[languages.rust.grammar]
-source = { type = "local", path = "/nonexistent/path/to/grammar" }
-"#;
-
-    fs::write(&config_path, config_content).unwrap();
-
     let config_manager = ConfigManager::new(temp_dir.path()).unwrap();
     let mut processor = Processor::new();
 
-    let test_file = temp_dir.path().join("test.rs");
-    let test_content = r#"
-// This is a line comment
-fn main() {
-    println!("Hello, world!");
-}
-"#;
-    fs::write(&test_file, test_content).unwrap();
-
-    let result = processor.process_file_with_config(&test_file, &config_manager, None);
-    assert!(result.is_err());
-
-    let error_msg = result.unwrap_err().to_string();
-    assert!(
-        error_msg.contains("Failed to load dynamic grammar")
-            || error_msg.contains("Grammar path does not exist")
-    );
-}
-
-/// Test processor with library grammar configuration
-#[test]
-fn test_processor_with_library_grammar() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("uncomment.toml");
-
-    let config_content = r#"
-[global]
-remove_docs = false
-
-[languages.kotlin]
-name = "Kotlin"
-extensions = ["kt"]
-comment_nodes = ["comment"]
-
-[languages.kotlin.grammar]
-source = { type = "library", path = "/nonexistent/lib/libtree-sitter-kotlin.so" }
-"#;
-
-    fs::write(&config_path, config_content).unwrap();
-
-    let config_manager = ConfigManager::new(temp_dir.path()).unwrap();
-    let mut processor = Processor::new();
-
-    let test_file = temp_dir.path().join("test.kt");
-    let test_content = r#"
-// This is a Kotlin comment
-fun main() {
-    println("Hello, Kotlin!")
-}
-"#;
-    fs::write(&test_file, test_content).unwrap();
-
-    let result = processor.process_file_with_config(&test_file, &config_manager, None);
-    assert!(result.is_err());
-
-    let error_msg = result.unwrap_err().to_string();
-    assert!(
-        error_msg.contains("Unsupported file type")
-            || error_msg.contains("Library path does not exist")
-            || error_msg.contains("Failed to load dynamic grammar")
-            || error_msg.contains("Failed to load library grammar")
-    );
-}
-
-/// Test multiple languages with different grammar configurations
-#[test]
-fn test_processor_multiple_grammar_types() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("uncomment.toml");
-
-    let config_content = r#"
-[global]
-remove_docs = false
-
-# Rust uses builtin grammar (no grammar section = default builtin)
-[languages.rust]
-name = "Rust"
-extensions = ["rs"]
-comment_nodes = ["line_comment", "block_comment"]
-
-# Python uses builtin explicitly
-[languages.python]
-name = "Python"
-extensions = ["py"]
-comment_nodes = ["comment"]
-
-[languages.python.grammar]
-source = { type = "builtin" }
-
-# JavaScript with custom git grammar (will fail in tests)
-[languages.javascript]
-name = "JavaScript"
-extensions = ["js"]
-comment_nodes = ["comment"]
-
-[languages.javascript.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-javascript" }
-"#;
-
-    fs::write(&config_path, config_content).unwrap();
-
-    let config_manager = ConfigManager::new(temp_dir.path()).unwrap();
-    let mut processor = Processor::new();
-
+    // Rust
     let rust_file = temp_dir.path().join("test.rs");
     fs::write(&rust_file, "// Rust comment\nfn main() {}").unwrap();
-
     let rust_result = processor.process_file_with_config(&rust_file, &config_manager, None);
     assert!(rust_result.is_ok());
 
+    // Python
     let python_file = temp_dir.path().join("test.py");
     fs::write(&python_file, "# Python comment\nprint('hello')").unwrap();
-
     let python_result = processor.process_file_with_config(&python_file, &config_manager, None);
     assert!(python_result.is_ok());
 
+    // JavaScript
     let js_file = temp_dir.path().join("test.js");
     fs::write(&js_file, "// JS comment\nconsole.log('hello');").unwrap();
-
     let js_result = processor.process_file_with_config(&js_file, &config_manager, None);
-    if let Err(error) = js_result {
-        let error_msg = error.to_string();
-        assert!(
-            error_msg.contains("git")
-                || error_msg.contains("Failed to load")
-                || error_msg.contains("grammar")
-        );
-    } else {
-        assert!(js_result.unwrap().processed_content.contains("console.log"));
-    }
+    assert!(js_result.is_ok());
+    assert!(js_result.unwrap().processed_content.contains("console.log"));
 }
 
-/// Test error handling for unsupported file types with custom grammars
+/// Test error handling for unsupported file types
 #[test]
 fn test_processor_unsupported_file_type() {
     let temp_dir = TempDir::new().unwrap();
@@ -269,7 +127,7 @@ fn test_processor_unsupported_file_type() {
     assert!(error_msg.contains("Unsupported file type"));
 }
 
-/// Test grammar manager integration with processor caching
+/// Test processor grammar caching (processing same language multiple times)
 #[test]
 fn test_processor_grammar_caching() {
     let temp_dir = TempDir::new().unwrap();
