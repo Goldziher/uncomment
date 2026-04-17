@@ -16,6 +16,7 @@ checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
 dependencies = [
  "cfg-if",
  "const-random",
+ "getrandom 0.3.4",
  "once_cell",
  "serde",
  "version_check",
@@ -1155,12 +1156,14 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 name = "uncomment"
 version = "2.11.0"
 dependencies = [
+ "ahash",
  "anyhow",
  "clap",
  "dirs",
  "glob",
  "ignore",
  "libc",
+ "memchr",
  "num_cpus",
  "once_cell",
  "pretty_assertions",

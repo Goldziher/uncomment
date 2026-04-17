@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use ahash::AHashSet;
 
 #[derive(Debug, Clone)]
 pub struct LanguageConfig {
@@ -52,8 +52,8 @@ impl LanguageConfig {
         &self.doc_comment_types
     }
 
-    pub fn get_all_comment_types(&self) -> HashSet<String> {
-        let mut types = HashSet::new();
+    pub fn get_all_comment_types(&self) -> AHashSet<String> {
+        let mut types = AHashSet::new();
         types.extend(self.comment_types.iter().cloned());
         types.extend(self.doc_comment_types.iter().cloned());
         types

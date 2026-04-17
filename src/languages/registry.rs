@@ -1,18 +1,18 @@
 use crate::languages::config::LanguageConfig;
-use std::collections::HashMap;
+use ahash::AHashMap;
 use std::path::Path;
 use std::sync::Arc;
 
 pub struct LanguageRegistry {
-    languages: HashMap<String, Arc<LanguageConfig>>,
-    extension_map: HashMap<String, String>,
+    languages: AHashMap<String, Arc<LanguageConfig>>,
+    extension_map: AHashMap<String, String>,
 }
 
 impl LanguageRegistry {
     pub fn new() -> Self {
         let mut registry = Self {
-            languages: HashMap::new(),
-            extension_map: HashMap::new(),
+            languages: AHashMap::new(),
+            extension_map: AHashMap::new(),
         };
 
         registry.register_default_languages();

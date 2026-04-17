@@ -148,7 +148,7 @@ impl Processor {
         let comments_to_remove = visitor.get_comments_to_remove();
         let comments_removed = comments_to_remove.len();
 
-        let important_removals = detect_important_removals(&comments_to_remove);
+        let important_removals = detect_important_removals(&comments_to_remove, content);
 
         let output = self.remove_comments_from_content(content, &comments_to_remove);
 
@@ -182,7 +182,7 @@ impl Processor {
         }
 
         for pattern in &config.preserve_patterns {
-            rules.push(PreservationRule::pattern(pattern));
+            rules.push(PreservationRule::pattern_owned(pattern.clone()));
         }
 
         if config.use_default_ignores {
@@ -218,14 +218,16 @@ impl Processor {
             return content.to_string();
         }
 
-        let mut bytes = content.as_bytes().to_vec();
+        let bytes = content.as_bytes();
 
-        let mut ranges: Vec<(usize, usize)> = comments_to_remove
-            .iter()
-            .map(|comment| (comment.start_byte, comment.end_byte))
-            .collect();
-        ranges.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
+        // Collect and sort ranges
+        let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(comments_to_remove.len());
+        for comment in comments_to_remove {
+            ranges.push((comment.start_byte, comment.end_byte));
+        }
+        ranges.sort_unstable_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
 
+        // Filter overlapping ranges
         let mut filtered: Vec<(usize, usize)> = Vec::with_capacity(ranges.len());
         for (start, end) in ranges {
             if let Some(previous) = filtered.last()
@@ -237,27 +239,25 @@ impl Processor {
             filtered.push((start, end));
         }
 
-        for (start, end) in filtered.into_iter().rev() {
-            if start >= bytes.len() {
-                continue;
-            }
-            let end = end.min(bytes.len());
-            if start >= end {
+        // Expand ranges to full lines when only whitespace surrounds the comment,
+        // then build output in a single forward pass.
+        let mut removal_ranges: Vec<(usize, usize)> = Vec::with_capacity(filtered.len());
+        for (start, end) in &filtered {
+            let start = *start;
+            let end = (*end).min(bytes.len());
+            if start >= end || start >= bytes.len() {
                 continue;
             }
 
-            let mut line_start = start;
-            while line_start > 0 && bytes[line_start - 1] != b'\n' {
-                line_start -= 1;
-            }
-
-            let mut line_end = end;
-            while line_end < bytes.len() && bytes[line_end] != b'\n' {
-                line_end += 1;
-            }
-            if line_end < bytes.len() {
-                line_end += 1;
-            }
+            // Find line boundaries using memchr
+            let line_start = match memchr::memrchr(b'\n', &bytes[..start]) {
+                Some(pos) => pos + 1,
+                None => 0,
+            };
+            let line_end = match memchr::memchr(b'\n', &bytes[end..]) {
+                Some(pos) => end + pos + 1,
+                None => bytes.len(),
+            };
 
             let before = &bytes[line_start..start];
             let after = &bytes[end..line_end];
@@ -265,13 +265,26 @@ impl Processor {
             let after_ws = after.iter().all(|b| b.is_ascii_whitespace());
 
             if before_ws && after_ws {
-                bytes.drain(line_start..line_end);
+                removal_ranges.push((line_start, line_end));
             } else {
-                bytes.drain(start..end);
+                removal_ranges.push((start, end));
             }
         }
 
-        String::from_utf8(bytes).unwrap_or_default()
+        // Single-pass forward copy of kept segments
+        let mut output = String::with_capacity(content.len());
+        let mut cursor = 0;
+        for (start, end) in &removal_ranges {
+            let start = cursor.max(*start);
+            if cursor < start {
+                output.push_str(&content[cursor..start]);
+            }
+            cursor = *end;
+        }
+        if cursor < content.len() {
+            output.push_str(&content[cursor..]);
+        }
+        output
     }
 }
 
@@ -387,12 +400,15 @@ impl OutputWriter {
     }
 }
 
-fn detect_important_removals(comments_to_remove: &[&CommentInfo]) -> Vec<ImportantRemoval> {
+fn detect_important_removals(
+    comments_to_remove: &[&CommentInfo],
+    source: &str,
+) -> Vec<ImportantRemoval> {
     comments_to_remove
         .iter()
         .copied()
         .filter_map(|comment| {
-            let trimmed = comment.content.trim_start();
+            let trimmed = comment.content(source).trim_start();
             let reason = if trimmed.starts_with("#!") {
                 Some(Cow::Borrowed("shebang"))
             } else if trimmed.starts_with("//go:")
@@ -918,5 +934,72 @@ key = # not a comment
         let processed = process_language(source, LanguageConfig::ini());
         assert!(!processed.contains("; remove me"));
         assert!(processed.contains("key = # not a comment"));
+    }
+
+    #[test]
+    fn removes_python_docstrings_when_remove_docs_enabled() {
+        let source = r#""""This is a docstring"""
+# TODO: regular todo
+# mypy: ignore
+def hello(): pass"#;
+
+        let mut processor = Processor::new();
+        let language_config = LanguageConfig::python();
+        let mut resolved_config = default_resolved_config();
+        resolved_config.remove_docs = true;
+
+        let (output, _, _) = processor
+            .process_content_with_config(source, &language_config, &resolved_config)
+            .expect("processing python source");
+
+        assert!(
+            !output.contains("This is a docstring"),
+            "Python docstring should be removed when remove_docs=true"
+        );
+        assert!(
+            output.contains("TODO: regular todo"),
+            "TODO should be preserved"
+        );
+        assert!(output.contains("mypy: ignore"), "mypy should be preserved");
+    }
+
+    #[test]
+    fn handles_utf8_multibyte_in_comments() {
+        let source = "// Comment with emoji 🎉\nfn main() {}\n";
+
+        let processed = process_rust(source);
+        assert!(!processed.contains("🎉"));
+        assert!(processed.contains("fn main()"));
+    }
+
+    #[test]
+    fn handles_file_with_only_comments() {
+        let source = "// Only comments\n// Nothing else\n";
+
+        let processed = process_rust(source);
+        assert!(processed.trim().is_empty());
+    }
+
+    #[test]
+    fn handles_empty_file() {
+        let source = "";
+
+        let mut processor = Processor::new();
+        let language_config = LanguageConfig::rust();
+        let resolved_config = default_resolved_config();
+        let (output, removed, _) = processor
+            .process_content_with_config(source, &language_config, &resolved_config)
+            .expect("processing empty source");
+        assert_eq!(output, "");
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn handles_comment_at_end_of_file_no_trailing_newline() {
+        let source = "fn main() {} // trailing";
+
+        let processed = process_rust(source);
+        assert!(!processed.contains("// trailing"));
+        assert!(processed.contains("fn main()"));
     }
 }

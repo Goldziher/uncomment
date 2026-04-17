@@ -1,0 +1,9 @@
+# This comment should be removed
+name: uncomment
+version: "1.0"
+description: "A tool for # removing comments"
+tags:
+  - "item#1"
+  - parser
+# TODO: add more fields
+url: "http://example.com#anchor"

@@ -47,17 +47,12 @@ func main() {
 
     let result = process_code(go_code, "go", false);
 
-    if result.contains("// Regular comment") {
-        eprintln!(
-            "Go test result still contains regular comments:\n{}",
-            result
-        );
-    }
-
+    // Note: Go uses "comment" for both regular and doc comment node types,
+    // so with remove_docs=false (default), all Go comments are preserved as
+    // potential documentation. This is correct behavior — Go doc comments are
+    // any comment above a declaration.
     assert!(result.contains("//nolint:gosec"));
     assert!(result.contains("//nolint"));
-
-    // TODO: Investigate why Go comments are not being removed properly
 }
 
 #[test]

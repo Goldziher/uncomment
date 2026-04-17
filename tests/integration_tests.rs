@@ -545,8 +545,16 @@ remove_todos = false
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Current behavior: config takes precedence, so TODO should be preserved
-    let _result = fs::read_to_string(&test_file).unwrap();
+    // CLI --remove-todo overrides config, so TODO should be removed
+    let result = fs::read_to_string(&test_file).unwrap();
+    assert!(
+        !result.contains("# TODO: test comment"),
+        "CLI --remove-todo should override config and remove TODO comments"
+    );
+    assert!(
+        result.contains("def hello(): pass"),
+        "Code should be preserved"
+    );
 }
 
 fn get_binary_path() -> std::path::PathBuf {

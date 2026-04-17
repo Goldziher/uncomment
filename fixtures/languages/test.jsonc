@@ -1,0 +1,10 @@
+{
+  // This line comment should be removed
+  "name": "uncomment",
+  "version": "1.0.0",
+  /* This block comment should be removed */
+  "description": "A tool for // removing comments",
+  "url": "http://example.com#anchor",
+  // TODO: add more fields
+  "tags": ["parser", "ast"]
+}
