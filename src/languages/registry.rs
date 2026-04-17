@@ -164,27 +164,22 @@ impl LanguageRegistry {
     ) {
         for config in config_languages.values() {
             let name_lower = config.name.to_lowercase();
-            if let Some(existing_config) = self.languages.get(&name_lower) {
-                let updated_config = LanguageConfig {
-                    name: config.name.clone(),
-                    extensions: config.extensions.clone(),
-                    comment_types: config.comment_nodes.clone(),
-                    doc_comment_types: config.doc_comment_nodes.clone(),
-                    tree_sitter_lang: existing_config.tree_sitter_lang,
-                };
-                self.register_language(updated_config);
+            let tslp_name = if let Some(existing_config) = self.languages.get(&name_lower) {
+                existing_config.tslp_name.clone()
+            } else if tree_sitter_language_pack::has_language(&name_lower) {
+                name_lower.clone()
             } else {
-                let language_config = LanguageConfig {
-                    name: config.name.clone(),
-                    extensions: config.extensions.clone(),
-                    comment_types: config.comment_nodes.clone(),
-                    doc_comment_types: config.doc_comment_nodes.clone(),
-                    tree_sitter_lang: || unsafe {
-                        tree_sitter::Language::from_raw(std::ptr::null())
-                    },
-                };
-                self.register_language(language_config);
-            }
+                continue;
+            };
+
+            let language_config = LanguageConfig {
+                name: config.name.clone(),
+                extensions: config.extensions.clone(),
+                comment_types: config.comment_nodes.clone(),
+                doc_comment_types: config.doc_comment_nodes.clone(),
+                tslp_name,
+            };
+            self.register_language(language_config);
         }
     }
 }
@@ -380,7 +375,7 @@ mod tests {
             vec!["cst"],
             vec!["comment"],
             vec!["doc_comment"],
-            || tree_sitter_rust::LANGUAGE.into(),
+            "rust",
         );
 
         registry.register_language(custom_config);

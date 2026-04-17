@@ -1,0 +1,8 @@
+[default.extend-words]
+# Valid file extension for Clojure EDN data format
+edn = "edn"
+# Git commit hashes in CHANGELOG
+ba = "ba"
+
+[files]
+extend-exclude = ["CHANGELOG.md"]

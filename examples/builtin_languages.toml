@@ -4,19 +4,19 @@
 
 [global]
 # Global settings that apply to all files
-remove_todos = false        # Remove TODO comments
-remove_fixme = false        # Remove FIXME comments
-remove_docs = false         # Remove documentation comments
-preserve_patterns = [       # Additional patterns to preserve
-    "HACK",
-    "WORKAROUND",
-    "NOTE",
-    "BUG",
-    "IMPORTANT"
+remove_todos = false # Remove TODO comments
+remove_fixme = false # Remove FIXME comments
+remove_docs = false # Remove documentation comments
+preserve_patterns = [ # Additional patterns to preserve
+  "HACK",
+  "WORKAROUND",
+  "NOTE",
+  "BUG",
+  "IMPORTANT",
 ]
-use_default_ignores = true  # Use built-in ignore patterns
-respect_gitignore = true    # Respect .gitignore files
-traverse_git_repos = false  # Traverse into nested git repos
+use_default_ignores = true # Use built-in ignore patterns
+respect_gitignore = true # Respect .gitignore files
+traverse_git_repos = false # Traverse into nested git repos
 
 # ===== BUILTIN LANGUAGE CONFIGURATIONS =====
 # These examples show how to customize each builtin language
@@ -28,32 +28,46 @@ extensions = ["rs"]
 comment_nodes = ["line_comment", "block_comment"]
 doc_comment_nodes = ["doc_comment", "inner_doc_comment", "outer_doc_comment"]
 preserve_patterns = ["unsafe", "SAFETY", "clippy::", "rustfmt::", "derive"]
-remove_docs = false  # Keep rustdoc comments by default
+remove_docs = false                                                           # Keep rustdoc comments by default
 
 # ----- Python -----
 [languages.python]
 name = "Python"
 extensions = ["py", "pyw", "pyi"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["expression_statement"]  # Docstrings are expression statements
+doc_comment_nodes = [
+  "expression_statement",
+] # Docstrings are expression statements
 preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:", "pylint:", "flake8:"]
-remove_docs = false  # Keep docstrings by default
+remove_docs = false # Keep docstrings by default
 
 # ----- JavaScript -----
 [languages.javascript]
 name = "JavaScript"
 extensions = ["js", "jsx", "mjs", "cjs"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]  # JSDoc comments are regular comments
-preserve_patterns = ["@ts-expect-error", "@ts-ignore", "webpack", "eslint", "prettier-ignore"]
+doc_comment_nodes = ["comment"] # JSDoc comments are regular comments
+preserve_patterns = [
+  "@ts-expect-error",
+  "@ts-ignore",
+  "webpack",
+  "eslint",
+  "prettier-ignore",
+]
 
 # ----- TypeScript -----
 [languages.typescript]
 name = "TypeScript"
 extensions = ["ts", "mts", "cts"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]  # TSDoc comments are regular comments
-preserve_patterns = ["@ts-expect-error", "@ts-ignore", "@ts-nocheck", "tslint:", "prettier-ignore"]
+doc_comment_nodes = ["comment"] # TSDoc comments are regular comments
+preserve_patterns = [
+  "@ts-expect-error",
+  "@ts-ignore",
+  "@ts-nocheck",
+  "tslint:",
+  "prettier-ignore",
+]
 
 # ----- TypeScript JSX (TSX) -----
 [languages.tsx]
@@ -68,7 +82,7 @@ preserve_patterns = ["@ts-expect-error", "@ts-ignore", "@ts-nocheck", "jsx-"]
 name = "Go"
 extensions = ["go"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]  # Go doc comments are regular comments
+doc_comment_nodes = ["comment"]                                                 # Go doc comments are regular comments
 preserve_patterns = ["go:build", "go:generate", "go:embed", "+build", "nolint"]
 
 # ----- Java -----
@@ -76,30 +90,50 @@ preserve_patterns = ["go:build", "go:generate", "go:embed", "+build", "nolint"]
 name = "Java"
 extensions = ["java"]
 comment_nodes = ["line_comment", "block_comment"]
-doc_comment_nodes = ["block_comment"]  # Javadoc uses block comments
-preserve_patterns = ["@Override", "@Deprecated", "@SuppressWarnings", "CHECKSTYLE:", "PMD:"]
+doc_comment_nodes = ["block_comment"] # Javadoc uses block comments
+preserve_patterns = [
+  "@Override",
+  "@Deprecated",
+  "@SuppressWarnings",
+  "CHECKSTYLE:",
+  "PMD:",
+]
 
 # ----- C -----
 [languages.c]
 name = "C"
 extensions = ["c", "h"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]  # Doxygen comments are regular comments
-preserve_patterns = ["\\brief", "\\param", "\\return", "\\warning", "NOLINT", "coverity"]
+doc_comment_nodes = ["comment"] # Doxygen comments are regular comments
+preserve_patterns = [
+  "\\brief",
+  "\\param",
+  "\\return",
+  "\\warning",
+  "NOLINT",
+  "coverity",
+]
 
 # ----- C++ -----
 [languages.cpp]
 name = "C++"
 extensions = ["cpp", "cxx", "cc", "c++", "hpp", "hxx", "hh", "h++"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]  # Doxygen comments are regular comments
-preserve_patterns = ["\\brief", "\\param", "\\return", "\\warning", "NOLINT", "clang-format"]
+doc_comment_nodes = ["comment"] # Doxygen comments are regular comments
+preserve_patterns = [
+  "\\brief",
+  "\\param",
+  "\\return",
+  "\\warning",
+  "NOLINT",
+  "clang-format",
+]
 
 # ----- JSON -----
 [languages.json]
 name = "JSON"
 extensions = ["json"]
-comment_nodes = []  # Standard JSON doesn't support comments
+comment_nodes = []     # Standard JSON doesn't support comments
 doc_comment_nodes = []
 # Note: For JSON with comments, use the jsonc configuration below
 
@@ -123,14 +157,14 @@ preserve_patterns = ["yamllint", "ansible-lint", "$schema"]
 [languages.hcl]
 name = "HCL"
 extensions = ["hcl", "tf", "tfvars"]
-comment_nodes = ["comment"]  # Supports both # and // comments
+comment_nodes = ["comment"]                                        # Supports both # and // comments
 doc_comment_nodes = []
 preserve_patterns = ["terraform", "tflint-ignore", "checkov:skip"]
 
 # ----- Makefile -----
 [languages.make]
 name = "Make"
-extensions = ["mk"]  # Also detects files named "Makefile" without extension
+extensions = ["mk"]                        # Also detects files named "Makefile" without extension
 comment_nodes = ["comment"]
 doc_comment_nodes = []
 preserve_patterns = [".PHONY", "GNU Make"]
@@ -152,7 +186,7 @@ preserve_patterns = ["shellcheck", "bash-completion", "#!/", "set -"]
 name = "Ruby"
 extensions = ["rb", "rbw"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]  # YARD documentation
+doc_comment_nodes = ["comment"]                                         # YARD documentation
 preserve_patterns = ["rubocop:", "frozen_string_literal:", "encoding:"]
 
 [languages.ruby.grammar]
@@ -174,7 +208,7 @@ source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift
 name = "Kotlin"
 extensions = ["kt", "kts"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]  # KDoc comments
+doc_comment_nodes = ["comment"]                               # KDoc comments
 preserve_patterns = ["@Suppress", "detekt", "ktlint-disable"]
 
 [languages.kotlin.grammar]
@@ -205,7 +239,7 @@ remove_fixme = true
 remove_docs = true
 remove_todos = true
 remove_fixme = true
-preserve_patterns = []  # Don't preserve anything
+preserve_patterns = [] # Don't preserve anything
 
 [patterns."docs/**/*"]
 # Keep all comments in documentation files

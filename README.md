@@ -213,10 +213,13 @@ uncomment --threads 8 src/
 The crate ships development binaries for benchmarking and profiling, but they are gated behind the `bench-tools` feature so they are not installed for regular users.
 
 - Install from crates.io with the extras:
+
   ```bash
   cargo install uncomment --features bench-tools
   ```
+
 - Run locally without installing:
+
   ```bash
   cargo run --release --features bench-tools --bin benchmark -- --target /path/to/repo --iterations 3
   cargo run --release --features bench-tools --bin profile -- /path/to/repo
@@ -494,7 +497,7 @@ The accuracy gained through AST parsing is worth the small performance cost, and
 
 ### Project Structure
 
-```
+```text
 uncomment/
 ├── src/               # Source code
 ├── tests/             # Integration tests

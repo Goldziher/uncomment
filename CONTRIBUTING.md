@@ -66,6 +66,7 @@ Release candidates use `vX.Y.Z-rc.1` for Git/npm and `X.Y.Zrc1` for PyPI.
 - **Cargo**: `cargo publish`
 - **npm**: `cd npm-package && npm publish` (use `--tag beta` for RCs)
 - **PyPI**:
+
   ```bash
   cd pip-package
   python -m build

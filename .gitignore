@@ -1,79 +1,65 @@
-# Rust specific ignores
+# Rust
 /target/
 **/*.rs.bk
-
-# Debug files
-*.pdb
-
-# IDE - VSCode
-.vscode/
-*.code-workspace
-
-# IDE - IntelliJ IDEA
-.idea/
-*.iml
-*.iws
-*.ipr
-
-# IDE - RustRover
-.rustover/
-
-# macOS specific
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Backup files
-*.swp
-*.bak
-*~
-
-# Environment files
-.env
-.env.local
-
-# Dependency directory
-vendor/
-
-# Node.js dependencies in npm package
-npm-package/node_modules/
-npm-package/pnpm-lock.yaml
-
-# Python cache files
-pip-package/uncomment/__pycache__/
-
-# Generated documentation
-doc/
-
-# Test repositories and their contents
-/test-repos/
-!/test-repos/logs/
-!/test-repos/*.sh
-!/test-repos/*.md
-
-# Integration test repos cache directory
-tests/integration_test/repos_cache/
-
-# Test fixtures output
-fixtures/failing_files.txt
-
-# Benchmarking artifacts
-benchmarks/target/
-perf.data
-perf.data.old
-*.profdata
-*.profraw
-
-# Build artifacts
 *.so
 *.dylib
 *.dll
 
-# AI Rules generated files
-.claude/agents/
+# Debug
+*.pdb
+*.profdata
+*.profraw
+perf.data
+perf.data.old
+
+# IDEs
+.vscode/
+*.code-workspace
+.idea/
+*.iml
+*.iws
+*.ipr
+.rustover/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+*.swp
+*.bak
+*~
+
+# Environment
+.env
+.env.local
+
+# Dependencies
+vendor/
+npm-package/node_modules/
+npm-package/pnpm-lock.yaml
+pip-package/uncomment/__pycache__/
+
+# Documentation
+doc/
+
+# Tests
+/test-repos/
+!/test-repos/logs/
+!/test-repos/*.sh
+!/test-repos/*.md
+tests/integration_test/repos_cache/
+fixtures/failing_files.txt
+
+# Benchmarks
+benchmarks/target/
+
+# AI-Rulez generated files
+.claude/
+.codex/
 .cursor/rules/
-.gemini/settings.json
-.github/copilot-instructions.md
+.gemini/
 .mcp.json
 .windsurf/
 AGENTS.md

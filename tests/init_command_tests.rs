@@ -63,9 +63,6 @@ fn test_init_command_comprehensive() {
     assert!(content.contains("[languages.elixir]"));
     assert!(content.contains("[languages.julia]"));
 
-    assert!(content.contains("source = { type = \"git\""));
-    assert!(content.contains("tree-sitter-vue"));
-    assert!(!content.contains("tree-sitter-swift"));
     assert!(!content.contains("[languages.swift.grammar]"));
     assert!(!content.contains("[languages.kotlin.grammar]"));
 
@@ -112,8 +109,8 @@ fn test_init_command_smart_detection() {
     assert!(content.contains("[languages.vue]"));
     assert!(content.contains("[languages.dockerfile]"));
 
-    assert!(content.contains("tree-sitter-vue"));
-    assert!(content.contains("tree-sitter-dockerfile"));
+    assert!(content.contains("[languages.vue]"));
+    assert!(content.contains("[languages.dockerfile]"));
 }
 
 /// Test smart template with no files
@@ -223,10 +220,7 @@ fn test_comprehensive_config_parsing() {
     assert!(config.languages.contains_key("zig"));
 
     let vue_config = config.languages.get("vue").unwrap();
-    assert!(matches!(
-        vue_config.grammar.source,
-        uncomment::config::GrammarSource::Git { .. }
-    ));
+    assert_eq!(vue_config.name, "Vue");
 }
 
 /// Test different file extensions are detected correctly
