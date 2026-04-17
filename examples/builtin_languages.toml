@@ -178,53 +178,6 @@ doc_comment_nodes = ["comment"]
 preserve_patterns = ["shellcheck", "bash-completion", "#!/", "set -"]
 # Also detects: .bashrc, .zshrc, .zshenv files
 
-# ===== CUSTOM LANGUAGE EXAMPLES =====
-# These examples show how to add languages not included as builtins
-
-# ----- Ruby (Example of Git-based grammar) -----
-[languages.ruby]
-name = "Ruby"
-extensions = ["rb", "rbw"]
-comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]                                         # YARD documentation
-preserve_patterns = ["rubocop:", "frozen_string_literal:", "encoding:"]
-
-[languages.ruby.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-ruby", branch = "master" }
-
-# ----- Swift (Example of Git-based grammar) -----
-[languages.swift]
-name = "Swift"
-extensions = ["swift"]
-comment_nodes = ["comment", "multiline_comment"]
-doc_comment_nodes = ["comment"]
-preserve_patterns = ["TODO:", "FIXME:", "MARK:", "swiftlint:", "@available"]
-
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
-
-# ----- Kotlin (Example of pre-compiled library) -----
-[languages.kotlin]
-name = "Kotlin"
-extensions = ["kt", "kts"]
-comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]                               # KDoc comments
-preserve_patterns = ["@Suppress", "detekt", "ktlint-disable"]
-
-[languages.kotlin.grammar]
-source = { type = "library", path = "/usr/local/lib/libtree-sitter-kotlin.so" }
-
-# ----- Custom DSL (Example of local grammar) -----
-[languages.mydsl]
-name = "MyDSL"
-extensions = ["dsl", "mydsl"]
-comment_nodes = ["comment", "line_comment"]
-doc_comment_nodes = ["doc_comment"]
-preserve_patterns = ["@directive", "pragma:"]
-
-[languages.mydsl.grammar]
-source = { type = "local", path = "/path/to/mydsl-grammar" }
-
 # ===== PATTERN-BASED RULES =====
 # Apply different rules to specific file patterns
 

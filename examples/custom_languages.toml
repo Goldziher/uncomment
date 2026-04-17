@@ -1,6 +1,10 @@
-# Uncomment Configuration with Custom Language Grammars
-# This example demonstrates how to configure languages that are not builtin
-# and use dynamic grammar loading from various sources
+# Uncomment Configuration: Adding Custom Languages
+#
+# uncomment ships with 49 built-in languages. Any of the 306 languages
+# supported by tree-sitter-language-pack can be added here.
+# Grammars are downloaded automatically on first use.
+#
+# See: https://github.com/kreuzberg-dev/tree-sitter-language-pack
 
 [global]
 remove_todos = false
@@ -10,188 +14,74 @@ preserve_patterns = ["IMPORTANT", "NOTE", "WARNING"]
 use_default_ignores = true
 respect_gitignore = true
 
-# ===== LANGUAGES WITH CUSTOM GRAMMARS =====
+# ===== ADDITIONAL LANGUAGES =====
+# These are NOT built-in but are available via tree-sitter-language-pack.
+# Just define name, extensions, and comment_nodes.
 
-# ----- Ruby (via Git) -----
-# Ruby was removed from builtins, but can be added back via Git
-[languages.ruby]
-name = "Ruby"
-extensions = ["rb", "rbw", "gemspec", "rake"]
+# ----- Hare -----
+[languages.hare]
+name = "Hare"
+extensions = ["ha"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]                                                  # YARD documentation
-preserve_patterns = ["rubocop:", "frozen_string_literal:", "encoding:", "yard:"]
+preserve_patterns = ["TODO", "FIXME"]
 
-[languages.ruby.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-ruby", branch = "master" }
-
-# ----- Haskell (via Git) -----
-# Haskell was removed from builtins, but can be added back
-[languages.haskell]
-name = "Haskell"
-extensions = ["hs", "lhs"]
+# ----- Crystal -----
+[languages.crystal]
+name = "Crystal"
+extensions = ["cr"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment", "haddock"]
-preserve_patterns = ["LANGUAGE", "OPTIONS_GHC", "INLINE", "NOINLINE"]
+preserve_patterns = ["TODO", "FIXME", "ameba:"]
 
-[languages.haskell.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-haskell", branch = "master" }
-
-# ----- Swift (via Git) -----
-# Swift is not included in builtins
-[languages.swift]
-name = "Swift"
-extensions = ["swift"]
-comment_nodes = ["comment", "multiline_comment"]
-doc_comment_nodes = ["comment"]
-preserve_patterns = [
-  "TODO:",
-  "FIXME:",
-  "MARK:",
-  "swiftlint:",
-  "@available",
-  "@objc",
-]
-
-[languages.swift.grammar]
-source = { type = "git", url = "https://github.com/alex-pinkus/tree-sitter-swift", branch = "main" }
-
-# ----- Kotlin (via Git) -----
-# Kotlin is not included in builtins
-[languages.kotlin]
-name = "Kotlin"
-extensions = ["kt", "kts"]
-comment_nodes = ["line_comment", "multiline_comment"]
-doc_comment_nodes = ["multiline_comment"]                                   # KDoc comments
-preserve_patterns = ["@Suppress", "detekt", "ktlint-disable", "@JvmStatic"]
-
-[languages.kotlin.grammar]
-source = { type = "git", url = "https://github.com/fwcd/tree-sitter-kotlin", branch = "main" }
-
-# ----- Elixir (via Git) -----
-[languages.elixir]
-name = "Elixir"
-extensions = ["ex", "exs"]
-comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]                                        # @moduledoc and @doc
-preserve_patterns = ["@moduledoc", "@doc", "@spec", "@type", "credo:"]
-
-[languages.elixir.grammar]
-source = { type = "git", url = "https://github.com/elixir-lang/tree-sitter-elixir", branch = "main" }
-
-# ----- Zig (via Git) -----
-[languages.zig]
-name = "Zig"
-extensions = ["zig"]
-comment_nodes = ["line_comment", "doc_comment", "container_doc_comment"]
-doc_comment_nodes = ["doc_comment", "container_doc_comment"]
-preserve_patterns = ["TODO", "FIXME", "XXX", "HACK"]
-
-[languages.zig.grammar]
-source = { type = "git", url = "https://github.com/maxxnino/tree-sitter-zig", branch = "main" }
-
-# ----- Lua (via Git) -----
-[languages.lua]
-name = "Lua"
-extensions = ["lua"]
+# ----- D -----
+[languages.d]
+name = "D"
+extensions = ["d"]
 comment_nodes = ["comment", "block_comment"]
-doc_comment_nodes = ["comment"]
-preserve_patterns = ["luacheck:", "@param", "@return", "@class"]
+doc_comment_nodes = ["block_comment"]
+preserve_patterns = ["TODO", "FIXME"]
 
-[languages.lua.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-lua", branch = "main" }
-
-# ----- PHP (via Git) -----
-[languages.php]
-name = "PHP"
-extensions = ["php", "phtml", "php3", "php4", "php5"]
-comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"]                                            # PHPDoc
-preserve_patterns = ["@param", "@return", "@throws", "phpcs:", "phpstan-"]
-
-[languages.php.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-php", branch = "master", path = "php" }
-
-# ----- Scala (via Git) -----
-[languages.scala]
-name = "Scala"
-extensions = ["scala", "sc"]
+# ----- Racket -----
+[languages.racket]
+name = "Racket"
+extensions = ["rkt", "rktl"]
 comment_nodes = ["comment", "block_comment"]
-doc_comment_nodes = ["block_comment"]                                            # Scaladoc
-preserve_patterns = ["@param", "@return", "@throws", "scalastyle:", "scalafix:"]
+preserve_patterns = ["TODO", "FIXME"]
 
-[languages.scala.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-scala", branch = "master" }
-
-# ----- Dart (via Git) -----
-[languages.dart]
-name = "Dart"
-extensions = ["dart"]
-comment_nodes = ["comment", "documentation_comment"]
-doc_comment_nodes = ["documentation_comment"]
-preserve_patterns = ["TODO", "FIXME", "HACK", "@pragma", "ignore:"]
-
-[languages.dart.grammar]
-source = { type = "git", url = "https://github.com/UserNobody14/tree-sitter-dart", branch = "master" }
-
-# ----- Vue (via Git) -----
-[languages.vue]
-name = "Vue"
-extensions = ["vue"]
+# ----- Solidity -----
+[languages.solidity]
+name = "Solidity"
+extensions = ["sol"]
 comment_nodes = ["comment"]
 doc_comment_nodes = ["comment"]
-preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+preserve_patterns = ["TODO", "FIXME", "slither-disable"]
 
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
+# ----- Mojo -----
+[languages.mojo]
+name = "Mojo"
+extensions = ["mojo"]
+comment_nodes = ["comment"]
+preserve_patterns = ["TODO", "FIXME"]
 
-# ----- SQL (via Git) -----
-[languages.sql]
-name = "SQL"
-extensions = ["sql"]
-comment_nodes = ["comment", "marginalia"]
-doc_comment_nodes = []
-preserve_patterns = ["INDEX", "CONSTRAINT", "EXPLAIN"]
+# ===== OVERRIDE BUILT-IN LANGUAGES =====
+# You can also override settings for built-in languages.
 
-[languages.sql.grammar]
-source = { type = "git", url = "https://github.com/DerekStride/tree-sitter-sql", branch = "main" }
-
-# ===== EXAMPLE WITH LOCAL GRAMMAR =====
-# This shows how to use a grammar from a local directory
-
-# [languages.custom]
-# name = "Custom Language"
-# extensions = ["custom", "cst"]
-# comment_nodes = ["comment", "line_comment"]
-# doc_comment_nodes = ["doc_comment"]
-#
-# [languages.custom.grammar]
-# source = { type = "local", path = "/path/to/custom-grammar" }
-
-# ===== EXAMPLE WITH PRE-COMPILED LIBRARY =====
-# This shows how to use a pre-compiled grammar library
-
-# [languages.proprietary]
-# name = "Proprietary Language"
-# extensions = ["prop"]
-# comment_nodes = ["comment"]
-# doc_comment_nodes = ["doc_comment"]
-#
-# [languages.proprietary.grammar]
-# source = { type = "library", path = "/usr/local/lib/libtree-sitter-proprietary.so" }
+[languages.python]
+name = "Python"
+extensions = ["py", "pyw", "pyi"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["string"]
+preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:", "pylint:"]
+remove_docs = true
 
 # ===== PATTERN-BASED RULES =====
 
-[patterns."**/*.rb"]
-# Ruby-specific overrides
-remove_todos = false                                      # Keep TODOs in Ruby files
-preserve_patterns = ["rubocop:disable", "rubocop:enable"]
-
-[patterns."**/*.swift"]
-# Swift-specific overrides
-remove_docs = false # Keep documentation in Swift files
-
 [patterns."vendor/**/*"]
-# Don't process vendor directories
 remove_todos = false
 remove_fixme = false
 remove_docs = false
+
+[patterns."**/*.generated.*"]
+remove_docs = true
+remove_todos = true
+remove_fixme = true
+preserve_patterns = []

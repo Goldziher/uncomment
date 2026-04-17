@@ -6,87 +6,30 @@ This directory contains example configuration files for `uncomment`.
 
 ### `builtin_languages.toml`
 
-Comprehensive example showing how to configure all builtin languages with their specific settings and preservation patterns.
+Comprehensive example showing how to configure all 49 built-in languages with their specific settings and preservation patterns.
 
 ### `custom_languages.toml`
 
-Extensive example demonstrating how to add languages that are not included as builtins, using various grammar sources (Git, local, library).
+Example demonstrating how to add languages beyond the 49 built-ins. Any of the 306 languages supported by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) can be added with just a name, extensions, and comment node types — grammars are downloaded automatically.
 
 ### `quickstart_custom_languages.toml`
 
-Minimal example for quickly adding custom language support for Ruby, Vue.js, and Swift.
+Minimal example for quickly customizing language settings.
 
-## Adding Custom Languages
+## Adding Languages
 
-To add a language that's not included in the builtins:
-
-1. Create an `uncomment.toml` file in your project root
-2. Define the language with its grammar source:
+To customize or add a language, create an `.uncommentrc.toml` in your project root:
 
 ```toml
-[languages.vue]
-name = "Vue"
-extensions = ["vue"]
+[languages.hare]
+name = "Hare"
+extensions = ["ha"]
 comment_nodes = ["comment"]
-
-[languages.vue.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter-grammars/tree-sitter-vue", branch = "main" }
+preserve_patterns = ["TODO", "FIXME"]
 ```
 
-## Grammar Sources
+No grammar configuration is needed — uncomment uses [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) which automatically downloads grammars on first use.
 
-### Git (Recommended)
+## Built-in Languages (49)
 
-Downloads and compiles grammar from a Git repository:
-
-```toml
-[languages.ruby.grammar]
-source = { type = "git", url = "https://github.com/tree-sitter/tree-sitter-ruby", branch = "master" }
-```
-
-### Local Directory
-
-Uses a grammar from a local directory:
-
-```toml
-[languages.custom.grammar]
-source = { type = "local", path = "/path/to/grammar" }
-```
-
-### Pre-compiled Library
-
-Uses a pre-compiled grammar library:
-
-```toml
-[languages.proprietary.grammar]
-source = { type = "library", path = "/usr/local/lib/libtree-sitter-lang.so" }
-```
-
-## Builtin Languages
-
-The following languages are included as builtins and don't require custom grammar configuration:
-
-- Rust
-- Python
-- JavaScript
-- TypeScript (including TSX)
-- Go
-- Java
-- C
-- C++
-- JSON (and JSONC)
-- YAML
-- HCL/Terraform
-- Makefile
-- Shell/Bash
-
-## Finding Tree-Sitter Grammars
-
-Most languages have tree-sitter grammars available. Search for `tree-sitter-[language]` on GitHub. Popular grammar repositories:
-
-- <https://github.com/tree-sitter>
-- <https://github.com/tree-sitter-grammars>
-
-## Caching
-
-Downloaded and compiled grammars are cached in `~/.cache/uncomment/grammars/` to avoid re-downloading.
+Rust, Python, JavaScript, TypeScript, TSX, Go, Ruby, PHP, Elixir, TOML, C#, Java, C, C++, JSON, JSONC, YAML, HCL/Terraform, Makefile, Shell/Bash, Haskell, HTML, CSS, XML, SQL, Kotlin, Swift, Lua, Nix, PowerShell, Protobuf, INI, Dockerfile, Scala, Dart, R, Julia, Zig, Clojure, Elm, Erlang, Vue, Svelte, SCSS, LaTeX, Fish, Perl, Groovy, OCaml, Fortran

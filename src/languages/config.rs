@@ -138,7 +138,7 @@ impl LanguageConfig {
     }
 
     pub fn csharp() -> Self {
-        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], "csharp")
+        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], "c_sharp")
     }
 
     pub fn java() -> Self {
@@ -288,6 +288,132 @@ impl LanguageConfig {
             vec!["comment"],
             vec![],
             "ini",
+        )
+    }
+
+    pub fn dockerfile() -> Self {
+        Self::new("dockerfile", vec![], vec!["comment"], vec![], "dockerfile")
+    }
+
+    pub fn scala() -> Self {
+        Self::new(
+            "scala",
+            vec!["scala", "sc"],
+            vec!["comment", "block_comment"],
+            vec!["block_comment"],
+            "scala",
+        )
+    }
+
+    pub fn dart() -> Self {
+        Self::new(
+            "dart",
+            vec!["dart"],
+            vec!["comment"],
+            vec!["documentation_comment"],
+            "dart",
+        )
+    }
+
+    pub fn r() -> Self {
+        Self::new("r", vec!["r", "R"], vec!["comment"], vec![], "r")
+    }
+
+    pub fn julia() -> Self {
+        Self::new("julia", vec!["jl"], vec!["line_comment"], vec![], "julia")
+    }
+
+    pub fn zig() -> Self {
+        Self::new("zig", vec!["zig"], vec!["line_comment"], vec![], "zig")
+    }
+
+    pub fn clojure() -> Self {
+        Self::new(
+            "clojure",
+            vec!["clj", "cljs", "cljc", "edn"],
+            vec!["comment"],
+            vec![],
+            "clojure",
+        )
+    }
+
+    pub fn elm() -> Self {
+        Self::new(
+            "elm",
+            vec!["elm"],
+            vec!["line_comment", "block_comment"],
+            vec![],
+            "elm",
+        )
+    }
+
+    pub fn erlang() -> Self {
+        Self::new(
+            "erlang",
+            vec!["erl", "hrl"],
+            vec!["comment"],
+            vec![],
+            "erlang",
+        )
+    }
+
+    pub fn vue() -> Self {
+        Self::new("vue", vec!["vue"], vec!["comment"], vec![], "vue")
+    }
+
+    pub fn svelte() -> Self {
+        Self::new("svelte", vec!["svelte"], vec!["comment"], vec![], "svelte")
+    }
+
+    pub fn scss() -> Self {
+        Self::new(
+            "scss",
+            vec!["scss"],
+            vec!["comment", "js_comment"],
+            vec![],
+            "scss",
+        )
+    }
+
+    pub fn latex() -> Self {
+        Self::new(
+            "latex",
+            vec!["tex", "sty", "cls"],
+            vec!["line_comment"],
+            vec![],
+            "latex",
+        )
+    }
+
+    pub fn fish() -> Self {
+        Self::new("fish", vec!["fish"], vec!["comment"], vec![], "fish")
+    }
+
+    pub fn perl() -> Self {
+        Self::new("perl", vec!["pl", "pm"], vec!["comment"], vec![], "perl")
+    }
+
+    pub fn groovy() -> Self {
+        Self::new(
+            "groovy",
+            vec!["groovy", "gradle"],
+            vec!["line_comment", "block_comment"],
+            vec!["block_comment"],
+            "groovy",
+        )
+    }
+
+    pub fn ocaml() -> Self {
+        Self::new("ocaml", vec!["ml", "mli"], vec!["comment"], vec![], "ocaml")
+    }
+
+    pub fn fortran() -> Self {
+        Self::new(
+            "fortran",
+            vec!["f90", "f95", "f03", "f08"],
+            vec!["comment"],
+            vec![],
+            "fortran",
         )
     }
 }

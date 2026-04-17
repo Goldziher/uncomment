@@ -53,6 +53,24 @@ impl LanguageRegistry {
             LanguageConfig::powershell(),
             LanguageConfig::proto(),
             LanguageConfig::ini(),
+            LanguageConfig::dockerfile(),
+            LanguageConfig::scala(),
+            LanguageConfig::dart(),
+            LanguageConfig::r(),
+            LanguageConfig::julia(),
+            LanguageConfig::zig(),
+            LanguageConfig::clojure(),
+            LanguageConfig::elm(),
+            LanguageConfig::erlang(),
+            LanguageConfig::vue(),
+            LanguageConfig::svelte(),
+            LanguageConfig::scss(),
+            LanguageConfig::latex(),
+            LanguageConfig::fish(),
+            LanguageConfig::perl(),
+            LanguageConfig::groovy(),
+            LanguageConfig::ocaml(),
+            LanguageConfig::fortran(),
         ];
 
         for config in configs {
@@ -98,7 +116,13 @@ impl LanguageRegistry {
 
         match file_name {
             "Makefile" | "makefile" | "GNUmakefile" => return Some("make"),
+            "Dockerfile" | "dockerfile" => return Some("dockerfile"),
             _ => {}
+        }
+
+        // Dockerfile variants like Dockerfile.dev, Dockerfile.prod
+        if file_name.starts_with("Dockerfile.") || file_name.starts_with("dockerfile.") {
+            return Some("dockerfile");
         }
 
         if file_name.ends_with(".d.ts")

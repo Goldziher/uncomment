@@ -8,7 +8,7 @@ Thanks for helping improve `uncomment`! This guide keeps the local workflow and 
 
 - Rust 1.70+ with `cargo`
 - Node.js 18+ (for optional tooling and npm wrapper verification)
-- `tree-sitter` grammars are bundled; no extra setup is required
+- Tree-sitter grammars are provided by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack); no extra setup is required
 
 ### Bootstrap
 
