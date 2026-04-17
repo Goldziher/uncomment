@@ -1,6 +1,7 @@
+use ahash::{AHashMap, AHashSet};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -123,7 +124,7 @@ pub struct ResolvedConfig {
 pub struct ConfigManager {
     configs: Vec<(PathBuf, Config)>,
 
-    path_configs: HashMap<PathBuf, ResolvedConfig>,
+    path_configs: AHashMap<PathBuf, ResolvedConfig>,
 
     root_dir: PathBuf,
 }
@@ -706,7 +707,7 @@ traverse_git_repos = false
         }
         config.push('\n');
 
-        let mut configured_keys = HashSet::new();
+        let mut configured_keys = AHashSet::new();
         for ext in detected_languages.keys() {
             let lookup_key = match ext.as_str() {
                 "py" | "pyw" | "pyi" | "pyx" | "pxd" => "py",
@@ -1499,7 +1500,7 @@ impl ConfigManager {
 
         let mut manager = Self {
             configs,
-            path_configs: HashMap::new(),
+            path_configs: AHashMap::new(),
             root_dir,
         };
 
@@ -1513,7 +1514,7 @@ impl ConfigManager {
 
         let mut manager = Self {
             configs,
-            path_configs: HashMap::new(),
+            path_configs: AHashMap::new(),
             root_dir,
         };
 

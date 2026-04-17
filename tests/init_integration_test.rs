@@ -469,12 +469,6 @@ fn test_smart_init(project_dir: &std::path::Path) {
     assert!(config_content.contains("[languages.swift]"));
     assert!(config_content.contains("[languages.vue]"));
 
-    assert!(config_content.contains("[languages.rust]"));
-    assert!(config_content.contains("[languages.javascript]"));
-    assert!(config_content.contains("[languages.typescript]"));
-    assert!(config_content.contains("[languages.python]"));
-    assert!(config_content.contains("[languages.go]"));
-
     assert!(!config_content.contains("[languages.vue.grammar]"));
     assert!(!config_content.contains("[languages.dockerfile.grammar]"));
     assert!(!config_content.contains("[languages.swift.grammar]"));

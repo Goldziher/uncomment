@@ -8,23 +8,20 @@ pub struct CommentInfo {
     pub end_byte: usize,
     pub start_row: usize,
     pub end_row: usize,
-    pub content: String,
-    pub node_type: String,
+    pub node_type: &'static str,
     pub should_preserve: bool,
     pub is_documentation: bool,
 }
 
 impl CommentInfo {
     #[must_use]
-    pub fn new(node: Node, source: &str) -> Self {
-        let content = source[node.start_byte()..node.end_byte()].to_string();
+    pub fn new(node: Node) -> Self {
         Self {
             start_byte: node.start_byte(),
             end_byte: node.end_byte(),
             start_row: node.start_position().row,
             end_row: node.end_position().row,
-            content,
-            node_type: node.kind().to_string(),
+            node_type: node.kind(),
             should_preserve: false,
             is_documentation: false,
         }
@@ -40,6 +37,12 @@ impl CommentInfo {
     pub const fn with_preservation(mut self, should_preserve: bool) -> Self {
         self.should_preserve = should_preserve;
         self
+    }
+
+    /// Extract comment content from source by byte range.
+    #[inline]
+    pub fn content<'a>(&self, source: &'a str) -> &'a str {
+        &source[self.start_byte..self.end_byte]
     }
 }
 
@@ -65,7 +68,7 @@ impl<'a> CommentVisitor<'a> {
         Self {
             source,
             preservation_rules,
-            comments: Vec::new(),
+            comments: Vec::with_capacity(32),
             comment_node_types,
             doc_comment_node_types,
             language_handler,
@@ -78,7 +81,7 @@ impl<'a> CommentVisitor<'a> {
 
     fn visit_node_recursive(&mut self, node: Node, parent: Option<Node>) {
         if self.is_comment_node(&node, parent) {
-            let mut comment_info = CommentInfo::new(node, self.source);
+            let mut comment_info = CommentInfo::new(node);
 
             if let Some(is_doc) =
                 self.language_handler
@@ -92,7 +95,9 @@ impl<'a> CommentVisitor<'a> {
                 .should_preserve_comment(&node, parent, self.source)
                 .unwrap_or(false);
 
-            let should_preserve = forced_preserve || self.should_preserve_comment(&comment_info);
+            let content = comment_info.content(self.source);
+            let should_preserve =
+                forced_preserve || self.should_preserve_comment(&comment_info, content);
             let comment_with_preservation = comment_info.with_preservation(should_preserve);
             self.comments.push(comment_with_preservation);
         }
@@ -139,14 +144,12 @@ impl<'a> CommentVisitor<'a> {
         false
     }
 
-    fn should_preserve_comment(&self, comment: &CommentInfo) -> bool {
-        // Check all preservation rules (TODO, FIXME, Documentation, etc.)
+    fn should_preserve_comment(&self, comment: &CommentInfo, content: &str) -> bool {
         for rule in self.preservation_rules {
-            if rule.matches(comment) {
+            if rule.matches(comment, content) {
                 return true;
             }
         }
-
         false
     }
 }
@@ -156,14 +159,13 @@ mod tests {
     use super::*;
     use crate::rules::preservation::PreservationRule;
 
-    fn create_mock_comment(content: &str, node_type: &str) -> CommentInfo {
+    fn create_mock_comment(node_type: &'static str) -> CommentInfo {
         CommentInfo {
             start_byte: 0,
-            end_byte: content.len(),
+            end_byte: 0,
             start_row: 0,
             end_row: 0,
-            content: content.to_string(),
-            node_type: node_type.to_string(),
+            node_type,
             should_preserve: false,
             is_documentation: false,
         }
@@ -171,15 +173,14 @@ mod tests {
 
     #[test]
     fn test_comment_info_creation() {
-        let comment = create_mock_comment("// Test comment", "line_comment");
-        assert_eq!(comment.content, "// Test comment");
+        let comment = create_mock_comment("line_comment");
         assert_eq!(comment.node_type, "line_comment");
         assert!(!comment.should_preserve);
     }
 
     #[test]
     fn test_comment_preservation() {
-        let comment = create_mock_comment("// Test comment", "line_comment");
+        let comment = create_mock_comment("line_comment");
         let preserved_comment = comment.with_preservation(true);
         assert!(preserved_comment.should_preserve);
     }
@@ -187,7 +188,7 @@ mod tests {
     #[test]
     fn test_visitor_creation() {
         let source = "// Test\nfn main() {}";
-        let rules = vec![PreservationRule::Pattern("TODO".to_string())];
+        let rules = vec![PreservationRule::pattern("TODO")];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
         let visitor =
@@ -197,40 +198,23 @@ mod tests {
     }
 
     #[test]
-    fn test_is_comment_node() {
-        let source = "// Test";
-        let rules = vec![];
-        let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
-        let doc_types = vec!["doc_comment".to_string()];
-        let _visitor =
-            CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
-
-        assert!(matches!("comment", "comment"));
-        assert!(matches!("line_comment", "line_comment"));
-        assert!(matches!("block_comment", "block_comment"));
-        assert!(!matches!("function", "comment"));
-    }
-
-    #[test]
     fn test_get_comments_to_remove() {
         let source = "// Test";
-        let rules = vec![PreservationRule::Pattern("TODO".to_string())];
+        let rules = vec![PreservationRule::pattern("TODO")];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
         let mut visitor =
             CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
 
-        visitor.comments.push(
-            create_mock_comment("// TODO: Keep this", "line_comment").with_preservation(true),
-        );
         visitor
             .comments
-            .push(create_mock_comment("// Remove this", "line_comment").with_preservation(false));
+            .push(create_mock_comment("line_comment").with_preservation(true));
+        visitor
+            .comments
+            .push(create_mock_comment("line_comment").with_preservation(false));
 
         let to_remove = visitor.get_comments_to_remove();
         assert_eq!(to_remove.len(), 1);
-        assert_eq!(to_remove[0].content, "// Remove this");
-
-        assert!(!to_remove.iter().any(|c| c.content == "// TODO: Keep this"));
+        assert!(!to_remove[0].should_preserve);
     }
 }

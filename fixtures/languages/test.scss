@@ -1,0 +1,16 @@
+// This line comment should be removed
+/* This block comment should be removed */
+
+$primary: #333;
+
+// TODO: refactor color variables
+/* stylelint-disable color-no-hex */
+.container {
+  color: $primary;
+  content: "// not a comment";
+  background: url("image.png"); /* inline comment to remove */
+
+  &__child {
+    font-size: 14px;
+  }
+}

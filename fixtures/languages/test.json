@@ -1,0 +1,7 @@
+{
+  "name": "uncomment",
+  "version": "1.0.0",
+  "description": "A tool for // removing comments",
+  "url": "http://example.com#anchor",
+  "tags": ["parser", "ast"]
+}

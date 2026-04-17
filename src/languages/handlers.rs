@@ -52,29 +52,47 @@ impl LanguageHandler for PythonHandler {
         }
 
         let parent = parent?;
-        if parent.kind() != "expression_statement" {
-            return Some(false);
-        }
 
-        let grandparent = parent.parent()?;
-
-        match grandparent.kind() {
-            "module" => Some(self.is_first_statement(&parent, &grandparent)),
-            "block" => {
-                if let Some(block_parent) = grandparent.parent() {
-                    match block_parent.kind() {
-                        "function_definition"
-                        | "async_function_definition"
-                        | "class_definition" => {
-                            Some(self.is_first_statement(&parent, &grandparent))
+        // Some tree-sitter Python grammars wrap docstrings in expression_statement,
+        // others place string nodes directly under module/block.
+        if parent.kind() == "expression_statement" {
+            let grandparent = parent.parent()?;
+            match grandparent.kind() {
+                "module" => Some(self.is_first_statement(&parent, &grandparent)),
+                "block" => {
+                    if let Some(block_parent) = grandparent.parent() {
+                        match block_parent.kind() {
+                            "function_definition"
+                            | "async_function_definition"
+                            | "class_definition" => {
+                                Some(self.is_first_statement(&parent, &grandparent))
+                            }
+                            _ => Some(false),
                         }
-                        _ => Some(false),
+                    } else {
+                        Some(false)
                     }
-                } else {
-                    Some(false)
                 }
+                _ => Some(false),
             }
-            _ => Some(false),
+        } else {
+            // String directly under module or block (no expression_statement wrapper)
+            match parent.kind() {
+                "module" => Some(self.is_first_statement(node, &parent)),
+                "block" => {
+                    if let Some(block_parent) = parent.parent() {
+                        match block_parent.kind() {
+                            "function_definition"
+                            | "async_function_definition"
+                            | "class_definition" => Some(self.is_first_statement(node, &parent)),
+                            _ => Some(false),
+                        }
+                    } else {
+                        Some(false)
+                    }
+                }
+                _ => Some(false),
+            }
         }
     }
 
@@ -272,11 +290,10 @@ impl CFamilyHandler {
             return false;
         }
 
-        let bytes = source.as_bytes();
-        let mut line_start = start;
-        while line_start > 0 && bytes[line_start - 1] != b'\n' {
-            line_start -= 1;
-        }
+        let line_start = match memchr::memrchr(b'\n', &source.as_bytes()[..start]) {
+            Some(pos) => pos + 1,
+            None => 0,
+        };
 
         let before = &source[line_start..start];
         before.trim_start().starts_with('#')

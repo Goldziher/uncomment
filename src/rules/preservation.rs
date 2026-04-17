@@ -1,40 +1,41 @@
 use crate::ast::visitor::CommentInfo;
+use std::borrow::Cow;
 
 #[derive(Debug, Clone)]
 pub enum PreservationRule {
-    Pattern(String),
+    Pattern(Cow<'static, str>),
     Documentation,
     FileHeader,
     Shebang,
 }
 
 impl PreservationRule {
-    pub fn matches(&self, comment: &CommentInfo) -> bool {
+    pub fn matches(&self, comment: &CommentInfo, content: &str) -> bool {
         match self {
-            PreservationRule::Pattern(pattern) => comment.content.contains(pattern),
-            PreservationRule::Documentation => self.is_documentation_comment(comment),
-            PreservationRule::FileHeader => self.is_file_header_comment(comment),
-            PreservationRule::Shebang => self.is_shebang(comment),
+            PreservationRule::Pattern(pattern) => content.contains(pattern.as_ref()),
+            PreservationRule::Documentation => self.is_documentation_comment(comment, content),
+            PreservationRule::FileHeader => self.is_file_header_comment(comment, content),
+            PreservationRule::Shebang => self.is_shebang(comment, content),
         }
     }
 
     pub fn pattern_matches(&self, pattern: &str) -> bool {
         match self {
-            PreservationRule::Pattern(rule_pattern) => rule_pattern == pattern,
+            PreservationRule::Pattern(rule_pattern) => rule_pattern.as_ref() == pattern,
             _ => false,
         }
     }
 
-    fn is_shebang(&self, comment: &CommentInfo) -> bool {
+    fn is_shebang(&self, comment: &CommentInfo, content: &str) -> bool {
         if comment.node_type.contains("shebang") {
             return true;
         }
 
-        let trimmed = comment.content.trim_start();
+        let trimmed = content.trim_start();
         trimmed.starts_with("#!")
     }
 
-    fn is_documentation_comment(&self, comment: &CommentInfo) -> bool {
+    fn is_documentation_comment(&self, comment: &CommentInfo, content: &str) -> bool {
         if comment.is_documentation {
             return true;
         }
@@ -59,24 +60,24 @@ impl PreservationRule {
         }
 
         if comment.node_type == "string" {
-            let content = comment.content.trim();
-            if content.starts_with("\"\"\"") || content.starts_with("'''") {
+            let trimmed = content.trim();
+            if trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''") {
                 return true;
             }
         }
 
-        let content = comment.content.trim();
+        let trimmed = content.trim();
         doc_patterns
             .iter()
-            .any(|&pattern| content.starts_with(pattern))
+            .any(|&pattern| trimmed.starts_with(pattern))
     }
 
-    fn is_file_header_comment(&self, comment: &CommentInfo) -> bool {
-        comment.start_row < 10 && self.looks_like_header(&comment.content)
+    fn is_file_header_comment(&self, comment: &CommentInfo, content: &str) -> bool {
+        comment.start_row < 10 && Self::looks_like_header(content)
     }
 
-    fn looks_like_header(&self, content: &str) -> bool {
-        let header_indicators = [
+    fn looks_like_header(content: &str) -> bool {
+        const HEADER_INDICATORS: &[&str] = &[
             "copyright",
             "license",
             "author",
@@ -104,13 +105,17 @@ impl PreservationRule {
         ];
 
         let lower_content = content.to_lowercase();
-        header_indicators
+        HEADER_INDICATORS
             .iter()
             .any(|&indicator| lower_content.contains(indicator))
     }
 
-    pub fn pattern(pattern: &str) -> Self {
-        PreservationRule::Pattern(pattern.to_string())
+    pub fn pattern(pattern: &'static str) -> Self {
+        PreservationRule::Pattern(Cow::Borrowed(pattern))
+    }
+
+    pub fn pattern_owned(pattern: String) -> Self {
+        PreservationRule::Pattern(Cow::Owned(pattern))
     }
 
     pub fn documentation() -> Self {
@@ -292,14 +297,13 @@ impl PreservationRule {
 mod tests {
     use super::*;
 
-    fn create_test_comment(content: &str, node_type: &str, row: usize) -> CommentInfo {
+    fn create_test_comment(node_type: &'static str, row: usize) -> CommentInfo {
         CommentInfo {
             start_byte: 0,
-            end_byte: content.len(),
+            end_byte: 0,
             start_row: row,
             end_row: row,
-            content: content.to_string(),
-            node_type: node_type.to_string(),
+            node_type,
             should_preserve: false,
             is_documentation: false,
         }
@@ -308,11 +312,9 @@ mod tests {
     #[test]
     fn test_pattern_rule() {
         let rule = PreservationRule::pattern("TODO");
-        let comment = create_test_comment("// TODO: Fix this", "line_comment", 5);
-        assert!(rule.matches(&comment));
-
-        let comment2 = create_test_comment("// Regular comment", "line_comment", 5);
-        assert!(!rule.matches(&comment2));
+        let comment = create_test_comment("line_comment", 5);
+        assert!(rule.matches(&comment, "// TODO: Fix this"));
+        assert!(!rule.matches(&comment, "// Regular comment"));
     }
 
     #[test]
@@ -328,13 +330,11 @@ mod tests {
         ];
 
         for (content, node_type, expected) in cases {
-            let comment = create_test_comment(content, node_type, 5);
+            let comment = create_test_comment(node_type, 5);
             assert_eq!(
-                rule.matches(&comment),
+                rule.matches(&comment, content),
                 expected,
-                "Failed for: {} ({})",
-                content,
-                node_type
+                "Failed for: {content} ({node_type})",
             );
         }
     }
@@ -343,25 +343,23 @@ mod tests {
     fn test_file_header_rule() {
         let rule = PreservationRule::file_header();
 
-        let header_comment = create_test_comment(
-            "// Copyright 2023 Author\n// Licensed under MIT",
-            "line_comment",
-            0,
-        );
-        assert!(rule.matches(&header_comment));
+        let header_comment = create_test_comment("line_comment", 0);
+        assert!(rule.matches(
+            &header_comment,
+            "// Copyright 2023 Author\n// Licensed under MIT"
+        ));
 
-        let early_comment = create_test_comment("// Just a comment", "line_comment", 1);
-        assert!(!rule.matches(&early_comment));
+        let early_comment = create_test_comment("line_comment", 1);
+        assert!(!rule.matches(&early_comment, "// Just a comment"));
 
-        let late_header = create_test_comment("// Copyright 2023 Author", "line_comment", 50);
-        assert!(!rule.matches(&late_header));
+        let late_header = create_test_comment("line_comment", 50);
+        assert!(!rule.matches(&late_header, "// Copyright 2023 Author"));
 
-        let autogenerated = create_test_comment(
-            "/* Auto-generated by cbindgen. Don't modify this file manually. */",
-            "comment",
-            0,
-        );
-        assert!(rule.matches(&autogenerated));
+        let autogenerated = create_test_comment("comment", 0);
+        assert!(rule.matches(
+            &autogenerated,
+            "/* Auto-generated by cbindgen. Don't modify this file manually. */"
+        ));
     }
 
     #[test]
@@ -369,8 +367,10 @@ mod tests {
         let rules = PreservationRule::default_rules();
         assert!(!rules.is_empty());
 
-        let todo_comment = create_test_comment("// TODO: Fix this", "line_comment", 5);
-        let matches = rules.iter().any(|rule| rule.matches(&todo_comment));
+        let todo_comment = create_test_comment("line_comment", 5);
+        let matches = rules
+            .iter()
+            .any(|rule| rule.matches(&todo_comment, "// TODO: Fix this"));
         assert!(matches);
     }
 
@@ -381,10 +381,11 @@ mod tests {
 
         assert!(default.len() <= comprehensive.len());
 
-        // Both presets should preserve TODO comments
-        let todo_comment = create_test_comment("// TODO: Test", "line_comment", 5);
+        let todo_comment = create_test_comment("line_comment", 5);
         for rules in [&default, &comprehensive] {
-            let matches = rules.iter().any(|rule| rule.matches(&todo_comment));
+            let matches = rules
+                .iter()
+                .any(|rule| rule.matches(&todo_comment, "// TODO: Test"));
             assert!(matches, "TODO should be preserved by all rule presets");
         }
     }
@@ -394,24 +395,21 @@ mod tests {
         let rules = PreservationRule::comprehensive_rules();
 
         let test_cases = vec![
-            ("// eslint-disable-next-line no-console", "line_comment"),
-            (
-                "// biome-ignore lint/suspicious/noExplicitAny",
-                "line_comment",
-            ),
-            ("// @ts-ignore", "line_comment"),
-            ("/* v8 ignore next */", "block_comment"),
-            ("# noqa: F401", "comment"),
-            ("# pylint: disable=unused-import", "comment"),
-            ("# rubocop:disable Metrics/LineLength", "comment"),
-            ("#[allow(clippy::too_many_arguments)]", "line_comment"),
-            ("//nolint:gocyclo", "line_comment"),
-            ("// @SuppressWarnings(\"unchecked\")", "line_comment"),
+            "// eslint-disable-next-line no-console",
+            "// biome-ignore lint/suspicious/noExplicitAny",
+            "// @ts-ignore",
+            "/* v8 ignore next */",
+            "# noqa: F401",
+            "# pylint: disable=unused-import",
+            "# rubocop:disable Metrics/LineLength",
+            "#[allow(clippy::too_many_arguments)]",
+            "//nolint:gocyclo",
+            "// @SuppressWarnings(\"unchecked\")",
         ];
 
-        for (content, node_type) in test_cases {
-            let comment = create_test_comment(content, node_type, 5);
-            let matches = rules.iter().any(|rule| rule.matches(&comment));
+        let comment = create_test_comment("line_comment", 5);
+        for content in test_cases {
+            let matches = rules.iter().any(|rule| rule.matches(&comment, content));
             assert!(
                 matches,
                 "Linting ignore pattern should be preserved: {content}"
@@ -430,12 +428,12 @@ mod tests {
             "// @preserve",
         ];
 
-        for pattern in coverage_patterns {
-            let comment = create_test_comment(pattern, "block_comment", 5);
-            let matches = rules.iter().any(|rule| rule.matches(&comment));
+        let comment = create_test_comment("block_comment", 5);
+        for content in coverage_patterns {
+            let matches = rules.iter().any(|rule| rule.matches(&comment, content));
             assert!(
                 matches,
-                "Coverage ignore pattern should be preserved: {pattern}"
+                "Coverage ignore pattern should be preserved: {content}"
             );
         }
     }
@@ -446,12 +444,12 @@ mod tests {
 
         let formatter_patterns = vec!["// prettier-ignore", "# fmt: off", "# black: off"];
 
-        for pattern in formatter_patterns {
-            let comment = create_test_comment(pattern, "line_comment", 5);
-            let matches = rules.iter().any(|rule| rule.matches(&comment));
+        let comment = create_test_comment("line_comment", 5);
+        for content in formatter_patterns {
+            let matches = rules.iter().any(|rule| rule.matches(&comment, content));
             assert!(
                 matches,
-                "Formatter ignore pattern should be preserved: {pattern}"
+                "Formatter ignore pattern should be preserved: {content}"
             );
         }
     }
@@ -460,13 +458,13 @@ mod tests {
     fn test_shebang_rule() {
         let rule = PreservationRule::shebang();
 
-        let shebang = create_test_comment("#!/usr/bin/env bash", "comment", 0);
-        assert!(rule.matches(&shebang));
+        let shebang = create_test_comment("comment", 0);
+        assert!(rule.matches(&shebang, "#!/usr/bin/env bash"));
 
-        let not_first_line = create_test_comment("#!/usr/bin/env bash", "comment", 1);
-        assert!(rule.matches(&not_first_line));
+        let not_first_line = create_test_comment("comment", 1);
+        assert!(rule.matches(&not_first_line, "#!/usr/bin/env bash"));
 
-        let explicit_shebang_node = create_test_comment("ignored", "shebang", 0);
-        assert!(rule.matches(&explicit_shebang_node));
+        let explicit_shebang_node = create_test_comment("shebang", 0);
+        assert!(rule.matches(&explicit_shebang_node, "ignored"));
     }
 }

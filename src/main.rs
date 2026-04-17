@@ -14,7 +14,7 @@ use once_cell::sync::Lazy;
 use processor::OutputWriter;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 static DEFAULT_LANGUAGE_REGISTRY: Lazy<languages::LanguageRegistry> =
     Lazy::new(languages::LanguageRegistry::new);
@@ -27,7 +27,6 @@ struct UnsupportedFilesReport {
 }
 
 type ImportantRemovalSample = (Arc<PathBuf>, processor::ImportantRemoval);
-type SharedImportantRemovalSamples = Arc<Mutex<Vec<ImportantRemovalSample>>>;
 
 fn main() -> Result<()> {
     #[cfg(unix)]
@@ -95,7 +94,7 @@ fn main() -> Result<()> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
         .build_global()
-        .unwrap();
+        .context("Failed to initialize thread pool")?;
 
     let output_writer = Arc::new(OutputWriter::new(
         options.dry_run,
@@ -104,107 +103,66 @@ fn main() -> Result<()> {
     ));
 
     let total_files = files.len();
-    let results = Arc::new(Mutex::new(Vec::new()));
-    let modified_count = Arc::new(Mutex::new(0usize));
-    let important_removal_count = Arc::new(Mutex::new(0usize));
-    let important_removal_samples: SharedImportantRemovalSamples = Arc::new(Mutex::new(Vec::new()));
 
-    if num_threads == 1 {
-        let mut processor = processor::Processor::new_with_config(&config_manager);
-
-        for file_path in files {
-            match processor.process_file_with_config(&file_path, &config_manager, Some(&options)) {
-                Ok(mut processed_file) => {
-                    processed_file.modified =
-                        processed_file.original_content != processed_file.processed_content;
-
-                    if processed_file.modified {
-                        *modified_count.lock().unwrap() += 1;
-                    }
-
-                    if !processed_file.important_removals.is_empty() {
-                        *important_removal_count.lock().unwrap() +=
-                            processed_file.important_removals.len();
-                        let mut samples = important_removal_samples.lock().unwrap();
-                        const MAX: usize = 20;
-                        let remaining = MAX.saturating_sub(samples.len());
-                        if remaining > 0 {
-                            let sample_path = Arc::new(processed_file.path.clone());
-                            for removal in
-                                processed_file.important_removals.drain(..).take(remaining)
-                            {
-                                samples.push((Arc::clone(&sample_path), removal));
-                            }
-                        }
-                    }
-
-                    output_writer.write_file(&processed_file)?;
+    // Process files in parallel (or sequentially if threads=1), collecting results
+    // with zero mutex contention on the hot path.
+    let process_file = |file_path: &PathBuf| -> Option<processor::ProcessedFile> {
+        let mut proc = processor::Processor::new_with_config(&config_manager);
+        match proc.process_file_with_config(file_path, &config_manager, Some(&options)) {
+            Ok(mut pf) => {
+                pf.modified = pf.original_content != pf.processed_content;
+                Some(pf)
+            }
+            Err(e) => {
+                eprintln!("Error processing {}: {e}", file_path.display());
+                if cli.args.verbose {
+                    eprintln!("  Full error: {e:?}");
                 }
-                Err(e) => {
-                    eprintln!("Error processing {}: {}", file_path.display(), e);
-                    if cli.args.verbose {
-                        eprintln!("  Full error: {e:?}");
-                    }
-                }
+                None
             }
         }
+    };
+
+    let results: Vec<processor::ProcessedFile> = if num_threads == 1 {
+        files.iter().filter_map(process_file).collect()
     } else {
-        files.par_iter().for_each(|file_path| {
-            let mut processor = processor::Processor::new_with_config(&config_manager);
+        files.par_iter().filter_map(process_file).collect()
+    };
 
-            match processor.process_file_with_config(file_path, &config_manager, Some(&options)) {
-                Ok(mut processed_file) => {
-                    processed_file.modified =
-                        processed_file.original_content != processed_file.processed_content;
+    // Sequential phase: write output, collect stats
+    let mut modified_files = 0usize;
+    let mut important_removal_count = 0usize;
+    let mut important_removal_samples: Vec<ImportantRemovalSample> = Vec::new();
 
-                    if processed_file.modified {
-                        *modified_count.lock().unwrap() += 1;
-                    }
+    for processed_file in &results {
+        if processed_file.modified {
+            modified_files += 1;
+        }
 
-                    if !processed_file.important_removals.is_empty() {
-                        *important_removal_count.lock().unwrap() +=
-                            processed_file.important_removals.len();
-                        let mut samples = important_removal_samples.lock().unwrap();
-                        const MAX: usize = 20;
-                        let remaining = MAX.saturating_sub(samples.len());
-                        if remaining > 0 {
-                            let sample_path = Arc::new(processed_file.path.clone());
-                            for removal in
-                                processed_file.important_removals.drain(..).take(remaining)
-                            {
-                                samples.push((Arc::clone(&sample_path), removal));
-                            }
-                        }
-                    }
-
-                    results.lock().unwrap().push(processed_file);
-                }
-                Err(e) => {
-                    eprintln!("Error processing {}: {}", file_path.display(), e);
-                    if cli.args.verbose {
-                        eprintln!("  Full error: {e:?}");
-                    }
+        if !processed_file.important_removals.is_empty() {
+            important_removal_count += processed_file.important_removals.len();
+            const MAX_SAMPLES: usize = 20;
+            let remaining = MAX_SAMPLES.saturating_sub(important_removal_samples.len());
+            if remaining > 0 {
+                let sample_path = Arc::new(processed_file.path.clone());
+                for removal in processed_file.important_removals.iter().take(remaining) {
+                    important_removal_samples.push((Arc::clone(&sample_path), removal.clone()));
                 }
             }
-        });
-
-        let results = Arc::try_unwrap(results).unwrap().into_inner().unwrap();
-        for processed_file in results {
-            output_writer.write_file(&processed_file)?;
         }
+
+        output_writer.write_file(processed_file)?;
     }
 
-    let modified_files = *modified_count.lock().unwrap();
     output_writer.print_summary(total_files, modified_files);
 
-    let important_removals = *important_removal_count.lock().unwrap();
-    if important_removals > 0 {
+    if important_removal_count > 0 {
         eprintln!(
-            "Warning: removed {important_removals} potentially important comment(s). Re-run with `--dry-run --diff` to inspect."
+            "Warning: removed {important_removal_count} potentially important comment(s). Re-run with `--dry-run --diff` to inspect."
         );
         if cli.args.verbose {
             eprintln!("Examples:");
-            for (path, removal) in important_removal_samples.lock().unwrap().iter() {
+            for (path, removal) in &important_removal_samples {
                 eprintln!(
                     "  - {}:{} [{}] {}",
                     path.display(),
