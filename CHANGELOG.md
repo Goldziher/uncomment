@@ -4,9 +4,47 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
-## [Unreleased]
+## [v3.0.1] - 2026-04-17
 
-- _No changes yet._
+### Changed
+
+- Homebrew formula now installs pre-built binaries via goreleaser instead of compiling from source.
+
+## [v3.0.0] - 2026-04-17
+
+### Breaking Changes
+
+- Replaced 31 individual tree-sitter grammar dependencies with [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack).
+- Removed `GrammarSource`, `GrammarConfig`, and `[languages.*.grammar]` TOML config sections.
+- Removed `src/grammar/` module (`GrammarManager`, `GitGrammarLoader`).
+
+### Added
+
+- 18 new built-in languages (49 total): Dockerfile, Scala, Dart, R, Julia, Zig, Clojure, Elm, Erlang, Vue, Svelte, SCSS, LaTeX, Fish, Perl, Groovy, OCaml, Fortran.
+- 306 languages available via tree-sitter-language-pack with automatic grammar downloading.
+- Dockerfile special filename detection (Dockerfile, Dockerfile.\*).
+- Comprehensive test fixtures for all 49 built-in languages.
+- Edge-case tests for UTF-8, empty files, and trailing comments.
+
+### Performance
+
+- Replaced HashMap/HashSet with ahash (AHashMap/AHashSet).
+- Rewrote comment removal as single-pass forward copy with memchr SIMD byte searching.
+- Eliminated mutex contention from rayon parallel loop.
+- Removed per-comment String allocations from CommentInfo.
+- Zero-allocation preservation rule patterns for built-in rules.
+
+### Fixed
+
+- Python docstring detection for tree-sitter-language-pack grammar.
+- rayon thread pool creation panic (uses error propagation instead of unwrap).
+- C# tslp name (`c_sharp`) for crates.io compatibility.
+- Silent test failures in linting directive tests.
+
+### Documentation
+
+- Updated all READMEs for tree-sitter-language-pack.
+- Rewrote example config files.
 
 ## [v2.11.0] - 2026-02-16
 

@@ -1129,9 +1129,9 @@ checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
 
 [[package]]
 name = "tree-sitter-language-pack"
-version = "1.6.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a4224f81cbf32673e7b0dc3d298b6c4ec95c966e3fa23bb81dbb94b60b7f6e3"
+checksum = "29132264ea6260d2e0cd3ffda284504c09deea1cb7c4a0c63c7a7dde65190dc2"
 dependencies = [
  "ahash",
  "cc",
@@ -1156,7 +1156,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 
 [[package]]
 name = "uncomment"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "ahash",
  "anyhow",
