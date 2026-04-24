@@ -5,4 +5,4 @@ version = '4.0'
 name = 'uncomment'
 gitignore = true
 presets = ['claude', 'codex', 'gemini']
-builtins = ['code-quality', 'git-workflow', 'security', 'testing', 'token-efficiency', 'default-commands', 'rust']
+builtins = ['rust', 'default-commands']
