@@ -1,0 +1,8 @@
+# AI-Rulez Configuration (migrated to V4 TOML format)
+# Documentation: https://github.com/Goldziher/ai-rulez
+
+version = '4.0'
+name = 'uncomment'
+gitignore = true
+presets = ['claude', 'codex', 'gemini']
+builtins = ['code-quality', 'git-workflow', 'security', 'testing', 'token-efficiency', 'default-commands', 'rust']
