@@ -45,11 +45,11 @@ saphyr = "0.0.6"
 serde = { version = "1.0", features = ["derive"] }
 toml = "1.1.2"
 tree-sitter = "0.26.8"
-tree-sitter-language-pack = "1.6.1"
+tree-sitter-language-pack = "1.7.0"
 walkdir = "2.5"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.185"
+libc = "0.2.186"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
