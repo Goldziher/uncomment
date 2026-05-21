@@ -65,3 +65,7 @@ benchmarks/target/
 AGENTS.md
 CLAUDE.md
 GEMINI.md
+
+# BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
+.agents/
+# END ai-rulez
