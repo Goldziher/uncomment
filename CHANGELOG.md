@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [v3.0.3] - 2026-05-21
+
+### Changed
+
+- Updated Rust dependencies, including tree-sitter-language-pack and tree-sitter.
+- Normalized pre-commit hook configuration to use shared kreuzberg-dev hooks.
+
 ## [v3.0.1] - 2026-04-17
 
 ### Changed
