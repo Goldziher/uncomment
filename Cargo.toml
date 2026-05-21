@@ -44,7 +44,7 @@ rayon = "1.12.0"
 saphyr = "0.0.6"
 serde = { version = "1.0", features = ["derive"] }
 toml = "1.1.2"
-tree-sitter = "0.26.8"
+tree-sitter = "0.26.9"
 tree-sitter-language-pack = "1.8.1"
 walkdir = "2.5"
 

@@ -37,6 +37,7 @@ repos:
     hooks:
       - id: cargo-sort
         args: ["-w"]
+        pass_filenames: false
       - id: cargo-fmt
         args: ["--all"]
       - id: cargo-check
@@ -58,6 +59,7 @@ repos:
       - id: shellcheck
         args: ["-x"]
       - id: rumdl-fmt
+        args: ["--extend-disable", "MD013,MD033,MD036"]
 
   - repo: https://github.com/crate-ci/typos
     rev: v1.46.2
