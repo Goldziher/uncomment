@@ -32,7 +32,7 @@ repos:
       - id: check-toml
       - id: check-case-conflict
 
-  - repo: https://github.com/kreuzberg-dev/pre-commit-hooks
+  - repo: https://github.com/xberg-io/pre-commit-hooks
     rev: v1.1.13
     hooks:
       - id: cargo-sort
