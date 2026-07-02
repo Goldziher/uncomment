@@ -83,9 +83,9 @@ impl<'a> CommentVisitor<'a> {
         if self.is_comment_node(&node, parent) {
             let mut comment_info = CommentInfo::new(node);
 
-            if let Some(is_doc) =
-                self.language_handler
-                    .is_documentation_comment(&node, parent, self.source)
+            if let Some(is_doc) = self
+                .language_handler
+                .is_documentation_comment(&node, parent, self.source)
             {
                 comment_info = comment_info.with_documentation(is_doc);
             }
@@ -96,8 +96,7 @@ impl<'a> CommentVisitor<'a> {
                 .unwrap_or(false);
 
             let content = comment_info.content(self.source);
-            let should_preserve =
-                forced_preserve || self.should_preserve_comment(&comment_info, content);
+            let should_preserve = forced_preserve || self.should_preserve_comment(&comment_info, content);
             let comment_with_preservation = comment_info.with_preservation(should_preserve);
             self.comments.push(comment_with_preservation);
         }
@@ -119,22 +118,14 @@ impl<'a> CommentVisitor<'a> {
     fn is_comment_node(&self, node: &Node, parent: Option<Node>) -> bool {
         let kind = node.kind();
 
-        if self
-            .comment_node_types
-            .iter()
-            .any(|node_type| node_type == kind)
-        {
+        if self.comment_node_types.iter().any(|node_type| node_type == kind) {
             return true;
         }
 
-        if self
-            .doc_comment_node_types
-            .iter()
-            .any(|node_type| node_type == kind)
-        {
-            if let Some(is_doc) =
-                self.language_handler
-                    .is_documentation_comment(node, parent, self.source)
+        if self.doc_comment_node_types.iter().any(|node_type| node_type == kind) {
+            if let Some(is_doc) = self
+                .language_handler
+                .is_documentation_comment(node, parent, self.source)
             {
                 return is_doc;
             }
@@ -191,8 +182,7 @@ mod tests {
         let rules = vec![PreservationRule::pattern("TODO")];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let visitor =
-            CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
+        let visitor = CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
         assert_eq!(visitor.source, source);
         assert_eq!(visitor.comments.len(), 0);
     }
@@ -203,8 +193,7 @@ mod tests {
         let rules = vec![PreservationRule::pattern("TODO")];
         let comment_types = vec!["comment".to_string(), "line_comment".to_string()];
         let doc_types = vec!["doc_comment".to_string()];
-        let mut visitor =
-            CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
+        let mut visitor = CommentVisitor::new_with_language(source, &rules, &comment_types, &doc_types, "test");
 
         visitor
             .comments

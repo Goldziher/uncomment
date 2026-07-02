@@ -84,8 +84,7 @@ impl LanguageRegistry {
 
         for extension in &config.extensions {
             let normalized_ext = extension.trim_start_matches('.').to_lowercase();
-            self.extension_map
-                .insert(normalized_ext, name_lower.clone());
+            self.extension_map.insert(normalized_ext, name_lower.clone());
         }
 
         self.languages.insert(name_lower, config);
@@ -125,10 +124,7 @@ impl LanguageRegistry {
             return Some("dockerfile");
         }
 
-        if file_name.ends_with(".d.ts")
-            || file_name.ends_with(".d.mts")
-            || file_name.ends_with(".d.cts")
-        {
+        if file_name.ends_with(".d.ts") || file_name.ends_with(".d.mts") || file_name.ends_with(".d.cts") {
             return Some("typescript");
         }
 
@@ -172,14 +168,11 @@ impl LanguageRegistry {
     }
 
     pub fn extensions_for_language(&self, name: &str) -> Option<Vec<String>> {
-        self.get_language(name)
-            .map(|config| config.extensions.clone())
+        self.get_language(name).map(|config| config.extensions.clone())
     }
 
     pub fn get_all_languages(&self) -> impl Iterator<Item = (&String, &LanguageConfig)> {
-        self.languages
-            .iter()
-            .map(|(name, config)| (name, config.as_ref()))
+        self.languages.iter().map(|(name, config)| (name, config.as_ref()))
     }
 
     pub fn register_configured_languages(
@@ -254,54 +247,21 @@ mod tests {
     fn test_language_detection_by_extension() {
         let registry = LanguageRegistry::new();
 
-        assert_eq!(
-            registry.detect_language_by_extension("rs").unwrap().name,
-            "rust"
-        );
-        assert_eq!(
-            registry.detect_language_by_extension("py").unwrap().name,
-            "python"
-        );
-        assert_eq!(
-            registry.detect_language_by_extension("js").unwrap().name,
-            "javascript"
-        );
-        assert_eq!(
-            registry.detect_language_by_extension("ts").unwrap().name,
-            "typescript"
-        );
+        assert_eq!(registry.detect_language_by_extension("rs").unwrap().name, "rust");
+        assert_eq!(registry.detect_language_by_extension("py").unwrap().name, "python");
+        assert_eq!(registry.detect_language_by_extension("js").unwrap().name, "javascript");
+        assert_eq!(registry.detect_language_by_extension("ts").unwrap().name, "typescript");
 
-        assert_eq!(
-            registry.detect_language_by_extension("sh").unwrap().name,
-            "shell"
-        );
+        assert_eq!(registry.detect_language_by_extension("sh").unwrap().name, "shell");
 
-        assert_eq!(
-            registry.detect_language_by_extension("bash").unwrap().name,
-            "shell"
-        );
+        assert_eq!(registry.detect_language_by_extension("bash").unwrap().name, "shell");
 
-        assert_eq!(
-            registry.detect_language_by_extension("zsh").unwrap().name,
-            "shell"
-        );
+        assert_eq!(registry.detect_language_by_extension("zsh").unwrap().name, "shell");
 
-        assert_eq!(
-            registry.detect_language_by_extension("go").unwrap().name,
-            "go"
-        );
-        assert_eq!(
-            registry.detect_language_by_extension("html").unwrap().name,
-            "html"
-        );
-        assert_eq!(
-            registry.detect_language_by_extension("sql").unwrap().name,
-            "sql"
-        );
-        assert_eq!(
-            registry.detect_language_by_extension("ps1").unwrap().name,
-            "powershell"
-        );
+        assert_eq!(registry.detect_language_by_extension("go").unwrap().name, "go");
+        assert_eq!(registry.detect_language_by_extension("html").unwrap().name, "html");
+        assert_eq!(registry.detect_language_by_extension("sql").unwrap().name, "sql");
+        assert_eq!(registry.detect_language_by_extension("ps1").unwrap().name, "powershell");
 
         assert!(registry.detect_language_by_extension("unknown").is_none());
     }
@@ -376,14 +336,8 @@ mod tests {
     fn test_case_insensitive_extension_detection() {
         let registry = LanguageRegistry::new();
 
-        assert_eq!(
-            registry.detect_language_by_extension("RS").unwrap().name,
-            "rust"
-        );
-        assert_eq!(
-            registry.detect_language_by_extension("PY").unwrap().name,
-            "python"
-        );
+        assert_eq!(registry.detect_language_by_extension("RS").unwrap().name, "rust");
+        assert_eq!(registry.detect_language_by_extension("PY").unwrap().name, "python");
 
         assert!(registry.is_supported_extension("RS"));
         assert!(registry.is_supported_extension("PY"));
@@ -394,23 +348,14 @@ mod tests {
         let mut registry = LanguageRegistry::new();
         let initial_count = registry.languages.len();
 
-        let custom_config = LanguageConfig::new(
-            "custom",
-            vec!["cst"],
-            vec!["comment"],
-            vec!["doc_comment"],
-            "rust",
-        );
+        let custom_config = LanguageConfig::new("custom", vec!["cst"], vec!["comment"], vec!["doc_comment"], "rust");
 
         registry.register_language(custom_config);
 
         assert_eq!(registry.languages.len(), initial_count + 1);
         assert!(registry.is_supported_language("custom"));
         assert!(registry.is_supported_extension("cst"));
-        assert_eq!(
-            registry.language_for_extension("cst"),
-            Some("custom".to_string())
-        );
+        assert_eq!(registry.language_for_extension("cst"), Some("custom".to_string()));
     }
 
     #[test]

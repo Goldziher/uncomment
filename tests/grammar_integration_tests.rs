@@ -41,11 +41,7 @@ fn main() {
     let processed = result.unwrap();
     assert!(processed.comments_removed > 0);
 
-    assert!(
-        !processed
-            .processed_content
-            .contains("This is a line comment")
-    );
+    assert!(!processed.processed_content.contains("This is a line comment"));
     assert!(!processed.processed_content.contains("Block comment"));
 }
 
@@ -70,17 +66,9 @@ func hello() {
     assert!(result.is_ok());
 
     let processed = result.unwrap();
-    assert!(
-        !processed
-            .processed_content
-            .contains("This is a Swift comment")
-    );
+    assert!(!processed.processed_content.contains("This is a Swift comment"));
     assert!(!processed.processed_content.contains("Block comment"));
-    assert!(
-        processed
-            .processed_content
-            .contains("print(\"Hello, Swift!\")")
-    );
+    assert!(processed.processed_content.contains("print(\"Hello, Swift!\")"));
 }
 
 /// Test multiple languages with tslp
@@ -147,8 +135,5 @@ fn test_processor_grammar_caching() {
     assert!(result1.is_ok());
     assert!(result2.is_ok());
 
-    assert_eq!(
-        result1.unwrap().comments_removed,
-        result2.unwrap().comments_removed
-    );
+    assert_eq!(result1.unwrap().comments_removed, result2.unwrap().comments_removed);
 }

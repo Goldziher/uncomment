@@ -80,11 +80,7 @@ fn test_init_command_smart_detection() {
     fs::write(temp_dir.path().join("app.js"), "console.log('hello')").unwrap();
     fs::write(temp_dir.path().join("lib.rs"), "fn main() {}").unwrap();
     fs::write(temp_dir.path().join("server.go"), "package main").unwrap();
-    fs::write(
-        temp_dir.path().join("component.vue"),
-        "<template></template>",
-    )
-    .unwrap();
+    fs::write(temp_dir.path().join("component.vue"), "<template></template>").unwrap();
     fs::write(temp_dir.path().join("Dockerfile"), "FROM ubuntu").unwrap();
 
     let template = uncomment::config::Config::smart_template(temp_dir.path()).unwrap();
@@ -230,11 +226,7 @@ fn test_file_extension_detection() {
     let output_path = temp_dir.path().join("extensions.toml");
 
     fs::write(temp_dir.path().join("script.py"), "# Python").unwrap();
-    fs::write(
-        temp_dir.path().join("types.d.ts"),
-        "// TypeScript definitions",
-    )
-    .unwrap();
+    fs::write(temp_dir.path().join("types.d.ts"), "// TypeScript definitions").unwrap();
     fs::write(temp_dir.path().join("component.tsx"), "// React TypeScript").unwrap();
     fs::write(temp_dir.path().join("module.mjs"), "// ES Module").unwrap();
     fs::write(temp_dir.path().join("config.yaml"), "# YAML").unwrap();

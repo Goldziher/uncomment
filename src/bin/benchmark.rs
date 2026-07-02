@@ -29,10 +29,7 @@ fn main() -> Result<()> {
     let cli = BenchmarkCli::parse();
 
     if !cli.uncomment_binary.exists() {
-        eprintln!(
-            "❌ Uncomment binary not found: {}",
-            cli.uncomment_binary.display()
-        );
+        eprintln!("❌ Uncomment binary not found: {}", cli.uncomment_binary.display());
         std::process::exit(1);
     }
 
@@ -71,24 +68,14 @@ fn main() -> Result<()> {
         println!("\n📊 AGGREGATE RESULTS ({} iterations)", cli.iterations);
         println!("=====================================");
 
-        let avg_duration = results
-            .iter()
-            .map(|r| r.duration.as_secs_f64())
-            .sum::<f64>()
-            / results.len() as f64;
+        let avg_duration = results.iter().map(|r| r.duration.as_secs_f64()).sum::<f64>() / results.len() as f64;
 
-        let avg_files_per_sec =
-            results.iter().map(|r| r.files_per_second).sum::<f64>() / results.len() as f64;
+        let avg_files_per_sec = results.iter().map(|r| r.files_per_second).sum::<f64>() / results.len() as f64;
 
-        let avg_comments_per_sec =
-            results.iter().map(|r| r.comments_per_second).sum::<f64>() / results.len() as f64;
+        let avg_comments_per_sec = results.iter().map(|r| r.comments_per_second).sum::<f64>() / results.len() as f64;
 
         let total_files = results[0].total_files;
-        let total_comments = results
-            .iter()
-            .map(|r| r.total_comments_removed)
-            .sum::<usize>()
-            / results.len();
+        let total_comments = results.iter().map(|r| r.total_comments_removed).sum::<usize>() / results.len();
 
         println!("⏱️  Average duration: {avg_duration:.2}s");
         println!("🚀 Average files/sec: {avg_files_per_sec:.1}");
@@ -102,10 +89,7 @@ fn main() -> Result<()> {
         let variance = (max_duration - min_duration) / avg_duration * 100.0;
 
         println!("📈 Performance variance: {variance:.1}%");
-        println!(
-            "⏰ Total benchmark time: {:.2}s",
-            total_duration.as_secs_f64()
-        );
+        println!("⏰ Total benchmark time: {:.2}s", total_duration.as_secs_f64());
     }
 
     println!("\n🔍 PERFORMANCE ANALYSIS");
@@ -123,10 +107,7 @@ fn main() -> Result<()> {
         println!("   • I/O buffering improvements");
         println!("   • Parser initialization caching");
     } else if last_result.files_per_second < 100.0 {
-        println!(
-            "✅ Good performance: {:.1} files/sec",
-            last_result.files_per_second
-        );
+        println!("✅ Good performance: {:.1} files/sec", last_result.files_per_second);
         println!("💡 Potential improvements:");
         println!("   • Multi-threading for large directories");
         println!("   • Memory-mapped file reading");

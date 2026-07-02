@@ -8,8 +8,7 @@ fn process_code(content: &str, extension: &str, remove_todo: bool) -> String {
     let file_path = temp_dir.path().join(format!("test.{}", extension));
     fs::write(&file_path, content).unwrap();
 
-    let config_manager =
-        ConfigManager::new(temp_dir.path()).expect("Failed to create config manager");
+    let config_manager = ConfigManager::new(temp_dir.path()).expect("Failed to create config manager");
     let options = ProcessingOptions {
         remove_todo,
         remove_fixme: false,

@@ -8,11 +8,11 @@ remove_todos = false # Remove TODO comments
 remove_fixme = false # Remove FIXME comments
 remove_docs = false # Remove documentation comments
 preserve_patterns = [ # Additional patterns to preserve
-  "HACK",
-  "WORKAROUND",
-  "NOTE",
-  "BUG",
-  "IMPORTANT",
+    "HACK",
+    "WORKAROUND",
+    "NOTE",
+    "BUG",
+    "IMPORTANT",
 ]
 use_default_ignores = true # Use built-in ignore patterns
 respect_gitignore = true # Respect .gitignore files
@@ -35,39 +35,25 @@ remove_docs = false                                                           # 
 name = "Python"
 extensions = ["py", "pyw", "pyi"]
 comment_nodes = ["comment"]
-doc_comment_nodes = [
-  "expression_statement",
-] # Docstrings are expression statements
+doc_comment_nodes = ["expression_statement"]                                     # Docstrings are expression statements
 preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:", "pylint:", "flake8:"]
-remove_docs = false # Keep docstrings by default
+remove_docs = false                                                              # Keep docstrings by default
 
 # ----- JavaScript -----
 [languages.javascript]
 name = "JavaScript"
 extensions = ["js", "jsx", "mjs", "cjs"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"] # JSDoc comments are regular comments
-preserve_patterns = [
-  "@ts-expect-error",
-  "@ts-ignore",
-  "webpack",
-  "eslint",
-  "prettier-ignore",
-]
+doc_comment_nodes = ["comment"]                                                                # JSDoc comments are regular comments
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "webpack", "eslint", "prettier-ignore"]
 
 # ----- TypeScript -----
 [languages.typescript]
 name = "TypeScript"
 extensions = ["ts", "mts", "cts"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"] # TSDoc comments are regular comments
-preserve_patterns = [
-  "@ts-expect-error",
-  "@ts-ignore",
-  "@ts-nocheck",
-  "tslint:",
-  "prettier-ignore",
-]
+doc_comment_nodes = ["comment"]                                                                     # TSDoc comments are regular comments
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "@ts-nocheck", "tslint:", "prettier-ignore"]
 
 # ----- TypeScript JSX (TSX) -----
 [languages.tsx]
@@ -90,44 +76,24 @@ preserve_patterns = ["go:build", "go:generate", "go:embed", "+build", "nolint"]
 name = "Java"
 extensions = ["java"]
 comment_nodes = ["line_comment", "block_comment"]
-doc_comment_nodes = ["block_comment"] # Javadoc uses block comments
-preserve_patterns = [
-  "@Override",
-  "@Deprecated",
-  "@SuppressWarnings",
-  "CHECKSTYLE:",
-  "PMD:",
-]
+doc_comment_nodes = ["block_comment"]                                                        # Javadoc uses block comments
+preserve_patterns = ["@Override", "@Deprecated", "@SuppressWarnings", "CHECKSTYLE:", "PMD:"]
 
 # ----- C -----
 [languages.c]
 name = "C"
 extensions = ["c", "h"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"] # Doxygen comments are regular comments
-preserve_patterns = [
-  "\\brief",
-  "\\param",
-  "\\return",
-  "\\warning",
-  "NOLINT",
-  "coverity",
-]
+doc_comment_nodes = ["comment"]                                                           # Doxygen comments are regular comments
+preserve_patterns = ["\\brief", "\\param", "\\return", "\\warning", "NOLINT", "coverity"]
 
 # ----- C++ -----
 [languages.cpp]
 name = "C++"
 extensions = ["cpp", "cxx", "cc", "c++", "hpp", "hxx", "hh", "h++"]
 comment_nodes = ["comment"]
-doc_comment_nodes = ["comment"] # Doxygen comments are regular comments
-preserve_patterns = [
-  "\\brief",
-  "\\param",
-  "\\return",
-  "\\warning",
-  "NOLINT",
-  "clang-format",
-]
+doc_comment_nodes = ["comment"]                                                               # Doxygen comments are regular comments
+preserve_patterns = ["\\brief", "\\param", "\\return", "\\warning", "NOLINT", "clang-format"]
 
 # ----- JSON -----
 [languages.json]

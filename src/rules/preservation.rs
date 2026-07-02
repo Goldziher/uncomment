@@ -52,10 +52,7 @@ impl PreservationRule {
             "outer_doc_comment",
         ];
 
-        if doc_patterns
-            .iter()
-            .any(|&pattern| comment.node_type.contains(pattern))
-        {
+        if doc_patterns.iter().any(|&pattern| comment.node_type.contains(pattern)) {
             return true;
         }
 
@@ -67,9 +64,7 @@ impl PreservationRule {
         }
 
         let trimmed = content.trim();
-        doc_patterns
-            .iter()
-            .any(|&pattern| trimmed.starts_with(pattern))
+        doc_patterns.iter().any(|&pattern| trimmed.starts_with(pattern))
     }
 
     fn is_file_header_comment(&self, comment: &CommentInfo, content: &str) -> bool {
@@ -344,10 +339,7 @@ mod tests {
         let rule = PreservationRule::file_header();
 
         let header_comment = create_test_comment("line_comment", 0);
-        assert!(rule.matches(
-            &header_comment,
-            "// Copyright 2023 Author\n// Licensed under MIT"
-        ));
+        assert!(rule.matches(&header_comment, "// Copyright 2023 Author\n// Licensed under MIT"));
 
         let early_comment = create_test_comment("line_comment", 1);
         assert!(!rule.matches(&early_comment, "// Just a comment"));
@@ -383,9 +375,7 @@ mod tests {
 
         let todo_comment = create_test_comment("line_comment", 5);
         for rules in [&default, &comprehensive] {
-            let matches = rules
-                .iter()
-                .any(|rule| rule.matches(&todo_comment, "// TODO: Test"));
+            let matches = rules.iter().any(|rule| rule.matches(&todo_comment, "// TODO: Test"));
             assert!(matches, "TODO should be preserved by all rule presets");
         }
     }
@@ -410,10 +400,7 @@ mod tests {
         let comment = create_test_comment("line_comment", 5);
         for content in test_cases {
             let matches = rules.iter().any(|rule| rule.matches(&comment, content));
-            assert!(
-                matches,
-                "Linting ignore pattern should be preserved: {content}"
-            );
+            assert!(matches, "Linting ignore pattern should be preserved: {content}");
         }
     }
 
@@ -431,10 +418,7 @@ mod tests {
         let comment = create_test_comment("block_comment", 5);
         for content in coverage_patterns {
             let matches = rules.iter().any(|rule| rule.matches(&comment, content));
-            assert!(
-                matches,
-                "Coverage ignore pattern should be preserved: {content}"
-            );
+            assert!(matches, "Coverage ignore pattern should be preserved: {content}");
         }
     }
 
@@ -447,10 +431,7 @@ mod tests {
         let comment = create_test_comment("line_comment", 5);
         for content in formatter_patterns {
             let matches = rules.iter().any(|rule| rule.matches(&comment, content));
-            assert!(
-                matches,
-                "Formatter ignore pattern should be preserved: {content}"
-            );
+            assert!(matches, "Formatter ignore pattern should be preserved: {content}");
         }
     }
 

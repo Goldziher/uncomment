@@ -15,22 +15,10 @@ fn test_gitignore_from_subdirectory() {
 
     fs::write(root.join(".gitignore"), ".next\n").unwrap();
 
-    fs::write(
-        subfolder.join("main.js"),
-        "// Main file comment\nconst x = 1;",
-    )
-    .unwrap();
-    fs::write(
-        next_folder.join("test.js"),
-        "// Test file comment\nconst y = 2;",
-    )
-    .unwrap();
+    fs::write(subfolder.join("main.js"), "// Main file comment\nconst x = 1;").unwrap();
+    fs::write(next_folder.join("test.js"), "// Test file comment\nconst y = 2;").unwrap();
 
-    Command::new("git")
-        .current_dir(root)
-        .args(["init"])
-        .output()
-        .unwrap();
+    Command::new("git").current_dir(root).args(["init"]).output().unwrap();
 
     let uncomment_path = std::env::current_exe()
         .unwrap()
@@ -83,22 +71,10 @@ fn test_gitignore_with_no_gitignore_flag() {
 
     fs::write(root.join(".gitignore"), ".next\n").unwrap();
 
-    fs::write(
-        subfolder.join("main.js"),
-        "// Main file comment\nconst x = 1;",
-    )
-    .unwrap();
-    fs::write(
-        next_folder.join("test.js"),
-        "// Test file comment\nconst y = 2;",
-    )
-    .unwrap();
+    fs::write(subfolder.join("main.js"), "// Main file comment\nconst x = 1;").unwrap();
+    fs::write(next_folder.join("test.js"), "// Test file comment\nconst y = 2;").unwrap();
 
-    Command::new("git")
-        .current_dir(root)
-        .args(["init"])
-        .output()
-        .unwrap();
+    Command::new("git").current_dir(root).args(["init"]).output().unwrap();
 
     let uncomment_path = std::env::current_exe()
         .unwrap()
@@ -383,8 +359,7 @@ preserve_patterns = ["CUSTOM"]
     fs::write(&custom_config_path, custom_config).unwrap();
 
     let test_file = root.join("test.py");
-    let test_content =
-        "# TODO: should be removed\n# CUSTOM: should be preserved\ndef hello(): pass";
+    let test_content = "# TODO: should be removed\n# CUSTOM: should be preserved\ndef hello(): pass";
     fs::write(&test_file, test_content).unwrap();
 
     let uncomment_path = get_binary_path();
@@ -402,10 +377,7 @@ preserve_patterns = ["CUSTOM"]
     );
 
     let result = fs::read_to_string(&test_file).unwrap();
-    assert!(
-        !result.contains("TODO: should be removed"),
-        "TODO should be removed"
-    );
+    assert!(!result.contains("TODO: should be removed"), "TODO should be removed");
     assert!(
         result.contains("CUSTOM: should be preserved"),
         "CUSTOM pattern should be preserved"
@@ -499,10 +471,7 @@ invalid_syntax_here
         .output()
         .unwrap();
 
-    assert!(
-        !output.status.success(),
-        "Command should fail with invalid config"
-    );
+    assert!(!output.status.success(), "Command should fail with invalid config");
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
@@ -551,10 +520,7 @@ remove_todos = false
         !result.contains("# TODO: test comment"),
         "CLI --remove-todo should override config and remove TODO comments"
     );
-    assert!(
-        result.contains("def hello(): pass"),
-        "Code should be preserved"
-    );
+    assert!(result.contains("def hello(): pass"), "Code should be preserved");
 }
 
 fn get_binary_path() -> std::path::PathBuf {

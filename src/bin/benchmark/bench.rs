@@ -39,18 +39,13 @@ impl BenchmarkResult {
 
         println!("\n📈 Throughput:");
         if self.duration.as_secs() > 0 {
-            let mb_per_sec =
-                (self.processed_files as f64 * 5.0) / 1024.0 / self.duration.as_secs_f64();
+            let mb_per_sec = (self.processed_files as f64 * 5.0) / 1024.0 / self.duration.as_secs_f64();
             println!("  • Est. ~{mb_per_sec:.1} MB/sec");
         }
     }
 }
 
-pub fn run_benchmark(
-    uncomment_binary: &Path,
-    target_dir: &Path,
-    threads: usize,
-) -> Result<BenchmarkResult> {
+pub fn run_benchmark(uncomment_binary: &Path, target_dir: &Path, threads: usize) -> Result<BenchmarkResult> {
     let start_time = Instant::now();
 
     println!("🔍 Starting uncomment benchmark...");
@@ -65,16 +60,11 @@ pub fn run_benchmark(
 
     println!("🚀 Running benchmark...\n");
 
-    let output = cmd
-        .output()
-        .context("failed to execute benchmark command")?;
+    let output = cmd.output().context("failed to execute benchmark command")?;
     let duration = start_time.elapsed();
 
     if !output.status.success() {
-        anyhow::bail!(
-            "benchmark command failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        anyhow::bail!("benchmark command failed: {}", String::from_utf8_lossy(&output.stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);

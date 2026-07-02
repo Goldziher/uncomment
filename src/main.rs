@@ -16,8 +16,7 @@ use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-static DEFAULT_LANGUAGE_REGISTRY: Lazy<languages::LanguageRegistry> =
-    Lazy::new(languages::LanguageRegistry::new);
+static DEFAULT_LANGUAGE_REGISTRY: Lazy<languages::LanguageRegistry> = Lazy::new(languages::LanguageRegistry::new);
 
 #[derive(Debug, Default)]
 struct UnsupportedFilesReport {

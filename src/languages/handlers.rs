@@ -1,39 +1,19 @@
 use tree_sitter::Node;
 
 pub trait LanguageHandler {
-    fn is_documentation_comment(
-        &self,
-        node: &Node,
-        parent: Option<Node>,
-        source: &str,
-    ) -> Option<bool>;
+    fn is_documentation_comment(&self, node: &Node, parent: Option<Node>, source: &str) -> Option<bool>;
 
-    fn should_preserve_comment(
-        &self,
-        node: &Node,
-        parent: Option<Node>,
-        source: &str,
-    ) -> Option<bool>;
+    fn should_preserve_comment(&self, node: &Node, parent: Option<Node>, source: &str) -> Option<bool>;
 }
 
 pub struct DefaultHandler;
 
 impl LanguageHandler for DefaultHandler {
-    fn is_documentation_comment(
-        &self,
-        _node: &Node,
-        _parent: Option<Node>,
-        _source: &str,
-    ) -> Option<bool> {
+    fn is_documentation_comment(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<bool> {
         None
     }
 
-    fn should_preserve_comment(
-        &self,
-        _node: &Node,
-        _parent: Option<Node>,
-        _source: &str,
-    ) -> Option<bool> {
+    fn should_preserve_comment(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<bool> {
         None
     }
 }
@@ -41,12 +21,7 @@ impl LanguageHandler for DefaultHandler {
 pub struct PythonHandler;
 
 impl LanguageHandler for PythonHandler {
-    fn is_documentation_comment(
-        &self,
-        node: &Node,
-        parent: Option<Node>,
-        _source: &str,
-    ) -> Option<bool> {
+    fn is_documentation_comment(&self, node: &Node, parent: Option<Node>, _source: &str) -> Option<bool> {
         if node.kind() != "string" {
             return None;
         }
@@ -62,9 +37,7 @@ impl LanguageHandler for PythonHandler {
                 "block" => {
                     if let Some(block_parent) = grandparent.parent() {
                         match block_parent.kind() {
-                            "function_definition"
-                            | "async_function_definition"
-                            | "class_definition" => {
+                            "function_definition" | "async_function_definition" | "class_definition" => {
                                 Some(self.is_first_statement(&parent, &grandparent))
                             }
                             _ => Some(false),
@@ -82,9 +55,9 @@ impl LanguageHandler for PythonHandler {
                 "block" => {
                     if let Some(block_parent) = parent.parent() {
                         match block_parent.kind() {
-                            "function_definition"
-                            | "async_function_definition"
-                            | "class_definition" => Some(self.is_first_statement(node, &parent)),
+                            "function_definition" | "async_function_definition" | "class_definition" => {
+                                Some(self.is_first_statement(node, &parent))
+                            }
                             _ => Some(false),
                         }
                     } else {
@@ -96,12 +69,7 @@ impl LanguageHandler for PythonHandler {
         }
     }
 
-    fn should_preserve_comment(
-        &self,
-        _node: &Node,
-        _parent: Option<Node>,
-        _source: &str,
-    ) -> Option<bool> {
+    fn should_preserve_comment(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<bool> {
         None
     }
 }
@@ -121,12 +89,7 @@ impl PythonHandler {
 pub struct GoHandler;
 
 impl LanguageHandler for GoHandler {
-    fn is_documentation_comment(
-        &self,
-        node: &Node,
-        parent: Option<Node>,
-        _source: &str,
-    ) -> Option<bool> {
+    fn is_documentation_comment(&self, node: &Node, parent: Option<Node>, _source: &str) -> Option<bool> {
         if node.kind() != "comment" {
             return None;
         }
@@ -138,12 +101,7 @@ impl LanguageHandler for GoHandler {
         }
     }
 
-    fn should_preserve_comment(
-        &self,
-        node: &Node,
-        parent: Option<Node>,
-        source: &str,
-    ) -> Option<bool> {
+    fn should_preserve_comment(&self, node: &Node, parent: Option<Node>, source: &str) -> Option<bool> {
         if node.kind() != "comment" {
             return None;
         }
@@ -196,11 +154,7 @@ impl GoHandler {
         }
     }
 
-    fn find_next_non_comment_sibling<'a>(
-        &self,
-        comment_node: &Node,
-        parent: &Node<'a>,
-    ) -> Option<Node<'a>> {
+    fn find_next_non_comment_sibling<'a>(&self, comment_node: &Node, parent: &Node<'a>) -> Option<Node<'a>> {
         let mut cursor = parent.walk();
         let mut found_comment = false;
 
@@ -256,21 +210,11 @@ pub fn get_handler(language_name: &str) -> Box<dyn LanguageHandler> {
 pub struct CFamilyHandler;
 
 impl LanguageHandler for CFamilyHandler {
-    fn is_documentation_comment(
-        &self,
-        _node: &Node,
-        _parent: Option<Node>,
-        _source: &str,
-    ) -> Option<bool> {
+    fn is_documentation_comment(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<bool> {
         None
     }
 
-    fn should_preserve_comment(
-        &self,
-        node: &Node,
-        _parent: Option<Node>,
-        source: &str,
-    ) -> Option<bool> {
+    fn should_preserve_comment(&self, node: &Node, _parent: Option<Node>, source: &str) -> Option<bool> {
         if node.kind() != "comment" {
             return None;
         }
@@ -303,12 +247,7 @@ impl CFamilyHandler {
 pub struct RubyHandler;
 
 impl LanguageHandler for RubyHandler {
-    fn is_documentation_comment(
-        &self,
-        node: &Node,
-        parent: Option<Node>,
-        source: &str,
-    ) -> Option<bool> {
+    fn is_documentation_comment(&self, node: &Node, parent: Option<Node>, source: &str) -> Option<bool> {
         if node.kind() != "comment" {
             return None;
         }
@@ -328,12 +267,7 @@ impl LanguageHandler for RubyHandler {
         Some(false)
     }
 
-    fn should_preserve_comment(
-        &self,
-        node: &Node,
-        _parent: Option<Node>,
-        source: &str,
-    ) -> Option<bool> {
+    fn should_preserve_comment(&self, node: &Node, _parent: Option<Node>, source: &str) -> Option<bool> {
         if node.kind() != "comment" {
             return None;
         }
@@ -347,17 +281,9 @@ impl LanguageHandler for RubyHandler {
             return None;
         }
 
-        let magic_prefixes = [
-            "# frozen_string_literal:",
-            "# encoding:",
-            "# coding:",
-            "# typed:",
-        ];
+        let magic_prefixes = ["# frozen_string_literal:", "# encoding:", "# coding:", "# typed:"];
 
-        if magic_prefixes
-            .iter()
-            .any(|prefix| trimmed.starts_with(prefix))
-        {
+        if magic_prefixes.iter().any(|prefix| trimmed.starts_with(prefix)) {
             return Some(true);
         }
 
@@ -381,17 +307,10 @@ impl RubyHandler {
             return false;
         };
 
-        matches!(
-            next_sibling.kind(),
-            "method" | "singleton_method" | "class" | "module"
-        )
+        matches!(next_sibling.kind(), "method" | "singleton_method" | "class" | "module")
     }
 
-    fn find_next_non_comment_sibling<'a>(
-        &self,
-        comment_node: &Node,
-        parent: &Node<'a>,
-    ) -> Option<Node<'a>> {
+    fn find_next_non_comment_sibling<'a>(&self, comment_node: &Node, parent: &Node<'a>) -> Option<Node<'a>> {
         let mut cursor = parent.walk();
         let mut found_comment = false;
 

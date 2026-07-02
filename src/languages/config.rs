@@ -33,15 +33,11 @@ impl LanguageConfig {
     }
 
     pub fn is_comment_type(&self, node_type: &str) -> bool {
-        self.comment_types
-            .iter()
-            .any(|configured| configured == node_type)
+        self.comment_types.iter().any(|configured| configured == node_type)
     }
 
     pub fn is_doc_comment_type(&self, node_type: &str) -> bool {
-        self.doc_comment_types
-            .iter()
-            .any(|configured| configured == node_type)
+        self.doc_comment_types.iter().any(|configured| configured == node_type)
     }
 
     pub fn get_comment_types(&self) -> &[String] {
@@ -124,13 +120,7 @@ impl LanguageConfig {
     }
 
     pub fn elixir() -> Self {
-        Self::new(
-            "elixir",
-            vec!["ex", "exs"],
-            vec!["comment"],
-            vec![],
-            "elixir",
-        )
+        Self::new("elixir", vec!["ex", "exs"], vec!["comment"], vec![], "elixir")
     }
 
     pub fn toml() -> Self {
@@ -178,13 +168,7 @@ impl LanguageConfig {
     }
 
     pub fn hcl() -> Self {
-        Self::new(
-            "hcl",
-            vec!["hcl", "tf", "tfvars"],
-            vec!["comment"],
-            vec![],
-            "hcl",
-        )
+        Self::new("hcl", vec!["hcl", "tf", "tfvars"], vec!["comment"], vec![], "hcl")
     }
 
     pub fn make() -> Self {
@@ -202,23 +186,11 @@ impl LanguageConfig {
     }
 
     pub fn haskell() -> Self {
-        Self::new(
-            "haskell",
-            vec!["hs", "lhs"],
-            vec!["comment"],
-            vec![],
-            "haskell",
-        )
+        Self::new("haskell", vec!["hs", "lhs"], vec!["comment"], vec![], "haskell")
     }
 
     pub fn html() -> Self {
-        Self::new(
-            "html",
-            vec!["html", "htm", "xhtml"],
-            vec!["comment"],
-            vec![],
-            "html",
-        )
+        Self::new("html", vec!["html", "htm", "xhtml"], vec!["comment"], vec![], "html")
     }
 
     pub fn css() -> Self {
@@ -282,13 +254,7 @@ impl LanguageConfig {
     }
 
     pub fn ini() -> Self {
-        Self::new(
-            "ini",
-            vec!["ini", "cfg", "conf"],
-            vec!["comment"],
-            vec![],
-            "ini",
-        )
+        Self::new("ini", vec!["ini", "cfg", "conf"], vec!["comment"], vec![], "ini")
     }
 
     pub fn dockerfile() -> Self {
@@ -338,23 +304,11 @@ impl LanguageConfig {
     }
 
     pub fn elm() -> Self {
-        Self::new(
-            "elm",
-            vec!["elm"],
-            vec!["line_comment", "block_comment"],
-            vec![],
-            "elm",
-        )
+        Self::new("elm", vec!["elm"], vec!["line_comment", "block_comment"], vec![], "elm")
     }
 
     pub fn erlang() -> Self {
-        Self::new(
-            "erlang",
-            vec!["erl", "hrl"],
-            vec!["comment"],
-            vec![],
-            "erlang",
-        )
+        Self::new("erlang", vec!["erl", "hrl"], vec!["comment"], vec![], "erlang")
     }
 
     pub fn vue() -> Self {
@@ -366,13 +320,7 @@ impl LanguageConfig {
     }
 
     pub fn scss() -> Self {
-        Self::new(
-            "scss",
-            vec!["scss"],
-            vec!["comment", "js_comment"],
-            vec![],
-            "scss",
-        )
+        Self::new("scss", vec!["scss"], vec!["comment", "js_comment"], vec![], "scss")
     }
 
     pub fn latex() -> Self {

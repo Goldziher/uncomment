@@ -31,21 +31,12 @@ fn integration_test_uncomment_on_real_repos() {
 
     for repo in repos.repos {
         println!("\n=== Processing repo: {} ===", repo.url);
-        let repo_name = repo
-            .url
-            .rsplit('/')
-            .next()
-            .unwrap_or(&repo.url)
-            .replace(".git", "");
+        let repo_name = repo.url.rsplit('/').next().unwrap_or(&repo.url).replace(".git", "");
         let repo_path = work_dir.join(&repo_name);
 
         if !repo_path.exists() {
             println!("Cloning {}...", repo.url);
-            assert!(
-                clone_repo(&repo.url, &repo_path),
-                "Failed to clone {}",
-                repo.url
-            );
+            assert!(clone_repo(&repo.url, &repo_path), "Failed to clone {}", repo.url);
             assert!(
                 wait_for_files_to_stabilize(&repo_path, 10),
                 "Repo files did not stabilize after clone"
@@ -77,25 +68,15 @@ fn integration_test_uncomment_on_real_repos() {
                 .unwrap_or("unknown");
 
             if !parse_ast(&file, lang) {
-                eprintln!(
-                    "  [SKIP] Could not parse AST before uncomment: {}",
-                    file.display()
-                );
+                eprintln!("  [SKIP] Could not parse AST before uncomment: {}", file.display());
                 skipped_files.push(file.display().to_string());
                 continue;
             }
 
-            assert!(
-                run_uncomment(&file),
-                "[FAIL] Uncomment failed: {}",
-                file.display()
-            );
+            assert!(run_uncomment(&file), "[FAIL] Uncomment failed: {}", file.display());
 
             if !parse_ast(&file, lang) {
-                eprintln!(
-                    "  [FAIL] AST parse failed after uncomment: {}",
-                    file.display()
-                );
+                eprintln!("  [FAIL] AST parse failed after uncomment: {}", file.display());
                 failed_files.push(file.display().to_string());
             } else {
                 println!("  [PASS]");
@@ -111,8 +92,7 @@ fn integration_test_uncomment_on_real_repos() {
     }
 
     if !failed_files.is_empty() {
-        let mut file = std::fs::File::create("fixtures/failing_files.txt")
-            .expect("Could not create failing_files.txt");
+        let mut file = std::fs::File::create("fixtures/failing_files.txt").expect("Could not create failing_files.txt");
         for f in &failed_files {
             writeln!(file, "{}", f).expect("Could not write to failing_files.txt");
         }
@@ -149,9 +129,7 @@ fn read_repos_yaml<P: AsRef<Path>>(path: P) -> anyhow::Result<RepoList> {
             let url = entry["url"]
                 .as_str()
                 .ok_or_else(|| anyhow!("repo entry missing 'url' field"))?;
-            Ok(RepoEntry {
-                url: url.to_string(),
-            })
+            Ok(RepoEntry { url: url.to_string() })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
@@ -192,19 +170,12 @@ fn parse_ast(file: &Path, lang: &str) -> bool {
 
 fn parse_python_ast(file: &Path) -> bool {
     let code = "import ast, sys; ast.parse(open(sys.argv[1]).read())";
-    let output = Command::new("python3")
-        .arg("-c")
-        .arg(code)
-        .arg(file)
-        .output();
+    let output = Command::new("python3").arg("-c").arg(code).arg(file).output();
 
     match output {
         Ok(out) if out.status.success() => true,
         Ok(out) => {
-            eprintln!(
-                "    [PY AST ERROR] {}",
-                String::from_utf8_lossy(&out.stderr)
-            );
+            eprintln!("    [PY AST ERROR] {}", String::from_utf8_lossy(&out.stderr));
             false
         }
         Err(e) => {
@@ -230,10 +201,7 @@ fn parse_js_ts_ast(file: &Path) -> bool {
     match output {
         Ok(out) if out.status.success() => true,
         Ok(out) => {
-            eprintln!(
-                "    [JS/TS AST ERROR] {}",
-                String::from_utf8_lossy(&out.stderr)
-            );
+            eprintln!("    [JS/TS AST ERROR] {}", String::from_utf8_lossy(&out.stderr));
             false
         }
         Err(e) => {
@@ -249,10 +217,7 @@ fn run_uncomment(file: &Path) -> bool {
     match output {
         Ok(out) if out.status.success() => true,
         Ok(out) => {
-            eprintln!(
-                "    [UNCOMMENT ERROR] {}",
-                String::from_utf8_lossy(&out.stderr)
-            );
+            eprintln!("    [UNCOMMENT ERROR] {}", String::from_utf8_lossy(&out.stderr));
             false
         }
         Err(e) => {
