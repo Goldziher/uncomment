@@ -51,8 +51,11 @@ cargo fmt --all
 # Lint with clippy
 cargo clippy
 
-# Run all pre-commit hooks
-prek run --all-files
+# Lint everything with poly
+poly lint .
+
+# Check formatting
+poly fmt --check .
 ```
 
 ## Benchmarks & Profiling
