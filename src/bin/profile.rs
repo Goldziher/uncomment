@@ -40,9 +40,7 @@ fn main() -> anyhow::Result<()> {
     let mut type_counts = std::collections::HashMap::new();
     for file in &files {
         if let Some(ext) = file.extension() {
-            *type_counts
-                .entry(ext.to_string_lossy().to_string())
-                .or_insert(0) += 1;
+            *type_counts.entry(ext.to_string_lossy().to_string()).or_insert(0) += 1;
         }
     }
 
@@ -51,11 +49,7 @@ fn main() -> anyhow::Result<()> {
         println!("   • .{ext}: {count} files");
     }
 
-    let total_size: u64 = files
-        .iter()
-        .filter_map(|f| fs::metadata(f).ok())
-        .map(|m| m.len())
-        .sum();
+    let total_size: u64 = files.iter().filter_map(|f| fs::metadata(f).ok()).map(|m| m.len()).sum();
 
     println!("\n💾 Total size: {:.2} MB", total_size as f64 / 1_048_576.0);
 
@@ -86,8 +80,7 @@ fn main() -> anyhow::Result<()> {
         file_counts.push(result);
     }
 
-    let avg_duration =
-        durations.iter().map(|d| d.as_secs_f64()).sum::<f64>() / durations.len() as f64;
+    let avg_duration = durations.iter().map(|d| d.as_secs_f64()).sum::<f64>() / durations.len() as f64;
 
     let min_duration = durations
         .iter()
@@ -116,10 +109,7 @@ fn main() -> anyhow::Result<()> {
     println!("\n🚀 Throughput:");
     println!("   • Files/sec: {files_per_second:.1}");
     println!("   • MB/sec: {mb_per_second:.2}");
-    println!(
-        "   • μs/file: {:.1}",
-        avg_duration * 1_000_000.0 / files.len() as f64
-    );
+    println!("   • μs/file: {:.1}", avg_duration * 1_000_000.0 / files.len() as f64);
 
     println!("\n🔍 PERFORMANCE ANALYSIS");
     println!("=======================");

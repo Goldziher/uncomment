@@ -57,26 +57,21 @@ impl Processor {
         config_manager: &ConfigManager,
         cli_overrides: Option<&ProcessingOptions>,
     ) -> Result<ProcessedFile> {
-        let content = std::fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+        let content =
+            std::fs::read_to_string(path).with_context(|| format!("Failed to read file: {}", path.display()))?;
 
         let language_config = self
             .registry
             .detect_language_arc(path)
             .with_context(|| format!("Unsupported file type: {}", path.display()))?;
 
-        let language_name = if language_config
-            .name
-            .bytes()
-            .all(|byte| !byte.is_ascii_uppercase())
-        {
+        let language_name = if language_config.name.bytes().all(|byte| !byte.is_ascii_uppercase()) {
             Cow::Borrowed(language_config.name.as_str())
         } else {
             Cow::Owned(language_config.name.to_lowercase())
         };
 
-        let mut resolved_config =
-            config_manager.get_config_for_file_with_language(path, &language_name);
+        let mut resolved_config = config_manager.get_config_for_file_with_language(path, &language_name);
 
         if let Some(overrides) = cli_overrides {
             if overrides.remove_doc {
@@ -117,13 +112,12 @@ impl Processor {
         language_config: &crate::languages::config::LanguageConfig,
         resolved_config: &ResolvedConfig,
     ) -> Result<(String, usize, Vec<ImportantRemoval>)> {
-        let language = tree_sitter_language_pack::get_language(&language_config.tslp_name)
-            .with_context(|| {
-                format!(
-                    "Failed to load grammar for '{}' (tslp name: '{}')",
-                    language_config.name, language_config.tslp_name
-                )
-            })?;
+        let language = tree_sitter_language_pack::get_language(&language_config.tslp_name).with_context(|| {
+            format!(
+                "Failed to load grammar for '{}' (tslp name: '{}')",
+                language_config.name, language_config.tslp_name
+            )
+        })?;
 
         self.parser
             .set_language(&language)
@@ -155,10 +149,7 @@ impl Processor {
         Ok((output, comments_removed, important_removals))
     }
 
-    fn create_preservation_rules_from_config(
-        &self,
-        config: &ResolvedConfig,
-    ) -> Vec<PreservationRule> {
+    fn create_preservation_rules_from_config(&self, config: &ResolvedConfig) -> Vec<PreservationRule> {
         let mut rules = Vec::new();
 
         // Always preserve shebangs (#!...) as they can affect file executability.
@@ -190,13 +181,10 @@ impl Processor {
 
             // Remove TODO/FIXME rules if they should be removed according to config
             if config.remove_todos {
-                comprehensive_rules
-                    .retain(|rule| !rule.pattern_matches("TODO") && !rule.pattern_matches("todo"));
+                comprehensive_rules.retain(|rule| !rule.pattern_matches("TODO") && !rule.pattern_matches("todo"));
             }
             if config.remove_fixme {
-                comprehensive_rules.retain(|rule| {
-                    !rule.pattern_matches("FIXME") && !rule.pattern_matches("fixme")
-                });
+                comprehensive_rules.retain(|rule| !rule.pattern_matches("FIXME") && !rule.pattern_matches("fixme"));
             }
 
             if config.remove_docs {
@@ -209,11 +197,7 @@ impl Processor {
         rules
     }
 
-    fn remove_comments_from_content(
-        &self,
-        content: &str,
-        comments_to_remove: &[&CommentInfo],
-    ) -> String {
+    fn remove_comments_from_content(&self, content: &str, comments_to_remove: &[&CommentInfo]) -> String {
         if comments_to_remove.is_empty() {
             return content.to_string();
         }
@@ -339,9 +323,8 @@ impl OutputWriter {
                 self.show_diff(processed_file)?;
             }
         } else {
-            std::fs::write(&processed_file.path, &processed_file.processed_content).with_context(
-                || format!("Failed to write file: {}", processed_file.path.display()),
-            )?;
+            std::fs::write(&processed_file.path, &processed_file.processed_content)
+                .with_context(|| format!("Failed to write file: {}", processed_file.path.display()))?;
 
             if self.verbose {
                 println!(
@@ -387,9 +370,7 @@ impl OutputWriter {
 
     pub fn print_summary(&self, total_files: usize, modified_files: usize) {
         if self.dry_run {
-            println!(
-                "\n[DRY RUN] Summary: {total_files} files processed, {modified_files} would be modified"
-            );
+            println!("\n[DRY RUN] Summary: {total_files} files processed, {modified_files} would be modified");
         } else {
             println!("\nSummary: {total_files} files processed, {modified_files} modified");
         }
@@ -400,10 +381,7 @@ impl OutputWriter {
     }
 }
 
-fn detect_important_removals(
-    comments_to_remove: &[&CommentInfo],
-    source: &str,
-) -> Vec<ImportantRemoval> {
+fn detect_important_removals(comments_to_remove: &[&CommentInfo], source: &str) -> Vec<ImportantRemoval> {
     comments_to_remove
         .iter()
         .copied()
@@ -429,10 +407,7 @@ fn detect_important_removals(
                 || trimmed.contains("nolint")
             {
                 Some(Cow::Borrowed("linter/formatter directive"))
-            } else if trimmed.starts_with("#pragma")
-                || trimmed.contains("NOLINT")
-                || trimmed.contains("clang-format")
-            {
+            } else if trimmed.starts_with("#pragma") || trimmed.contains("NOLINT") || trimmed.contains("clang-format") {
                 Some(Cow::Borrowed("compiler/formatter directive"))
             } else if trimmed.starts_with("# frozen_string_literal:")
                 || trimmed.starts_with("# encoding:")
@@ -602,8 +577,7 @@ fn main() {}
 
         std::fs::write(&file_path, source).expect("write test file");
 
-        let config_manager = ConfigManager::from_single_config(dir.path(), Config::default())
-            .expect("config manager");
+        let config_manager = ConfigManager::from_single_config(dir.path(), Config::default()).expect("config manager");
 
         let mut processor = Processor::new();
 
@@ -631,11 +605,7 @@ fn main() {}
         };
 
         let without_defaults = processor
-            .process_file_with_config(
-                &file_path,
-                &config_manager,
-                Some(&overrides_without_defaults),
-            )
+            .process_file_with_config(&file_path, &config_manager, Some(&overrides_without_defaults))
             .expect("process without defaults");
         assert!(!without_defaults.processed_content.contains("NOTE"));
         assert!(!without_defaults.processed_content.contains("#![feature"));
@@ -718,8 +688,7 @@ puts "ok"
 echo "ok"
 "#;
 
-        let processed =
-            process_language_with_default_ignores(source, LanguageConfig::shell(), false);
+        let processed = process_language_with_default_ignores(source, LanguageConfig::shell(), false);
 
         assert!(processed.starts_with("#!/usr/bin/env bash\n"));
         assert!(!processed.contains("# remove me"));
@@ -956,10 +925,7 @@ def hello(): pass"#;
             !output.contains("This is a docstring"),
             "Python docstring should be removed when remove_docs=true"
         );
-        assert!(
-            output.contains("TODO: regular todo"),
-            "TODO should be preserved"
-        );
+        assert!(output.contains("TODO: regular todo"), "TODO should be preserved");
         assert!(output.contains("mypy: ignore"), "mypy should be preserved");
     }
 

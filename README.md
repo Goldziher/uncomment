@@ -446,7 +446,7 @@ Performance scales excellently with multiple threads:
 | 4 threads    | 3,900        | 2.6x    |
 | 8 threads    | 5,100        | 3.4x    |
 
-_Benchmarks run on a large enterprise codebase with 5,000 mixed language files_
+## Benchmarks run on a large enterprise codebase with 5,000 mixed language files
 
 ### Built-in Benchmarking
 

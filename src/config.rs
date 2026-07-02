@@ -172,17 +172,11 @@ impl Config {
             }
 
             if lang_config.extensions.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "Language '{}' has no file extensions",
-                    lang_name
-                ));
+                return Err(anyhow::anyhow!("Language '{}' has no file extensions", lang_name));
             }
 
             if lang_config.comment_nodes.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "Language '{}' has no comment node types",
-                    lang_name
-                ));
+                return Err(anyhow::anyhow!("Language '{}' has no comment node types", lang_name));
             }
         }
 
@@ -639,12 +633,11 @@ remove_fixme = false
         let mut file_count = 0;
 
         let supported_extensions = [
-            "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts",
-            "rs", "go", "java", "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml",
-            "yaml", "hcl", "tf", "tfvars", "vue", "svelte", "astro", "swift", "kt", "kts", "dart",
-            "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj", "cljs", "cljc", "edn", "r", "jl",
-            "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl", "xslt",
-            "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
+            "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "rs", "go", "java",
+            "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml", "yaml", "hcl", "tf", "tfvars", "vue",
+            "svelte", "astro", "swift", "kt", "kts", "dart", "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj",
+            "cljs", "cljc", "edn", "r", "jl", "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl",
+            "xslt", "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
         ];
 
         for entry in WalkDir::new(project_dir.as_ref())
@@ -664,9 +657,7 @@ remove_fixme = false
                 if let Some(filename) = entry.path().file_name() {
                     let filename_str = filename.to_string_lossy().to_lowercase();
                     if filename_str == "dockerfile" {
-                        *detected_languages
-                            .entry("dockerfile".to_string())
-                            .or_insert(0) += 1;
+                        *detected_languages.entry("dockerfile".to_string()).or_insert(0) += 1;
                         file_count += 1;
                     } else if filename_str == "makefile" || filename_str.ends_with(".mk") {
                         *detected_languages.entry("make".to_string()).or_insert(0) += 1;
@@ -754,9 +745,7 @@ preserve_patterns = []
         Ok(config)
     }
 
-    pub fn smart_template_with_info<P: AsRef<Path>>(
-        project_dir: P,
-    ) -> Result<(String, DetectionInfo)> {
+    pub fn smart_template_with_info<P: AsRef<Path>>(project_dir: P) -> Result<(String, DetectionInfo)> {
         use walkdir::WalkDir;
 
         let mut detected_languages = HashMap::new();
@@ -764,12 +753,11 @@ preserve_patterns = []
         let mut total_files = 0;
 
         let supported_extensions = [
-            "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts",
-            "rs", "go", "java", "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml",
-            "yaml", "hcl", "tf", "tfvars", "vue", "svelte", "astro", "swift", "kt", "kts", "dart",
-            "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj", "cljs", "cljc", "edn", "r", "jl",
-            "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl", "xslt",
-            "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
+            "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "rs", "go", "java",
+            "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml", "yaml", "hcl", "tf", "tfvars", "vue",
+            "svelte", "astro", "swift", "kt", "kts", "dart", "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj",
+            "cljs", "cljc", "edn", "r", "jl", "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl",
+            "xslt", "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
         ];
 
         for entry in WalkDir::new(project_dir.as_ref())
@@ -832,9 +820,7 @@ preserve_patterns = []
                         *detected_languages.entry("Docker".to_string()).or_insert(0) += 1;
                         file_count += 1;
                     } else if filename_str == "makefile" || filename_str.ends_with(".mk") {
-                        *detected_languages
-                            .entry("Makefile".to_string())
-                            .or_insert(0) += 1;
+                        *detected_languages.entry("Makefile".to_string()).or_insert(0) += 1;
                         file_count += 1;
                     }
                 }
@@ -971,9 +957,7 @@ preserve_patterns = []
             println!("  {}. {} - {}", i + 1, name, desc);
         }
 
-        println!(
-            "\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):"
-        );
+        println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
         print!("> ");
         io::stdout().flush().unwrap();
 
@@ -1057,9 +1041,7 @@ traverse_git_repos = false
             println!("  {}. {} - {}", i + 1, name, desc);
         }
 
-        println!(
-            "\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):"
-        );
+        println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
         print!("> ");
         io::stdout().flush().unwrap();
 
@@ -1538,10 +1520,7 @@ impl ConfigManager {
                             configs.push((path.to_path_buf(), config));
                         }
                         Err(e) => {
-                            eprintln!(
-                                "Warning: Failed to load config file {}: {e}",
-                                path.display()
-                            );
+                            eprintln!("Warning: Failed to load config file {}: {e}", path.display());
                         }
                     }
                 }

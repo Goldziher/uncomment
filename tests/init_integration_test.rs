@@ -474,16 +474,10 @@ fn test_smart_init(project_dir: &std::path::Path) {
     assert!(!config_content.contains("[languages.swift.grammar]"));
 
     let parsed_config: Result<uncomment::config::Config, _> = toml::from_str(&config_content);
-    assert!(
-        parsed_config.is_ok(),
-        "Generated config should be valid TOML"
-    );
+    assert!(parsed_config.is_ok(), "Generated config should be valid TOML");
 
     let config = parsed_config.unwrap();
-    assert!(
-        !config.languages.is_empty(),
-        "Should have detected languages"
-    );
+    assert!(!config.languages.is_empty(), "Should have detected languages");
 
     println!("✅ Smart init test passed");
 }
@@ -511,10 +505,7 @@ fn test_comprehensive_init(project_dir: &std::path::Path) {
     );
 
     let config_path = project_dir.join("comprehensive-config.toml");
-    assert!(
-        config_path.exists(),
-        "Comprehensive config file was not created"
-    );
+    assert!(config_path.exists(), "Comprehensive config file was not created");
 
     let config_content = fs::read_to_string(&config_path).unwrap();
 
@@ -537,10 +528,7 @@ fn test_comprehensive_init(project_dir: &std::path::Path) {
     assert!(!config_content.contains("# Mobile Development"));
 
     let parsed_config: Result<uncomment::config::Config, _> = toml::from_str(&config_content);
-    assert!(
-        parsed_config.is_ok(),
-        "Comprehensive config should be valid TOML"
-    );
+    assert!(parsed_config.is_ok(), "Comprehensive config should be valid TOML");
 
     let config = parsed_config.unwrap();
     assert!(
@@ -572,21 +560,12 @@ fn test_generated_config_processing(project_dir: &std::path::Path) {
         .output()
         .expect("Failed to execute processing command");
 
-    println!(
-        "Processing output: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
+    println!("Processing output: {}", String::from_utf8_lossy(&output.stdout));
     if !output.status.success() {
-        println!(
-            "Processing stderr: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        println!("Processing stderr: {}", String::from_utf8_lossy(&output.stderr));
     }
 
-    assert!(
-        output.status.success(),
-        "File processing with generated config failed"
-    );
+    assert!(output.status.success(), "File processing with generated config failed");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -627,10 +606,7 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
         .output()
         .expect("Failed to execute second init command");
 
-    assert!(
-        !output2.status.success(),
-        "Second init without force should fail"
-    );
+    assert!(!output2.status.success(), "Second init without force should fail");
 
     let stderr = String::from_utf8_lossy(&output2.stderr);
     assert!(
@@ -639,21 +615,12 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
     );
 
     let output3 = Command::new(&binary_path)
-        .args([
-            "init",
-            "--comprehensive",
-            "--output",
-            "test-force.toml",
-            "--force",
-        ])
+        .args(["init", "--comprehensive", "--output", "test-force.toml", "--force"])
         .current_dir(project_dir)
         .output()
         .expect("Failed to execute third init command");
 
-    assert!(
-        output3.status.success(),
-        "Third init with force should succeed"
-    );
+    assert!(output3.status.success(), "Third init with force should succeed");
 
     let new_content = fs::read_to_string(&config_path).unwrap();
     assert_ne!(
@@ -681,10 +648,7 @@ fn test_init_error_scenarios() {
         .output()
         .expect("Failed to execute command");
 
-    assert!(
-        !output.status.success(),
-        "Should fail with invalid output path"
-    );
+    assert!(!output.status.success(), "Should fail with invalid output path");
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(

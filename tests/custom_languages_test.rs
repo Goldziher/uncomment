@@ -124,11 +124,7 @@ end
     let result = processor.process_file_with_config(&elixir_file, &config_manager, None);
     assert!(result.is_ok());
     let processed = result.unwrap();
-    assert!(
-        !processed
-            .processed_content
-            .contains("# This is an Elixir comment")
-    );
+    assert!(!processed.processed_content.contains("# This is an Elixir comment"));
     assert!(processed.processed_content.contains("IO.puts"));
 }
 

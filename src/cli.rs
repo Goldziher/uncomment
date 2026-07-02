@@ -30,10 +30,7 @@ pub enum Commands {
         force: bool,
 
         /// ~keep Generate configuration for all supported languages
-        #[arg(
-            long,
-            help = "Generate comprehensive config with all supported languages"
-        )]
+        #[arg(long, help = "Generate comprehensive config with all supported languages")]
         comprehensive: bool,
 
         /// ~keep Interactive mode to select languages
@@ -57,11 +54,7 @@ pub struct ProcessArgs {
     pub remove_fixme: bool,
 
     /// ~keep Remove documentation comments (normally preserved)
-    #[arg(
-        short = 'd',
-        long,
-        help = "Remove documentation comments and docstrings"
-    )]
+    #[arg(short = 'd', long, help = "Remove documentation comments and docstrings")]
     pub remove_doc: bool,
 
     /// ~keep Additional patterns to preserve (beyond defaults)
@@ -159,8 +152,7 @@ impl Cli {
         } else if interactive {
             (crate::config::Config::interactive_template_clean()?, None)
         } else {
-            let current_dir =
-                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
             let (template, info) = crate::config::Config::smart_template_with_info(&current_dir)?;
             (template, Some(info))
         };

@@ -81,9 +81,7 @@ fn test_config_validation_edge_cases() {
         use_default_ignores: None,
     };
 
-    config
-        .languages
-        .insert("empty_name".to_string(), invalid_language);
+    config.languages.insert("empty_name".to_string(), invalid_language);
 
     let validation_result = config.validate();
     assert!(validation_result.is_err());
