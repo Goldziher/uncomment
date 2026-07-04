@@ -38,6 +38,13 @@ prek install --hook-type commit-msg
 prek run --all-files          # run hooks on demand
 ```
 
+## Pre-commit hooks
+
+Install the git hooks with `task setup` (or `poly hooks install` directly). On
+every commit, poly runs lint, format, and file-safety checks plus `cargo clippy`;
+the commit-msg hook validates the message. Run all hooks manually with
+`poly hooks run pre-commit --all-files`.
+
 ## Distribution & Releases
 
 `uncomment` ships through four channels: crates.io, npm, PyPI, and GitHub Releases. Keep versions in sync across all artifacts.
