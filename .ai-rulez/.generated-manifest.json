@@ -1,10 +1,6 @@
 {
   "version": "1",
   "files": [
-    ".agents/agents/code-reviewer.md",
-    ".agents/agents/docs-writer.md",
-    ".agents/agents/security-auditor.md",
-    ".agents/agents/test-writer.md",
     ".claude/agents/code-reviewer.md",
     ".claude/agents/docs-writer.md",
     ".claude/agents/security-auditor.md",
@@ -29,9 +25,7 @@
     ".codex/commands/review.md",
     ".codex/commands/test.md",
     ".codex/plugins.json",
-    ".gemini/settings.json",
     "AGENTS.md",
-    "CLAUDE.md",
-    "GEMINI.md"
+    "CLAUDE.md"
   ]
 }
