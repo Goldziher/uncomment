@@ -227,31 +227,8 @@ impl Processor {
         // then build output in a single forward pass.
         let mut removal_ranges: Vec<(usize, usize)> = Vec::with_capacity(filtered.len());
         for (start, end) in &filtered {
-            let start = *start;
-            let end = (*end).min(bytes.len());
-            if start >= end || start >= bytes.len() {
-                continue;
-            }
-
-            // Find line boundaries using memchr
-            let line_start = match memchr::memrchr(b'\n', &bytes[..start]) {
-                Some(pos) => pos + 1,
-                None => 0,
-            };
-            let line_end = match memchr::memchr(b'\n', &bytes[end..]) {
-                Some(pos) => end + pos + 1,
-                None => bytes.len(),
-            };
-
-            let before = &bytes[line_start..start];
-            let after = &bytes[end..line_end];
-            let before_ws = before.iter().all(|b| b.is_ascii_whitespace());
-            let after_ws = after.iter().all(|b| b.is_ascii_whitespace());
-
-            if before_ws && after_ws {
-                removal_ranges.push((line_start, line_end));
-            } else {
-                removal_ranges.push((start, end));
+            if let Some(range) = Self::expand_range(bytes, *start, *end) {
+                removal_ranges.push(range);
             }
         }
 
@@ -270,7 +247,140 @@ impl Processor {
         }
         output
     }
+
+    /// Expand a comment byte range `[start, end)` to cover its whole line(s) when
+    /// only whitespace surrounds it, so removing a standalone comment also drops
+    /// the now-blank line. Returns `None` for degenerate ranges (empty or past the
+    /// end of `bytes`); otherwise the expanded range, or the original span when the
+    /// comment shares its line with code.
+    fn expand_range(bytes: &[u8], start: usize, end: usize) -> Option<(usize, usize)> {
+        let end = end.min(bytes.len());
+        if start >= end || start >= bytes.len() {
+            return None;
+        }
+
+        // Find line boundaries using memchr.
+        let line_start = match memchr::memrchr(b'\n', &bytes[..start]) {
+            Some(pos) => pos + 1,
+            None => 0,
+        };
+        let line_end = match memchr::memchr(b'\n', &bytes[end..]) {
+            Some(pos) => end + pos + 1,
+            None => bytes.len(),
+        };
+
+        let before = &bytes[line_start..start];
+        let after = &bytes[end..line_end];
+        let before_ws = before.iter().all(|b| b.is_ascii_whitespace());
+        let after_ws = after.iter().all(|b| b.is_ascii_whitespace());
+
+        if before_ws && after_ws {
+            Some((line_start, line_end))
+        } else {
+            Some((start, end))
+        }
+    }
+
+    /// Detect the removable comments in `content` without touching the filesystem
+    /// or rewriting the source, returning one [`Removal`] per comment that would be
+    /// stripped (with both the comment span and the expanded delete range).
+    ///
+    /// The language is chosen from `path`'s extension via the built-in registry.
+    /// This is a pure in-memory planning API intended for host tools (e.g. editors
+    /// or linters) that build their own diagnostics/edits from the ranges rather
+    /// than consuming the already-rewritten string. Config discovery is *not*
+    /// performed — the caller supplies a fully [`ResolvedConfig`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UncommentError::LanguageNotSupported`](crate::UncommentError) (via
+    /// `anyhow`) when `path`'s extension maps to no known language, and propagates
+    /// grammar-load / parse failures.
+    pub fn plan_removals(&mut self, content: &str, path: &Path, config: &ResolvedConfig) -> Result<Vec<Removal>> {
+        let language_config = self
+            .registry
+            .detect_language_arc(path)
+            .with_context(|| format!("Unsupported file type: {}", path.display()))?;
+
+        let language = tree_sitter_language_pack::get_language(&language_config.tslp_name).with_context(|| {
+            format!(
+                "Failed to load grammar for '{}' (tslp name: '{}')",
+                language_config.name, language_config.tslp_name
+            )
+        })?;
+        self.parser
+            .set_language(&language)
+            .context("Failed to set parser language")?;
+        let tree = self
+            .parser
+            .parse(content, None)
+            .context("Failed to parse source code")?;
+
+        let preservation_rules = self.create_preservation_rules_from_config(config);
+        let mut visitor = CommentVisitor::new_with_language(
+            content,
+            &preservation_rules,
+            &language_config.comment_types,
+            &language_config.doc_comment_types,
+            &language_config.name,
+        );
+        visitor.visit_node(tree.root_node());
+
+        let bytes = content.as_bytes();
+        let removals = visitor
+            .get_comments_to_remove()
+            .into_iter()
+            .filter_map(|comment| {
+                let (remove_start, remove_end) = Self::expand_range(bytes, comment.start_byte, comment.end_byte)?;
+                let preview = comment
+                    .content(content)
+                    .lines()
+                    .next()
+                    .unwrap_or_default()
+                    .trim()
+                    .chars()
+                    .take(PREVIEW_MAX_CHARS)
+                    .collect();
+                Some(Removal {
+                    comment_start: comment.start_byte,
+                    comment_end: comment.end_byte,
+                    remove_start,
+                    remove_end,
+                    start_row: comment.start_row,
+                    is_documentation: comment.is_documentation,
+                    preview,
+                })
+            })
+            .collect();
+        Ok(removals)
+    }
 }
+
+/// A single comment that [`Processor::plan_removals`] determined is removable,
+/// expressed as byte offsets into the analysed source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Removal {
+    /// Start byte of the comment token itself (diagnostic location).
+    pub comment_start: usize,
+    /// End byte of the comment token itself.
+    pub comment_end: usize,
+    /// Start byte of the range a deleting edit should remove. Equals
+    /// `comment_start` unless the comment stands alone on its line(s), in which
+    /// case the range is expanded to swallow the surrounding whitespace/newline.
+    pub remove_start: usize,
+    /// End byte of the range a deleting edit should remove.
+    pub remove_end: usize,
+    /// 0-based line of the comment's first byte.
+    pub start_row: usize,
+    /// Whether the comment was classified as documentation.
+    pub is_documentation: bool,
+    /// Trimmed, length-capped first line of the comment, for a human message.
+    pub preview: String,
+}
+
+/// Cap on [`Removal::preview`] length so a huge block comment can't bloat a
+/// diagnostic message.
+const PREVIEW_MAX_CHARS: usize = 80;
 
 #[derive(Debug)]
 pub struct ProcessedFile {
@@ -473,6 +583,48 @@ mod tests {
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing rust source");
         output
+    }
+
+    #[test]
+    fn plan_removals_reports_removable_comments_with_ranges() {
+        let source = "// remove me\nfn main() {\n    let x = 1; // trailing\n    // TODO: keep\n    // ~keep\n}\n";
+        let mut processor = Processor::new();
+        let removals = processor
+            .plan_removals(source, std::path::Path::new("sample.rs"), &default_resolved_config())
+            .expect("plan removals");
+        // TODO (remove_todos=false) and ~keep are preserved; two comments remain.
+        let previews: Vec<&str> = removals.iter().map(|removal| removal.preview.as_str()).collect();
+        assert_eq!(previews, vec!["// remove me", "// trailing"]);
+        // The standalone comment expands to swallow its whole line (incl. newline).
+        assert_eq!(removals[0].remove_start, 0);
+        assert_eq!(
+            &source[removals[0].remove_start..removals[0].remove_end],
+            "// remove me\n"
+        );
+        // The trailing comment keeps its own span — the code before it is retained.
+        assert_eq!(&source[removals[1].remove_start..removals[1].remove_end], "// trailing");
+    }
+
+    #[test]
+    fn plan_removals_preserves_python_docstrings_by_default() {
+        let source = "def f():\n    \"\"\"docstring\"\"\"\n    # remove me\n    return 1\n";
+        let mut processor = Processor::new();
+        let removals = processor
+            .plan_removals(source, std::path::Path::new("module.py"), &default_resolved_config())
+            .expect("plan removals");
+        let previews: Vec<&str> = removals.iter().map(|removal| removal.preview.as_str()).collect();
+        assert_eq!(previews, vec!["# remove me"]);
+    }
+
+    #[test]
+    fn plan_removals_unsupported_extension_errors() {
+        let mut processor = Processor::new();
+        let result = processor.plan_removals(
+            "noop",
+            std::path::Path::new("file.unknownext"),
+            &default_resolved_config(),
+        );
+        assert!(result.is_err());
     }
 
     fn process_go(source: &str, use_default_ignores: bool, remove_docs: bool) -> String {

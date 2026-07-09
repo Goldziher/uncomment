@@ -5,7 +5,7 @@ pub mod languages;
 pub mod processor;
 pub mod rules;
 
-pub use processor::{ProcessingOptions, Processor};
+pub use processor::{ProcessingOptions, Processor, Removal};
 pub use rules::preservation::PreservationRule;
 
 use std::error::Error;
