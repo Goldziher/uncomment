@@ -480,11 +480,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Update npm
-        run: npm install -g npm@latest
+      # Node 22's bundled npm already supports --provenance; `npm install -g
+      # npm@latest` was pulling npm 12, which requires Node >=22.22 and failed
+      # with EBADENGINE, so it is intentionally omitted.
 
       - name: Publish to npm
         env:
