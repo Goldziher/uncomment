@@ -26,8 +26,8 @@ uncomment is a Rust CLI tool for AST-based comment removal from source code, dis
   - `package.json`, `install.js` — Binary download and install
 - `pip-package/` — PyPI wrapper package (`uncomment`)
   - `pyproject.toml`, `uncomment/__init__.py`, `uncomment/downloader.py`
-- `.goreleaser.yaml` — Cross-platform binary build configuration
-- `.github/workflows/` — CI/CD and release automation
+- `.github/workflows/` — CI/CD and release automation (`publish.yaml` builds cross-platform binaries via a native matrix)
+- `scripts/update-homebrew-formula.sh` — Regenerates the Homebrew formula from release checksums
 
 ## Testing
 
