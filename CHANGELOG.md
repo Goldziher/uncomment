@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [v3.1.0] - 2026-07-09
+
+### Fixed
+
+- macOS x86-64 (Intel) support ([#87]). The `x86_64-apple-darwin` binary is now built
+  natively on the macOS 15 Intel runner, and tree-sitter parsers are downloaded at
+  runtime (tree-sitter-language-pack 1.12.5 ships the `macos-x86_64` parser bundle).
+
+### Changed
+
+- Grammars are now downloaded on demand at runtime (tree-sitter-language-pack dynamic
+  mode) instead of being statically linked into the binary. This yields a much smaller
+  binary and makes every tree-sitter-language-pack language available. Parsers are cached
+  under `~/.cache/tree-sitter-language-pack`; the first run on a platform downloads a
+  one-time (~17 MB) parser bundle and requires network access, and is offline thereafter.
+- Migrated the release pipeline from goreleaser to a native per-platform GitHub Actions
+  build matrix with a draft-then-finalize flow (Linux built in manylinux_2_28 containers
+  for a glibc 2.28 floor).
+
+[#87]: https://github.com/Goldziher/uncomment/issues/87
+
 ## [v3.0.3] - 2026-05-21
 
 ### Changed
