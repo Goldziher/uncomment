@@ -226,7 +226,7 @@ jobs:
       - name: Upload to GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ needs.meta.outputs.tag }}" "uncomment-${{ matrix.triple }}.tar.gz" --clobber
+        run: gh release upload "${{ needs.meta.outputs.tag }}" "uncomment-${{ matrix.triple }}.tar.gz" --clobber --repo "$GITHUB_REPOSITORY"
 
   # Windows binary. Cross-compiled from Linux with the mingw-w64 toolchain so the
   # asset keeps its existing x86_64-pc-windows-gnu triple (the npm/pip wrappers
@@ -275,7 +275,7 @@ jobs:
       - name: Upload to GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ needs.meta.outputs.tag }}" "uncomment-${TRIPLE}.zip" --clobber
+        run: gh release upload "${{ needs.meta.outputs.tag }}" "uncomment-${TRIPLE}.zip" --clobber --repo "$GITHUB_REPOSITORY"
 
   # Linux binaries, built inside manylinux_2_28 containers so the binaries link
   # against a glibc 2.28 floor (RHEL 8 / Debian 11 / Ubuntu 20.04+), matching the
@@ -363,7 +363,9 @@ jobs:
             "uncomment-x86_64-pc-windows-gnu.zip"
           )
 
-          gh release view "$tag" --json assets -q '.assets[].name' > /tmp/assets.txt || true
+          # This job has no checkout, so gh cannot infer the repo from a .git dir;
+          # pass --repo explicitly on every gh call.
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' > /tmp/assets.txt || true
           missing=0
           for asset in "${expected[@]}"; do
             if ! grep -qx "$asset" /tmp/assets.txt; then
@@ -378,11 +380,11 @@ jobs:
           echo "✓ All 5 archives present"
 
           for asset in "${expected[@]}"; do
-            gh release download "$tag" -p "$asset" -O "$asset"
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" -p "$asset" -O "$asset"
           done
           sha256sum uncomment-*.tar.gz uncomment-*.zip | sort > "uncomment_${version}_checksums.txt"
           cat "uncomment_${version}_checksums.txt"
-          gh release upload "$tag" "uncomment_${version}_checksums.txt" --clobber
+          gh release upload "$tag" "uncomment_${version}_checksums.txt" --clobber --repo "$GITHUB_REPOSITORY"
 
   finalize_release:
     name: Publish GitHub release
