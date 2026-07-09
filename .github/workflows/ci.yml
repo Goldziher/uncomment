@@ -16,8 +16,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  TSLP_LANGUAGES: "rust,python,javascript,typescript,tsx,go,ruby,php,elixir,toml,csharp,java,c,cpp,json,yaml,hcl,make,bash,haskell,html,css,xml,sql,kotlin,swift,lua,nix,powershell,proto,ini,dockerfile,scala,dart,r,julia,zig,clojure,elm,erlang,vue,svelte,scss,latex,fish,perl,groovy,ocaml,fortran"
-  TSLP_LINK_MODE: static
 
 jobs:
   validate:
@@ -46,6 +44,15 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # Grammars now download on demand at runtime (TSLP dynamic mode); cache the
+      # ~17 MB parser bundle across runs so tests don't re-fetch it every time.
+      - name: Cache tree-sitter parser bundles
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tree-sitter-language-pack
+          key: tslp-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            tslp-${{ runner.os }}-
       - name: Run tests
         run: cargo test
 

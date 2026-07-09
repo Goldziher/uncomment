@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish (e.g., v2.3.1)"
+        description: "Release tag to publish (e.g., v3.1.0)"
         required: true
         type: string
 
@@ -65,6 +65,40 @@ jobs:
           echo "Cargo/npm version: $version"
           echo "Python version: $python_version"
 
+      - name: Verify version consistency across all surfaces
+        run: |
+          set -euo pipefail
+          target_version="${{ steps.version.outputs.version }}"
+          target_python_version="${{ steps.version.outputs.python_version }}"
+
+          echo "Verifying version consistency for: $target_version (Python form: $target_python_version)"
+
+          cargo_version="$(grep -E '^version = "' Cargo.toml | head -1 | cut -d'"' -f2)"
+          if [ "$cargo_version" != "$target_version" ]; then
+            echo "::error::Cargo.toml version mismatch: expected $target_version, got $cargo_version"
+            exit 1
+          fi
+
+          npm_version="$(jq -r '.version' npm-package/package.json)"
+          if [ "$npm_version" != "$target_version" ]; then
+            echo "::error::npm-package/package.json version mismatch: expected $target_version, got $npm_version"
+            exit 1
+          fi
+
+          pypi_version="$(grep -E '^version = "' pip-package/pyproject.toml | head -1 | cut -d'"' -f2)"
+          if [ "$pypi_version" != "$target_python_version" ]; then
+            echo "::error::pip-package/pyproject.toml version mismatch: expected $target_python_version, got $pypi_version"
+            exit 1
+          fi
+
+          init_version="$(grep -E '^__version__ = "' pip-package/uncomment/__init__.py | cut -d'"' -f2)"
+          if [ "$init_version" != "$target_python_version" ]; then
+            echo "::error::pip-package/uncomment/__init__.py version mismatch: expected $target_python_version, got $init_version"
+            exit 1
+          fi
+
+          echo "✓ All version surfaces match: $target_version"
+
       - name: Detect already-published versions
         id: published
         run: |
@@ -115,11 +149,54 @@ jobs:
           echo "release_assets_exist=$release_assets_exist" >> "$GITHUB_OUTPUT"
           echo "GitHub release assets exist? $release_assets_exist"
 
-  release_assets:
-    name: Publish GitHub release assets
+  create_release:
+    name: Create GitHub release (draft)
     needs: meta
     if: needs.meta.outputs.release_assets_exist != 'true'
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+      - name: Ensure the GitHub release exists as a draft
+        # The build matrix uploads assets here with `gh release upload`, which needs
+        # the release to already exist. Create it as a DRAFT so the binaries stay
+        # invisible until finalize_release verifies all 5 archives + checksums and
+        # promotes it — a failed platform build leaves a hidden draft, never a live
+        # release with missing binaries.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.meta.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists."
+          else
+            prerelease=""
+            case "$tag" in
+              *-rc.* | *-beta* | *-alpha*) prerelease="--prerelease" ;;
+            esac
+            gh release create "$tag" --title "$tag" --notes "Release $tag" --verify-tag --draft $prerelease
+          fi
+
+  # macOS binaries, built natively per architecture. x86_64-apple-darwin is built
+  # on the macos-15-intel runner (fixes #87: Intel macOS support).
+  build-macos:
+    name: Build macOS / ${{ matrix.triple }}
+    needs: [meta, create_release]
+    if: needs.meta.outputs.release_assets_exist != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - triple: aarch64-apple-darwin
+            os: macos-latest
+          - triple: x86_64-apple-darwin
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -130,22 +207,223 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-gnu
+          targets: ${{ matrix.triple }}
 
-      - name: Install Zig
-        run: brew install zig mingw-w64
-
-      - name: Build and publish GitHub release assets
-        uses: goreleaser/goreleaser-action@v7
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
         with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --clean --skip=validate
+          key: ${{ matrix.triple }}
+
+      - name: Build release binary
+        run: cargo build --release --bin uncomment --target "${{ matrix.triple }}"
+
+      - name: Package archive
+        run: |
+          set -euo pipefail
+          tar czf "uncomment-${{ matrix.triple }}.tar.gz" \
+            -C "target/${{ matrix.triple }}/release" uncomment
+
+      - name: Upload to GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
-          TSLP_LANGUAGES: "rust,python,javascript,typescript,tsx,go,ruby,php,elixir,toml,csharp,java,c,cpp,json,yaml,hcl,make,bash,haskell,html,css,xml,sql,kotlin,swift,lua,nix,powershell,proto,ini,dockerfile,scala,dart,r,julia,zig,clojure,elm,erlang,vue,svelte,scss,latex,fish,perl,groovy,ocaml,fortran"
-          TSLP_LINK_MODE: static
+        run: gh release upload "${{ needs.meta.outputs.tag }}" "uncomment-${{ matrix.triple }}.tar.gz" --clobber
+
+  # Windows binary. Cross-compiled from Linux with the mingw-w64 toolchain so the
+  # asset keeps its existing x86_64-pc-windows-gnu triple (the npm/pip wrappers
+  # request that exact name).
+  build-windows:
+    name: Build Windows / x86_64-pc-windows-gnu
+    needs: [meta, create_release]
+    if: needs.meta.outputs.release_assets_exist != 'true'
+    runs-on: ubuntu-latest
+    env:
+      TRIPLE: x86_64-pc-windows-gnu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+      - name: Install mingw-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 zip
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: x86_64-pc-windows-gnu
+
+      - name: Build release binary
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+          CC_x86_64_pc_windows_gnu: x86_64-w64-mingw32-gcc
+          AR_x86_64_pc_windows_gnu: x86_64-w64-mingw32-ar
+        run: cargo build --release --bin uncomment --target x86_64-pc-windows-gnu
+
+      - name: Package archive
+        run: |
+          set -euo pipefail
+          zip -j "uncomment-${TRIPLE}.zip" "target/${TRIPLE}/release/uncomment.exe"
+
+      - name: Upload to GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.meta.outputs.tag }}" "uncomment-${TRIPLE}.zip" --clobber
+
+  # Linux binaries, built inside manylinux_2_28 containers so the binaries link
+  # against a glibc 2.28 floor (RHEL 8 / Debian 11 / Ubuntu 20.04+), matching the
+  # broad compatibility the previous zig build provided.
+  build-linux:
+    name: Build Linux / ${{ matrix.triple }}
+    needs: [meta, create_release]
+    if: needs.meta.outputs.release_assets_exist != 'true'
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - triple: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            image: quay.io/pypa/manylinux_2_28_x86_64:latest
+          - triple: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+            image: quay.io/pypa/manylinux_2_28_aarch64:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+      - name: Install Rust (in container)
+        run: |
+          set -euo pipefail
+          # Pin CARGO_HOME/RUSTUP_HOME to absolute paths so a later container step
+          # (which may not share $HOME) still finds the toolchain.
+          export CARGO_HOME=/opt/cargo
+          export RUSTUP_HOME=/opt/rustup
+          curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+          echo "CARGO_HOME=/opt/cargo" >> "$GITHUB_ENV"
+          echo "RUSTUP_HOME=/opt/rustup" >> "$GITHUB_ENV"
+          echo "/opt/cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Install gh CLI (in container)
+        run: |
+          set -euo pipefail
+          dnf install -y dnf-plugins-core
+          dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+          dnf install -y gh
+
+      - name: Build release binary
+        run: cargo build --release --bin uncomment --target "${{ matrix.triple }}"
+
+      - name: Package archive
+        run: |
+          set -euo pipefail
+          tar czf "uncomment-${{ matrix.triple }}.tar.gz" \
+            -C "target/${{ matrix.triple }}/release" uncomment
+
+      - name: Upload to GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The container runs as root but the workspace is owned by the runner uid;
+          # gh shells out to git, which otherwise refuses with "dubious ownership".
+          git config --global --add safe.directory "${GITHUB_WORKSPACE:-/__w/uncomment/uncomment}"
+          gh release upload "${{ needs.meta.outputs.tag }}" \
+            "uncomment-${{ matrix.triple }}.tar.gz" --clobber --repo "$GITHUB_REPOSITORY"
+
+  checksums:
+    name: Generate and upload checksums
+    needs: [meta, build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all 5 archives are present, then generate checksums
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.meta.outputs.tag }}"
+          version="${{ needs.meta.outputs.version }}"
+
+          expected=(
+            "uncomment-x86_64-unknown-linux-gnu.tar.gz"
+            "uncomment-aarch64-unknown-linux-gnu.tar.gz"
+            "uncomment-aarch64-apple-darwin.tar.gz"
+            "uncomment-x86_64-apple-darwin.tar.gz"
+            "uncomment-x86_64-pc-windows-gnu.zip"
+          )
+
+          gh release view "$tag" --json assets -q '.assets[].name' > /tmp/assets.txt || true
+          missing=0
+          for asset in "${expected[@]}"; do
+            if ! grep -qx "$asset" /tmp/assets.txt; then
+              echo "::error::Missing expected archive: $asset"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::Release incomplete: $missing of 5 archives missing."
+            exit 1
+          fi
+          echo "✓ All 5 archives present"
+
+          for asset in "${expected[@]}"; do
+            gh release download "$tag" -p "$asset" -O "$asset"
+          done
+          sha256sum uncomment-*.tar.gz uncomment-*.zip | sort > "uncomment_${version}_checksums.txt"
+          cat "uncomment_${version}_checksums.txt"
+          gh release upload "$tag" "uncomment_${version}_checksums.txt" --clobber
+
+  finalize_release:
+    name: Publish GitHub release
+    needs: [meta, checksums]
+    # Runs after checksums; re-verifies completeness itself so it only ever flips
+    # the draft to live once all 5 archives AND the checksums file exist.
+    if: always() && needs.meta.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Promote draft to published once complete
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.meta.outputs.tag }}"
+          version="${{ needs.meta.outputs.version }}"
+
+          required=(
+            "uncomment-x86_64-unknown-linux-gnu.tar.gz"
+            "uncomment-aarch64-unknown-linux-gnu.tar.gz"
+            "uncomment-aarch64-apple-darwin.tar.gz"
+            "uncomment-x86_64-apple-darwin.tar.gz"
+            "uncomment-x86_64-pc-windows-gnu.zip"
+            "uncomment_${version}_checksums.txt"
+          )
+
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' > /tmp/assets.txt || true
+          missing=0
+          for asset in "${required[@]}"; do
+            if ! grep -qx "$asset" /tmp/assets.txt; then
+              echo "::error::release $tag is missing $asset"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::release $tag is incomplete ($missing assets missing); leaving it as a draft"
+            exit 1
+          fi
+
+          gh release edit "$tag" --draft=false --repo "$GITHUB_REPOSITORY"
+          echo "✓ Promoted $tag to a published release"
 
   publish_crates:
     name: Publish crates.io
@@ -185,8 +463,10 @@ jobs:
 
   publish_npm:
     name: Publish npm
-    needs: meta
-    if: needs.meta.outputs.npm_exists != 'true'
+    # Gated on finalize_release: install.js downloads the platform binary from the
+    # GitHub release, so it must not publish until that release is live.
+    needs: [meta, finalize_release]
+    if: needs.meta.outputs.npm_exists != 'true' && needs.finalize_release.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -221,8 +501,10 @@ jobs:
 
   publish_pypi:
     name: Publish PyPI
-    needs: meta
-    if: needs.meta.outputs.pypi_exists != 'true'
+    # Gated on finalize_release: the pip downloader fetches the platform binary from
+    # the GitHub release, so it must not publish until that release is live.
+    needs: [meta, finalize_release]
+    if: needs.meta.outputs.pypi_exists != 'true' && needs.finalize_release.result == 'success'
     runs-on: ubuntu-latest
     environment: pypi
     steps:
@@ -249,3 +531,44 @@ jobs:
         with:
           packages-dir: pip-package/dist
           skip-existing: true
+
+  publish_homebrew:
+    name: Update Homebrew formula
+    # Stable releases only — rc/beta/alpha pre-releases do not update the tap.
+    needs: [meta, finalize_release]
+    if: needs.finalize_release.result == 'success' && !contains(needs.meta.outputs.version, '-rc') && !contains(needs.meta.outputs.version, '-beta') && !contains(needs.meta.outputs.version, '-alpha')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+      - name: Generate formula and push to tap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOMEBREW_TOKEN:-}" ]; then
+            echo "HOMEBREW_TOKEN not set — skipping the Homebrew formula update."
+            exit 0
+          fi
+          tag="${{ needs.meta.outputs.tag }}"
+          version="${{ needs.meta.outputs.version }}"
+          gh release download "$tag" -p "uncomment_${version}_checksums.txt" -O checksums.txt
+          ./scripts/update-homebrew-formula.sh "$version" checksums.txt > uncomment.rb
+
+          git clone --depth 1 "https://x-access-token:${HOMEBREW_TOKEN}@github.com/Goldziher/homebrew-tap.git" tap
+          cp uncomment.rb tap/Formula/uncomment.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/uncomment.rb
+          if git diff --cached --quiet; then
+            echo "Formula already up to date."
+          else
+            git commit -m "uncomment ${version}"
+            git push
+          fi
