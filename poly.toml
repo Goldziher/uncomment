@@ -30,7 +30,7 @@ extend_exclude = ["CHANGELOG.md"]
 stages = ["pre-commit"]
 
 [hooks.builtin]
-polylint = { exclude = [
+lint = { exclude = [
     "**/*.lock",
     "**/*.svg",
     "**/Cargo.lock",
@@ -44,7 +44,7 @@ polylint = { exclude = [
     "pip-package/**",
     "target/**",
 ] }
-polyfmt = { exclude = [
+fmt = { exclude = [
     "**/*.lock",
     "**/*.svg",
     "**/Cargo.lock",
