@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [v3.3.0] - 2026-07-10
+
+### Added
+
+- Colorized, terminal-aware CLI output. Colors render on a TTY and degrade to clean
+  plain text automatically when piped or when `NO_COLOR` is set. Styled help groups
+  options into Comment selection / File selection / Output / Performance, adds value
+  names and usage examples, and colors the summary, diff, and error output.
+- Progress bar for large, non-verbose runs (shown only on a terminal for 20+ files).
+- Brand identity: a logo (mark, wordmark, and hero banner as SVG + PNG) and a
+  restructured README with a hero, value proposition, and badges.
+
+### Changed
+
+- Upgraded dependencies: `anstream` to 1.0, `ignore` to 0.4.28, `indicatif` to 0.18
+  (dropping the unmaintained `number_prefix`, RUSTSEC-2025-0119).
+
+## [v3.2.0] - 2026-07-09
+
+### Added
+
+- In-memory `plan_removals` API for computing comment removals without writing files.
+
 ## [v3.1.0] - 2026-07-09
 
 ### Fixed
