@@ -415,19 +415,36 @@ impl OutputWriter {
     }
 
     pub fn write_file(&self, processed_file: &ProcessedFile) -> Result<()> {
+        use crate::ui;
+
         let modified = processed_file.original_content != processed_file.processed_content;
 
         if !modified {
             if self.verbose {
-                println!("✓ No changes needed: {}", processed_file.path.display());
+                anstream::println!(
+                    "{} {} {}",
+                    ui::success(ui::CHECK),
+                    ui::dim("No changes needed:"),
+                    ui::path(&processed_file.path)
+                );
             }
             return Ok(());
         }
 
         if self.dry_run {
-            println!("[DRY RUN] Would modify: {}", processed_file.path.display());
+            // "[DRY RUN] Would modify:" and "Removed N comment(s)" are parsed by
+            // the benchmark tool — keep the literal tokens, color only around them.
+            anstream::println!(
+                "{} {} {}",
+                ui::accent("[DRY RUN]"),
+                ui::dim("Would modify:"),
+                ui::path(&processed_file.path)
+            );
             if self.verbose {
-                println!("  Removed {} comment(s)", processed_file.comments_removed);
+                anstream::println!(
+                    "  {}",
+                    ui::dim(format!("Removed {} comment(s)", processed_file.comments_removed))
+                );
             }
             if self.show_diff {
                 self.show_diff(processed_file)?;
@@ -437,13 +454,15 @@ impl OutputWriter {
                 .with_context(|| format!("Failed to write file: {}", processed_file.path.display()))?;
 
             if self.verbose {
-                println!(
-                    "✓ Modified: {} (removed {} comment(s))",
-                    processed_file.path.display(),
-                    processed_file.comments_removed
+                anstream::println!(
+                    "{} {} {} {}",
+                    ui::success(ui::CHECK),
+                    ui::success("Modified:"),
+                    ui::path(&processed_file.path),
+                    ui::dim(format!("(removed {} comment(s))", processed_file.comments_removed))
                 );
             } else {
-                println!("Modified: {}", processed_file.path.display());
+                anstream::println!("{} {}", ui::success("Modified:"), ui::path(&processed_file.path));
             }
         }
 
@@ -451,8 +470,14 @@ impl OutputWriter {
     }
 
     fn show_diff(&self, processed_file: &ProcessedFile) -> Result<()> {
-        println!("\n--- {}", processed_file.path.display());
-        println!("+++ {} (processed)", processed_file.path.display());
+        use crate::ui;
+
+        anstream::println!();
+        anstream::println!("{}", ui::dim(format!("--- {}", processed_file.path.display())));
+        anstream::println!(
+            "{}",
+            ui::dim(format!("+++ {} (processed)", processed_file.path.display()))
+        );
 
         let original_lines: Vec<&str> = processed_file.original_content.lines().collect();
         let processed_lines: Vec<&str> = processed_file.processed_content.lines().collect();
@@ -465,12 +490,12 @@ impl OutputWriter {
 
             if original_line != processed_line {
                 if i < original_lines.len() && i >= processed_lines.len() {
-                    println!("-{original_line}");
+                    anstream::println!("{}", ui::danger(format!("-{original_line}")));
                 } else if i >= original_lines.len() && i < processed_lines.len() {
-                    println!("+{processed_line}");
+                    anstream::println!("{}", ui::success(format!("+{processed_line}")));
                 } else if original_line != processed_line {
-                    println!("-{original_line}");
-                    println!("+{processed_line}");
+                    anstream::println!("{}", ui::danger(format!("-{original_line}")));
+                    anstream::println!("{}", ui::success(format!("+{processed_line}")));
                 }
             }
         }
@@ -478,16 +503,8 @@ impl OutputWriter {
         Ok(())
     }
 
-    pub fn print_summary(&self, total_files: usize, modified_files: usize) {
-        if self.dry_run {
-            println!("\n[DRY RUN] Summary: {total_files} files processed, {modified_files} would be modified");
-        } else {
-            println!("\nSummary: {total_files} files processed, {modified_files} modified");
-        }
-
-        if total_files > 0 && modified_files == 0 {
-            println!("All files were already comment-free or only contained preserved comments.");
-        }
+    pub fn print_summary(&self, total_files: usize, modified_files: usize, comments_removed: usize) {
+        crate::ui::print_summary(total_files, modified_files, comments_removed, self.dry_run);
     }
 }
 

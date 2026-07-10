@@ -4,6 +4,7 @@ pub mod config;
 pub mod languages;
 pub mod processor;
 pub mod rules;
+pub mod ui;
 
 pub use processor::{ProcessingOptions, Processor, Removal};
 pub use rules::preservation::PreservationRule;
