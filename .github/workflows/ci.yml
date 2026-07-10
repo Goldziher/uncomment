@@ -44,8 +44,6 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      # Grammars now download on demand at runtime (TSLP dynamic mode); cache the
-      # ~17 MB parser bundle across runs so tests don't re-fetch it every time.
       - name: Cache tree-sitter parser bundles
         uses: actions/cache@v4
         with:

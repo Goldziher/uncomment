@@ -78,19 +78,16 @@ fn test_processor_multiple_languages() {
     let config_manager = ConfigManager::new(temp_dir.path()).unwrap();
     let mut processor = Processor::new();
 
-    // Rust
     let rust_file = temp_dir.path().join("test.rs");
     fs::write(&rust_file, "// Rust comment\nfn main() {}").unwrap();
     let rust_result = processor.process_file_with_config(&rust_file, &config_manager, None);
     assert!(rust_result.is_ok());
 
-    // Python
     let python_file = temp_dir.path().join("test.py");
     fs::write(&python_file, "# Python comment\nprint('hello')").unwrap();
     let python_result = processor.process_file_with_config(&python_file, &config_manager, None);
     assert!(python_result.is_ok());
 
-    // JavaScript
     let js_file = temp_dir.path().join("test.js");
     fs::write(&js_file, "// JS comment\nconsole.log('hello');").unwrap();
     let js_result = processor.process_file_with_config(&js_file, &config_manager, None);

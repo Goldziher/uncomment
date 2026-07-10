@@ -152,7 +152,6 @@ impl Processor {
     fn create_preservation_rules_from_config(&self, config: &ResolvedConfig) -> Vec<PreservationRule> {
         let mut rules = Vec::new();
 
-        // Always preserve shebangs (#!...) as they can affect file executability.
         rules.push(PreservationRule::shebang());
 
         // Always preserve ~keep
@@ -204,14 +203,12 @@ impl Processor {
 
         let bytes = content.as_bytes();
 
-        // Collect and sort ranges
         let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(comments_to_remove.len());
         for comment in comments_to_remove {
             ranges.push((comment.start_byte, comment.end_byte));
         }
         ranges.sort_unstable_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
 
-        // Filter overlapping ranges
         let mut filtered: Vec<(usize, usize)> = Vec::with_capacity(ranges.len());
         for (start, end) in ranges {
             if let Some(previous) = filtered.last()
@@ -223,8 +220,6 @@ impl Processor {
             filtered.push((start, end));
         }
 
-        // Expand ranges to full lines when only whitespace surrounds the comment,
-        // then build output in a single forward pass.
         let mut removal_ranges: Vec<(usize, usize)> = Vec::with_capacity(filtered.len());
         for (start, end) in &filtered {
             if let Some(range) = Self::expand_range(bytes, *start, *end) {
@@ -232,7 +227,6 @@ impl Processor {
             }
         }
 
-        // Single-pass forward copy of kept segments
         let mut output = String::with_capacity(content.len());
         let mut cursor = 0;
         for (start, end) in &removal_ranges {
@@ -259,7 +253,6 @@ impl Processor {
             return None;
         }
 
-        // Find line boundaries using memchr.
         let line_start = match memchr::memrchr(b'\n', &bytes[..start]) {
             Some(pos) => pos + 1,
             None => 0,
@@ -432,8 +425,6 @@ impl OutputWriter {
         }
 
         if self.dry_run {
-            // "[DRY RUN] Would modify:" and "Removed N comment(s)" are parsed by
-            // the benchmark tool — keep the literal tokens, color only around them.
             anstream::println!(
                 "{} {} {}",
                 ui::accent("[DRY RUN]"),
@@ -612,13 +603,11 @@ mod tests {
         // TODO (remove_todos=false) and ~keep are preserved; two comments remain.
         let previews: Vec<&str> = removals.iter().map(|removal| removal.preview.as_str()).collect();
         assert_eq!(previews, vec!["// remove me", "// trailing"]);
-        // The standalone comment expands to swallow its whole line (incl. newline).
         assert_eq!(removals[0].remove_start, 0);
         assert_eq!(
             &source[removals[0].remove_start..removals[0].remove_end],
             "// remove me\n"
         );
-        // The trailing comment keeps its own span — the code before it is retained.
         assert_eq!(&source[removals[1].remove_start..removals[1].remove_end], "// trailing");
     }
 
