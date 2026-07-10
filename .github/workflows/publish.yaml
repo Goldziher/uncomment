@@ -451,7 +451,7 @@ jobs:
   publish_npm:
     name: Publish npm
     needs: [meta, finalize_release]
-    if: needs.meta.outputs.npm_exists != 'true' && needs.finalize_release.result == 'success'
+    if: always() && needs.meta.outputs.npm_exists != 'true' && needs.finalize_release.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -490,7 +490,7 @@ jobs:
   publish_pypi:
     name: Publish PyPI
     needs: [meta, finalize_release]
-    if: needs.meta.outputs.pypi_exists != 'true' && needs.finalize_release.result == 'success'
+    if: always() && needs.meta.outputs.pypi_exists != 'true' && needs.finalize_release.result == 'success'
     runs-on: ubuntu-latest
     environment: pypi
     steps:
@@ -521,7 +521,7 @@ jobs:
   publish_homebrew:
     name: Update Homebrew formula
     needs: [meta, finalize_release]
-    if: needs.finalize_release.result == 'success' && !contains(needs.meta.outputs.version, '-rc') && !contains(needs.meta.outputs.version, '-beta') && !contains(needs.meta.outputs.version, '-alpha')
+    if: always() && needs.finalize_release.result == 'success' && !contains(needs.meta.outputs.version, '-rc') && !contains(needs.meta.outputs.version, '-beta') && !contains(needs.meta.outputs.version, '-alpha')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
