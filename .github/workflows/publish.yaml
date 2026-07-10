@@ -466,6 +466,12 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      # Tokenless OIDC trusted publishing needs npm >= 11.5.1. Node 22 bundles
+      # npm 10, and npm@latest pulls npm 12 (requires Node >= 22.22, EBADENGINE
+      # here), so pin npm@11 — the newest line that runs on Node 22.
+      - name: Update npm for trusted publishing
+        run: npm install -g npm@11
+
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ""
