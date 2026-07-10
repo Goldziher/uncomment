@@ -28,8 +28,6 @@ impl LanguageHandler for PythonHandler {
 
         let parent = parent?;
 
-        // Some tree-sitter Python grammars wrap docstrings in expression_statement,
-        // others place string nodes directly under module/block.
         if parent.kind() == "expression_statement" {
             let grandparent = parent.parent()?;
             match grandparent.kind() {
@@ -49,7 +47,6 @@ impl LanguageHandler for PythonHandler {
                 _ => Some(false),
             }
         } else {
-            // String directly under module or block (no expression_statement wrapper)
             match parent.kind() {
                 "module" => Some(self.is_first_statement(node, &parent)),
                 "block" => {

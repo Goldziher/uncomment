@@ -1,10 +1,3 @@
-# Uncomment Configuration: Adding Custom Languages
-#
-# uncomment ships with 49 built-in languages. Any of the 306 languages
-# supported by tree-sitter-language-pack can be added here.
-# Grammars are downloaded automatically on first use.
-#
-# See: https://github.com/kreuzberg-dev/tree-sitter-language-pack
 
 [global]
 remove_todos = false
@@ -14,25 +7,19 @@ preserve_patterns = ["IMPORTANT", "NOTE", "WARNING"]
 use_default_ignores = true
 respect_gitignore = true
 
-# ===== ADDITIONAL LANGUAGES =====
-# These are NOT built-in but are available via tree-sitter-language-pack.
-# Just define name, extensions, and comment_nodes.
 
-# ----- Hare -----
 [languages.hare]
 name = "Hare"
 extensions = ["ha"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO", "FIXME"]
 
-# ----- Crystal -----
 [languages.crystal]
 name = "Crystal"
 extensions = ["cr"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO", "FIXME", "ameba:"]
 
-# ----- D -----
 [languages.d]
 name = "D"
 extensions = ["d"]
@@ -40,14 +27,12 @@ comment_nodes = ["comment", "block_comment"]
 doc_comment_nodes = ["block_comment"]
 preserve_patterns = ["TODO", "FIXME"]
 
-# ----- Racket -----
 [languages.racket]
 name = "Racket"
 extensions = ["rkt", "rktl"]
 comment_nodes = ["comment", "block_comment"]
 preserve_patterns = ["TODO", "FIXME"]
 
-# ----- Solidity -----
 [languages.solidity]
 name = "Solidity"
 extensions = ["sol"]
@@ -55,15 +40,12 @@ comment_nodes = ["comment"]
 doc_comment_nodes = ["comment"]
 preserve_patterns = ["TODO", "FIXME", "slither-disable"]
 
-# ----- Mojo -----
 [languages.mojo]
 name = "Mojo"
 extensions = ["mojo"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO", "FIXME"]
 
-# ===== OVERRIDE BUILT-IN LANGUAGES =====
-# You can also override settings for built-in languages.
 
 [languages.python]
 name = "Python"
@@ -73,7 +55,6 @@ doc_comment_nodes = ["string"]
 preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:", "pylint:"]
 remove_docs = true
 
-# ===== PATTERN-BASED RULES =====
 
 [patterns."vendor/**/*"]
 remove_todos = false

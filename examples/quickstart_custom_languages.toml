@@ -1,26 +1,18 @@
-# Quick Start: Adding Languages to Uncomment
-#
-# uncomment ships with 49 built-in languages. To add more, just define
-# the language here. Grammars are downloaded automatically.
-# See: https://github.com/kreuzberg-dev/tree-sitter-language-pack
 
 [global]
 remove_todos = false
 remove_fixme = false
 
-# Add Hare support
 [languages.hare]
 name = "Hare"
 extensions = ["ha"]
 comment_nodes = ["comment"]
 
-# Add Crystal support
 [languages.crystal]
 name = "Crystal"
 extensions = ["cr"]
 comment_nodes = ["comment"]
 
-# Override Python settings
 [languages.python]
 name = "Python"
 extensions = ["py", "pyw", "pyi"]

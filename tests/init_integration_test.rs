@@ -697,7 +697,6 @@ fn test_comprehensive_config_repositories() {
 
     let config_content = fs::read_to_string(project_dir.join("repo-test.toml")).unwrap();
 
-    // Grammar URLs are no longer in templates (tslp handles grammar loading)
     assert!(!config_content.contains("type = \"git\""));
 
     println!("✅ Repository URLs test passed");

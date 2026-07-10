@@ -134,7 +134,6 @@ comment_nodes = ["line_comment", "block_comment"]
     let rust_result = processor.process_file_with_config(&rust_file, &config_manager, None);
     assert!(rust_result.is_ok());
 
-    // Unsupported extension should fail gracefully
     let unknown_file = temp_dir.path().join("test.xyz");
     fs::write(&unknown_file, "// Comment").unwrap();
 

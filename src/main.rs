@@ -31,8 +31,6 @@ type ImportantRemovalSample = (Arc<PathBuf>, processor::ImportantRemoval);
 fn main() -> Result<()> {
     #[cfg(unix)]
     unsafe {
-        // Avoid panicking on broken pipes (e.g. `uncomment ... | head`) by restoring
-        // SIGPIPE default behavior.
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
 
@@ -118,9 +116,6 @@ fn main() -> Result<()> {
 
     let total_files = files.len();
 
-    // Show a progress bar only for larger, non-verbose runs on a terminal;
-    // verbose mode prints per-file lines that would fight the bar, and
-    // `progress_bar` itself returns a hidden bar when stderr is not a TTY.
     let progress = if total_files >= ui::PROGRESS_MIN_FILES && !cli.args.verbose {
         ui::progress_bar(total_files as u64)
     } else {
@@ -402,7 +397,6 @@ fn supported_extensions_message() -> String {
     let mut shown = extensions;
     shown.sort();
 
-    // Keep the message readable.
     const MAX: usize = 20;
     if shown.len() > MAX {
         shown.truncate(MAX);

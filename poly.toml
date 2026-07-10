@@ -26,6 +26,48 @@ exclude = [
 extend_words = { ba = "ba", edn = "edn" }
 extend_exclude = ["CHANGELOG.md"]
 
+[lint.uncomment]
+enabled = true
+remove_todos = false
+remove_fixme = false
+remove_docs = false
+use_default_ignores = true
+preserve_patterns = [
+    "SAFETY",
+    "HACK",
+    "WORKAROUND",
+    "NOTE",
+    "Copyright",
+    "Licensed",
+    "License",
+    "SPDX",
+    "Apache",
+    "MIT",
+    "WITHOUT WARRANTIES",
+    "limitations under the License",
+    "copyright",
+    "licensed",
+    "license",
+    "apache",
+    "you may not use this file except in compliance",
+    "You may obtain a copy of the License",
+    "you may obtain a copy of the license",
+    "http://www.apache.org/licenses/LICENSE-2.0",
+    "http://www.apache.org/licenses/license-2.0",
+    "Unless required by applicable law",
+    "unless required by applicable law",
+    "distributed under the License",
+    "distributed under the license",
+    "AS IS",
+    "as is",
+    "without warranties",
+    "specific language governing permissions",
+    "limitations under the license",
+]
+
+[lint.markdown.rumdl]
+disable = ["MD033", "MD041"]
+
 [hooks]
 stages = ["pre-commit"]
 
@@ -75,7 +117,6 @@ file_safety = { exclude = [
 ] }
 cargo = true
 
-# --- catalog tools (standalone binaries, PATH-probed) ---
 [tools.shfmt]
 enabled = true
 
@@ -84,6 +125,3 @@ enabled = true
 
 [tools.actionlint]
 enabled = true
-
-# --- dropped / unmapped hooks (for the record) ---
-# UNMAPPED: cargo-check

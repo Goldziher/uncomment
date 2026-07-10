@@ -2,14 +2,7 @@
 set -euo pipefail
 
 # update-homebrew-formula.sh <version> <checksums-file>
-#
-# Emits a Homebrew formula (to stdout) for the PREBUILT uncomment binary, pulling
-# the per-platform archive URLs from the GitHub release and the sha256 digests from
 # the release checksums file (`uncomment_<version>_checksums.txt`). This replaces
-# goreleaser's `brews:` generator. Run only for stable releases.
-#
-# The archives contain a single `uncomment` binary at the root, so the formula just
-# installs it onto PATH.
 
 if [ $# -ne 2 ]; then
 	echo "Usage: $0 <version> <checksums-file>" >&2

@@ -119,7 +119,6 @@ impl LanguageRegistry {
             _ => {}
         }
 
-        // Dockerfile variants like Dockerfile.dev, Dockerfile.prod
         if file_name.starts_with("Dockerfile.") || file_name.starts_with("dockerfile.") {
             return Some("dockerfile");
         }
@@ -322,7 +321,6 @@ mod tests {
         assert!(registry.is_supported_extension("proto"));
         assert!(registry.is_supported_extension("ini"));
 
-        // C/C++ headers are supported, but we preserve important header guard comments.
         assert!(registry.is_supported_extension("h"));
         assert!(registry.is_supported_extension("hpp"));
         assert!(registry.is_supported_extension("hh"));
