@@ -2,4 +2,4 @@
 uncomment: A fast, accurate comment removal tool using tree-sitter for AST parsing
 """
 
-__version__ = "3.1.0"
+__version__ = "3.3.0"
