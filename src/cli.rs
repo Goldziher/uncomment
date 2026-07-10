@@ -1,12 +1,29 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
+/// Usage examples and preservation notes shown under `--help`.
+const AFTER_LONG_HELP: &str = "Examples:
+  uncomment src/                     Remove comments from every file under src/
+  uncomment src/ --dry-run --diff    Preview changes as a diff, write nothing
+  uncomment main.rs --remove-doc     Also strip doc comments and docstrings
+  uncomment . -j 0                   Process the whole tree using all CPU cores
+  uncomment init                     Generate a .uncommentrc.toml for this project
+
+Preserved by default: TODO, FIXME, HACK, XXX, NOSONAR, the ~keep marker, doc
+comments, and linting directives (eslint-disable, clippy::, noqa, ...). Override
+with the flags above or a .uncommentrc.toml (see `uncomment init`).";
+
 #[derive(Parser, Debug)]
 #[command(
     name = "uncomment",
     version,
-    about = "Remove comments from code files using tree-sitter parsing",
-    long_about = "A fast, accurate CLI tool that removes comments from source code files using tree-sitter AST parsing. Automatically preserves important comments like linting directives, documentation, and metadata."
+    about = "Strip comments from source code — accurately, via tree-sitter.",
+    long_about = "uncomment removes comments from source code using tree-sitter AST parsing, so it \
+                  is 100% accurate and never touches comment-like text inside strings. It preserves \
+                  what matters by default — TODO/FIXME, docs, and linting directives — across 300+ \
+                  languages, with parallel processing and a safe dry-run mode.",
+    styles = crate::ui::clap_styles(),
+    after_long_help = AFTER_LONG_HELP
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -22,7 +39,7 @@ pub enum Commands {
     #[command(about = "Create a template configuration file")]
     Init {
         /// ~keep Output file name
-        #[arg(short, long, default_value = ".uncommentrc.toml")]
+        #[arg(short, long, value_name = "FILE", default_value = ".uncommentrc.toml")]
         output: PathBuf,
 
         /// ~keep Overwrite existing file
@@ -42,59 +59,93 @@ pub enum Commands {
 #[derive(Parser, Debug)]
 pub struct ProcessArgs {
     /// ~keep Files or directories to process (supports glob patterns)
-    #[arg(help = "Files, directories, or glob patterns to process")]
+    #[arg(value_name = "PATH", help = "Files, directories, or glob patterns to process")]
     pub paths: Vec<String>,
 
     /// ~keep Remove TODO comments (normally preserved)
-    #[arg(short = 'r', long, help = "Remove TODO comments (normally preserved)")]
+    #[arg(
+        short = 'r',
+        long,
+        help = "Remove TODO comments (normally preserved)",
+        help_heading = "Comment selection"
+    )]
     pub remove_todo: bool,
 
     /// ~keep Remove FIXME comments (normally preserved)
-    #[arg(short = 'f', long, help = "Remove FIXME comments (normally preserved)")]
+    #[arg(
+        short = 'f',
+        long,
+        help = "Remove FIXME comments (normally preserved)",
+        help_heading = "Comment selection"
+    )]
     pub remove_fixme: bool,
 
     /// ~keep Remove documentation comments (normally preserved)
-    #[arg(short = 'd', long, help = "Remove documentation comments and docstrings")]
+    #[arg(
+        short = 'd',
+        long,
+        help = "Remove documentation comments and docstrings",
+        help_heading = "Comment selection"
+    )]
     pub remove_doc: bool,
 
     /// ~keep Additional patterns to preserve (beyond defaults)
     #[arg(
         short = 'i',
         long = "ignore",
-        help = "Additional patterns to preserve (can be used multiple times)"
+        value_name = "PATTERN",
+        help = "Additional patterns to preserve (can be used multiple times)",
+        help_heading = "Comment selection"
     )]
     pub ignore_patterns: Vec<String>,
 
     /// ~keep Disable automatic preservation of linting directives
     #[arg(
         long = "no-default-ignores",
-        help = "Disable built-in preservation patterns (ESLint, Clippy, etc.)"
+        help = "Disable built-in preservation patterns (ESLint, Clippy, etc.)",
+        help_heading = "Comment selection"
     )]
     pub no_default_ignores: bool,
 
     /// ~keep Show what would be changed without modifying files
-    #[arg(short = 'n', long, help = "Show changes without modifying files")]
+    #[arg(
+        short = 'n',
+        long,
+        help = "Show changes without modifying files",
+        help_heading = "Output"
+    )]
     pub dry_run: bool,
 
     /// ~keep Show line-by-line diffs in dry-run mode
     #[arg(
         long = "diff",
-        help = "Show line-by-line diffs for modified files (only useful with --dry-run)"
+        help = "Show line-by-line diffs for modified files (only useful with --dry-run)",
+        help_heading = "Output"
     )]
     pub diff: bool,
 
     /// ~keep Show detailed processing information
-    #[arg(short = 'v', long, help = "Show detailed processing information")]
+    #[arg(
+        short = 'v',
+        long,
+        help = "Show detailed processing information",
+        help_heading = "Output"
+    )]
     pub verbose: bool,
 
     /// ~keep Ignore .gitignore rules when finding files
-    #[arg(long = "no-gitignore", help = "Process files ignored by .gitignore")]
+    #[arg(
+        long = "no-gitignore",
+        help = "Process files ignored by .gitignore",
+        help_heading = "File selection"
+    )]
     pub no_gitignore: bool,
 
     /// ~keep Process files in nested git repositories
     #[arg(
         long = "traverse-git-repos",
-        help = "Traverse into other git repositories (useful for monorepos)"
+        help = "Traverse into other git repositories (useful for monorepos)",
+        help_heading = "File selection"
     )]
     pub traverse_git_repos: bool,
 
@@ -102,8 +153,10 @@ pub struct ProcessArgs {
     #[arg(
         short = 'j',
         long = "threads",
+        value_name = "N",
         help = "Number of parallel threads (0 = auto-detect)",
-        default_value = "1"
+        default_value = "1",
+        help_heading = "Performance"
     )]
     pub threads: usize,
 
@@ -111,7 +164,9 @@ pub struct ProcessArgs {
     #[arg(
         short = 'c',
         long = "config",
-        help = "Path to configuration file (overrides automatic discovery)"
+        value_name = "FILE",
+        help = "Path to configuration file (overrides automatic discovery)",
+        help_heading = "File selection"
     )]
     pub config: Option<PathBuf>,
 }
@@ -159,33 +214,57 @@ impl Cli {
 
         std::fs::write(output, template)?;
 
-        println!("✓ Created configuration file: {}", output.display());
+        use crate::ui;
+        anstream::println!(
+            "{} {} {}",
+            ui::success(ui::CHECK),
+            ui::success("Created configuration file:"),
+            ui::path(output)
+        );
 
         if comprehensive {
-            println!("📦 Generated comprehensive config with 15+ language configurations");
+            anstream::println!(
+                "{} Generated comprehensive config with 15+ language configurations",
+                ui::dim(ui::BULLET)
+            );
         } else if interactive {
-            println!("🎯 Generated customized config based on your selections");
+            anstream::println!(
+                "{} Generated customized config based on your selections",
+                ui::dim(ui::BULLET)
+            );
         } else if let Some(info) = detected_info {
             if !info.detected_languages.is_empty() {
-                println!(
-                    "🔍 Detected {} file types in your project:",
-                    info.detected_languages.len()
+                anstream::println!(
+                    "{} Detected {} file types in your project:",
+                    ui::dim(ui::BULLET),
+                    ui::accent(info.detected_languages.len())
                 );
                 for (lang, count) in &info.detected_languages {
-                    println!("   {count} ({lang} files)");
+                    anstream::println!("    {}", ui::dim(format!("{count} ({lang} files)")));
                 }
-                println!(
-                    "📝 Configured {} languages with appropriate settings",
-                    info.configured_languages
+                anstream::println!(
+                    "{} Configured {} languages with appropriate settings",
+                    ui::dim(ui::BULLET),
+                    ui::accent(info.configured_languages)
                 );
             } else {
-                println!("📝 No supported files detected, generated basic template");
+                anstream::println!(
+                    "{} No supported files detected, generated basic template",
+                    ui::dim(ui::BULLET)
+                );
             }
             if info.total_files > 0 {
-                println!("📊 Scanned {} files total", info.total_files);
+                anstream::println!(
+                    "{} Scanned {} files total",
+                    ui::dim(ui::BULLET),
+                    ui::accent(info.total_files)
+                );
             }
         } else {
-            println!("📝 Generated smart config based on detected files in your project");
+            anstream::println!(
+                "{} Generated smart config based on detected files in your project",
+                ui::dim(ui::BULLET)
+            );
         }
 
         Ok(())

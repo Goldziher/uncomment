@@ -4,6 +4,7 @@ mod config;
 pub mod languages;
 pub mod processor;
 mod rules;
+mod ui;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -51,7 +52,11 @@ fn main() -> Result<()> {
     let options = cli.args.processing_options();
 
     if cli.args.paths.is_empty() {
-        eprintln!("Error: No input paths specified. Use 'uncomment --help' for usage information.");
+        anstream::eprintln!(
+            "{} No input paths specified. Run {} for usage information.",
+            ui::danger("error:"),
+            ui::accent("uncomment --help")
+        );
         std::process::exit(1);
     }
 
@@ -72,10 +77,16 @@ fn main() -> Result<()> {
     print_unsupported_files_report(&unsupported_report, cli.args.verbose);
 
     if files.is_empty() {
-        eprintln!("No supported files found to process in the specified paths.");
-        eprintln!("{}", supported_extensions_message());
+        anstream::eprintln!(
+            "{} No supported files found to process in the specified paths.",
+            ui::warn("!")
+        );
+        anstream::eprintln!("{}", ui::dim(supported_extensions_message()));
         if options.respect_gitignore {
-            eprintln!("Tip: Use --no-gitignore to process files ignored by git.");
+            anstream::eprintln!(
+                "{}",
+                ui::dim("Tip: Use --no-gitignore to process files ignored by git.")
+            );
         }
         return Ok(());
     }
@@ -87,7 +98,11 @@ fn main() -> Result<()> {
     };
 
     if cli.args.verbose && num_threads > 1 {
-        println!("🔧 Using {num_threads} parallel threads");
+        anstream::println!(
+            "{} {}",
+            ui::dim(ui::BULLET),
+            ui::dim(format!("Using {num_threads} parallel threads"))
+        );
     }
 
     rayon::ThreadPoolBuilder::new()
@@ -103,23 +118,34 @@ fn main() -> Result<()> {
 
     let total_files = files.len();
 
-    // Process files in parallel (or sequentially if threads=1), collecting results
-    // with zero mutex contention on the hot path.
+    // Show a progress bar only for larger, non-verbose runs on a terminal;
+    // verbose mode prints per-file lines that would fight the bar, and
+    // `progress_bar` itself returns a hidden bar when stderr is not a TTY.
+    let progress = if total_files >= ui::PROGRESS_MIN_FILES && !cli.args.verbose {
+        ui::progress_bar(total_files as u64)
+    } else {
+        indicatif::ProgressBar::hidden()
+    };
+
     let process_file = |file_path: &PathBuf| -> Option<processor::ProcessedFile> {
         let mut proc = processor::Processor::new_with_config(&config_manager);
-        match proc.process_file_with_config(file_path, &config_manager, Some(&options)) {
+        let result = match proc.process_file_with_config(file_path, &config_manager, Some(&options)) {
             Ok(mut pf) => {
                 pf.modified = pf.original_content != pf.processed_content;
                 Some(pf)
             }
             Err(e) => {
-                eprintln!("Error processing {}: {e}", file_path.display());
-                if cli.args.verbose {
-                    eprintln!("  Full error: {e:?}");
-                }
+                progress.suspend(|| {
+                    anstream::eprintln!("{} processing {}: {e}", ui::danger("error"), ui::path(file_path));
+                    if cli.args.verbose {
+                        anstream::eprintln!("  {}", ui::dim(format!("Full error: {e:?}")));
+                    }
+                });
                 None
             }
-        }
+        };
+        progress.inc(1);
+        result
     };
 
     let results: Vec<processor::ProcessedFile> = if num_threads == 1 {
@@ -128,14 +154,17 @@ fn main() -> Result<()> {
         files.par_iter().filter_map(process_file).collect()
     };
 
-    // Sequential phase: write output, collect stats
+    progress.finish_and_clear();
+
     let mut modified_files = 0usize;
+    let mut comments_removed_total = 0usize;
     let mut important_removal_count = 0usize;
     let mut important_removal_samples: Vec<ImportantRemovalSample> = Vec::new();
 
     for processed_file in &results {
         if processed_file.modified {
             modified_files += 1;
+            comments_removed_total += processed_file.comments_removed;
         }
 
         if !processed_file.important_removals.is_empty() {
@@ -153,21 +182,27 @@ fn main() -> Result<()> {
         output_writer.write_file(processed_file)?;
     }
 
-    output_writer.print_summary(total_files, modified_files);
+    output_writer.print_summary(total_files, modified_files, comments_removed_total);
 
     if important_removal_count > 0 {
-        eprintln!(
-            "Warning: removed {important_removal_count} potentially important comment(s). Re-run with `--dry-run --diff` to inspect."
+        anstream::eprintln!(
+            "{} removed {} potentially important comment(s). Re-run with {} to inspect.",
+            ui::warn("warning:"),
+            ui::warn(important_removal_count),
+            ui::accent("--dry-run --diff")
         );
         if cli.args.verbose {
-            eprintln!("Examples:");
+            anstream::eprintln!("{}", ui::dim("Examples:"));
             for (path, removal) in &important_removal_samples {
-                eprintln!(
-                    "  - {}:{} [{}] {}",
-                    path.display(),
-                    removal.line,
-                    removal.reason,
-                    removal.preview
+                anstream::eprintln!(
+                    "  {}",
+                    ui::dim(format!(
+                        "- {}:{} [{}] {}",
+                        path.display(),
+                        removal.line,
+                        removal.reason,
+                        removal.preview
+                    ))
                 );
             }
         }
@@ -279,7 +314,7 @@ fn collect_from_pattern(
                         }
                     }
                 }
-                Err(e) => eprintln!("Error reading path: {e}"),
+                Err(e) => anstream::eprintln!("{} reading path: {e}", ui::danger("error")),
             }
         }
     } else {
@@ -294,7 +329,7 @@ fn collect_from_pattern(
                         }
                     }
                 }
-                Err(e) => eprintln!("Error reading path: {e}"),
+                Err(e) => anstream::eprintln!("{} reading path: {e}", ui::danger("error")),
             }
         }
     }
@@ -336,12 +371,16 @@ fn print_unsupported_files_report(report: &UnsupportedFilesReport, verbose: bool
         summary.push_str(&format!("{ext}={count}"));
     }
 
-    eprintln!("Skipping {} unsupported file(s) ({summary}).", report.total);
+    anstream::eprintln!(
+        "{} {}",
+        ui::dim(ui::BULLET),
+        ui::dim(format!("Skipping {} unsupported file(s) ({summary}).", report.total))
+    );
 
     if verbose && !report.samples.is_empty() {
-        eprintln!("Examples:");
+        anstream::eprintln!("{}", ui::dim("Examples:"));
         for sample in &report.samples {
-            eprintln!("  - {}", sample.display());
+            anstream::eprintln!("  {}", ui::dim(format!("- {}", sample.display())));
         }
     }
 }
