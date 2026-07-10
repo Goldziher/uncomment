@@ -1,7 +1,7 @@
 # uncomment-cli
 
-[![npm version](https://badge.fury.io/js/uncomment-cli.svg)](https://badge.fury.io/js/uncomment-cli)
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Goldziher/uncomment/blob/main/LICENSE)
+[![npm](https://img.shields.io/npm/v/uncomment-cli?style=flat-square&color=2dd4bf&label=npm)](https://www.npmjs.com/package/uncomment-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2dd4bf?style=flat-square)](https://github.com/Goldziher/uncomment/blob/main/LICENSE)
 
 A blazing fast Rust-based command-line tool that removes comments from your source code. Perfect for cleaning up AI-generated code that comes with excessive explanations.
 
