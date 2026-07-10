@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 96" width="384" height="96" role="img" aria-label="uncomment">
+  <!-- mark: // fading into dots -->
+  <g transform="translate(6,24)">
+    <g stroke="#2dd4bf" stroke-width="3.6" stroke-linecap="round">
+      <line x1="13" y1="33" x2="20.5" y2="15"/>
+      <line x1="21.5" y1="33" x2="29" y2="15"/>
+    </g>
+    <circle cx="34" cy="30.5" r="2.5" fill="#6b7280"/>
+    <circle cx="40" cy="30.5" r="2.1" fill="#4b5563"/>
+    <circle cx="45" cy="30.5" r="1.6" fill="#374151"/>
+  </g>
+  <!-- wordmark: un (kept, teal) + comment (muted, comment-gray) -->
+  <text x="66" y="62" font-family="'JetBrains Mono','SF Mono','DejaVu Sans Mono',ui-monospace,monospace" font-size="52" font-weight="700" letter-spacing="-1.5">
+    <tspan fill="#2dd4bf">un</tspan><tspan fill="#6b7280">comment</tspan>
+  </text>
+</svg>

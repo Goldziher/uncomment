@@ -1,116 +1,69 @@
-# Uncomment: Tree-sitter Based Comment Removal Tool
+<div align="center">
 
-A fast, accurate, and extensible comment removal tool that uses tree-sitter for parsing, ensuring 100% accuracy in comment identification. Originally created to clean up AI-generated code with excessive comments, it now supports any language with a tree-sitter grammar through its flexible configuration system.
+<img src="assets/banner.svg" alt="uncomment — strip the noise, keep the code" width="820">
 
-## Support This Project
+**Strip the noise. Keep the code.**
 
-If you find uncomment helpful, please consider sponsoring the development:
+uncomment removes comments from source code using tree-sitter's AST — so it is 100% accurate and
+**never** touches comment-like text inside strings. It keeps what matters by default (TODO/FIXME,
+docs, and linting directives) across **300+ languages**, with parallel processing and a safe dry-run
+mode.
 
-<a href="https://github.com/sponsors/Goldziher"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github-sponsors" alt="Sponsor on GitHub" height="32"></a>
+AST-accurate&nbsp;·&nbsp;306 languages&nbsp;·&nbsp;zero false positives&nbsp;·&nbsp;smart preservation&nbsp;·&nbsp;parallel&nbsp;·&nbsp;dry-run
 
-Your support helps maintain and improve this tool for the community! 🚀
+[![crates.io](https://img.shields.io/crates/v/uncomment?style=flat-square&color=2dd4bf)](https://crates.io/crates/uncomment)
+[![npm](https://img.shields.io/npm/v/uncomment-cli?style=flat-square&color=2dd4bf&label=npm)](https://www.npmjs.com/package/uncomment-cli)
+[![PyPI](https://img.shields.io/pypi/v/uncomment?style=flat-square&color=2dd4bf)](https://pypi.org/project/uncomment/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Goldziher/uncomment/ci.yml?style=flat-square&label=CI)](https://github.com/Goldziher/uncomment/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](./LICENSE)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/Goldziher)
+
+[Install](#installation)&nbsp;·&nbsp;[Features](#features)&nbsp;·&nbsp;[Usage](#usage)&nbsp;·&nbsp;[Configuration](#configuration)&nbsp;·&nbsp;[How it works](#how-it-works)&nbsp;·&nbsp;[Contributing](#contributing)
+
+</div>
+
+---
+
+## Why uncomment
+
+Regex-based comment strippers guess. They delete a `//` inside a string literal, mangle a URL in a
+docstring, or leave a linting directive your CI depends on. uncomment doesn't guess: it parses your
+code into a real syntax tree and removes only the nodes that are genuinely comments.
+
+Originally built to clean up AI-generated code drowning in explanatory comments, it now works on
+anything with a tree-sitter grammar.
 
 ## Features
 
-- **100% Accurate**: Uses tree-sitter AST parsing to correctly identify comments
-- **No False Positives**: Never removes comment-like content from strings
-- **Smart Preservation**: Keeps important metadata, TODOs, FIXMEs, and language-specific patterns
-- **Parallel Processing**: Multi-threaded processing for improved performance
-- **306 Languages**: Powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) with automatic grammar downloading
-- **Configuration System**: TOML-based configuration for project-specific settings
-- **Smart Init Command**: Automatically generate configuration based on your project
-- **Fast**: Leverages tree-sitter's optimized parsing
-- **Safe**: Dry-run mode to preview changes
-- **Built-in Benchmarking**: Performance analysis and profiling tools
-
-## Supported Languages
-
-### Built-in Languages
-
-- Python (.py, .pyw, .pyi, .pyx, .pxd)
-- JavaScript (.js, .jsx, .mjs, .cjs)
-- TypeScript (.ts, .tsx, .mts, .cts, .d.ts, .d.mts, .d.cts)
-- Rust (.rs)
-- Go (.go)
-- Java (.java)
-- C (.c, .h)
-- C++ (.cpp, .cc, .cxx, .hpp, .hxx)
-- C# (.cs)
-- Ruby (.rb, .rake, .gemspec)
-- PHP (.php, .phtml)
-- Elixir (.ex, .exs)
-- TOML (.toml)
-- JSON (.json)
-- JSON with Comments (.jsonc)
-- YAML (.yml, .yaml)
-- HCL/Terraform (.hcl, .tf, .tfvars)
-- Makefile (Makefile, .mk)
-- Shell/Bash (.sh, .bash, .zsh, .bashrc, .zshrc)
-- Haskell (.hs, .lhs)
-- HTML (.html, .htm, .xhtml)
-- CSS (.css)
-- XML (.xml, .xsd, .xsl, .xslt, .svg)
-- SQL (.sql)
-- Kotlin (.kt, .kts)
-- Swift (.swift)
-- Lua (.lua)
-- Nix (.nix)
-- PowerShell (.ps1, .psm1, .psd1)
-- Protobuf (.proto)
-- INI-like configs (.ini, .cfg, .conf)
-- Dockerfile (Dockerfile, Dockerfile.*)
-- Scala (.scala, .sc)
-- Dart (.dart)
-- R (.r, .R)
-- Julia (.jl)
-- Zig (.zig)
-- Clojure (.clj, .cljs, .cljc, .edn)
-- Elm (.elm)
-- Erlang (.erl, .hrl)
-- Vue (.vue)
-- Svelte (.svelte)
-- SCSS (.scss)
-- LaTeX (.tex, .sty, .cls)
-- Fish (.fish)
-- Perl (.pl, .pm)
-- Groovy (.groovy, .gradle)
-- OCaml (.ml, .mli)
-- Fortran (.f90, .f95, .f03, .f08)
-
-### 306 Languages Available
-
-Powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack), uncomment can process any of 306 supported languages. Languages not listed above can be added via configuration — grammars are downloaded automatically on first use.
+- **100% accurate** — tree-sitter AST parsing identifies comments structurally, not by pattern matching
+- **No false positives** — never removes comment-like content from strings
+- **Smart preservation** — keeps TODO/FIXME, docs, and language-specific linting directives by default
+- **306 languages** — powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack), grammars downloaded on demand
+- **Parallel** — multi-threaded processing that scales across cores
+- **Safe** — dry-run mode with line-by-line diffs previews every change before you write
+- **Configurable** — hierarchical TOML config with a smart `init` command
+- **Built-in benchmarking** — optional performance analysis and profiling tools
 
 ## Installation
 
-### Via Package Managers
+| Channel | Command |
+| ------- | ------- |
+| Homebrew (macOS/Linux) | `brew tap goldziher/tap && brew install uncomment` |
+| Cargo (Rust) | `cargo install uncomment` |
+| npm (Node.js) | `npm install -g uncomment-cli` |
+| pip (Python) | `pip install uncomment` |
 
-#### Homebrew (macOS/Linux)
-
-```bash
-brew tap goldziher/tap
-brew install uncomment
-```
-
-#### Cargo (Rust)
+Run without installing:
 
 ```bash
-cargo install uncomment
+npx -y uncomment-cli@latest .
+uvx uncomment .
 ```
 
-#### npm (Node.js)
+Add `--dry-run` to preview changes before writing.
 
-```bash
-npm install -g uncomment-cli
-```
-
-#### pip (Python)
-
-```bash
-pip install uncomment
-```
-
-### From source
+<details>
+<summary><b>Build from source</b></summary>
 
 ```bash
 git clone https://github.com/Goldziher/uncomment.git
@@ -118,203 +71,149 @@ cd uncomment
 cargo install --path .
 ```
 
-### Requirements
+Requires Rust 1.70+. npm and pip packages download pre-built binaries automatically.
 
-- For building from source: Rust 1.70+
-- For npm/pip packages: Pre-built binaries are downloaded automatically
+</details>
 
 ## Quick Start
 
-### Run Without Installing
-
 ```bash
-npx -y uncomment-cli@latest .
-uvx uncomment .
-```
-
-Add `--dry-run` to either command to preview changes before writing.
-
-### Install Locally
-
-```bash
-# Generate a configuration file for your project
+# Generate a configuration file tuned to your project
 uncomment init
 
-# Remove comments from files
+# Remove comments from a directory
 uncomment src/
 
-# Preview changes without modifying files
-uncomment --dry-run src/
+# Preview changes as a diff, write nothing
+uncomment src/ --dry-run --diff
 ```
 
 ## Usage
 
-### Configuration
-
 ```bash
-# Generate a smart configuration based on your project
-uncomment init
-
-# Generate a comprehensive configuration with all supported languages
-uncomment init --comprehensive
-
-# Interactive configuration setup
-uncomment init --interactive
-
-# Use a custom configuration file
-uncomment --config my-config.toml src/
-```
-
-#### Init Command Examples
-
-The `init` command intelligently detects languages in your project:
-
-```bash
-# Smart detection - analyzes your project and includes only detected languages
-$ uncomment init
-Detected languages in your project:
-- 150 rust files
-- 89 typescript files
-- 45 python files
-- 12 vue files
-- 8 dockerfile files
-
-Generated .uncommentrc.toml with configurations for detected languages.
-
-# Comprehensive mode - includes configurations for 49 built-in languages
-$ uncomment init --comprehensive
-Generated comprehensive configuration with all supported languages.
-
-# Specify output location
-$ uncomment init --output config/uncomment.toml
-
-# Force overwrite existing configuration
-$ uncomment init --force
-```
-
-### Basic Usage
-
-```bash
-# Remove comments from a single file
+# Single file
 uncomment file.py
 
-# Preview changes without modifying files
-uncomment --dry-run file.py
-
-# Process multiple files
+# Multiple files / globs
 uncomment src/*.py
 
-# Remove documentation comments/docstrings
+# Also strip doc comments and docstrings
 uncomment --remove-doc file.py
 
-# Remove TODO and FIXME comments
+# Also remove TODO and FIXME comments (preserved by default)
 uncomment --remove-todo --remove-fixme file.py
 
 # Add custom patterns to preserve
-uncomment --ignore-patterns "HACK" --ignore-patterns "WARNING" file.py
+uncomment --ignore "HACK" --ignore "WARNING" file.py
 
-# Process entire directory recursively
-uncomment src/
-
-# Use parallel processing with 8 threads
-uncomment --threads 8 src/
+# Process an entire tree with all CPU cores
+uncomment . -j 0
 ```
 
-### Optional Benchmarking Tools
+Run `uncomment --help` for the full, grouped list of options.
 
-The crate ships development binaries for benchmarking and profiling, but they are gated behind the `bench-tools` feature so they are not installed for regular users.
+<details>
+<summary><b>Configuring with <code>init</code></b></summary>
 
-- Install from crates.io with the extras:
+The `init` command detects the languages in your project and writes a matching `.uncommentrc.toml`:
 
-  ```bash
-  cargo install uncomment --features bench-tools
-  ```
+```bash
+# Smart detection — includes only the languages it finds
+uncomment init
 
-- Run locally without installing:
+# All 49 built-in languages
+uncomment init --comprehensive
 
-  ```bash
-  cargo run --release --features bench-tools --bin benchmark -- --target /path/to/repo --iterations 3
-  cargo run --release --features bench-tools --bin profile -- /path/to/repo
-  ```
+# Interactive selection
+uncomment init --interactive
 
-## Contributing
+# Custom output location / overwrite
+uncomment init --output config/uncomment.toml --force
+```
 
-See `CONTRIBUTING.md` for local development, automation hooks, and release procedures.
+</details>
 
-## Default Preservation Rules
+<details>
+<summary><b>Optional benchmarking tools</b></summary>
 
-### Always Preserved
+Development binaries for benchmarking and profiling are gated behind the `bench-tools` feature so
+they are not installed for regular users:
+
+```bash
+# Install with extras
+cargo install uncomment --features bench-tools
+
+# Or run locally
+cargo run --release --features bench-tools --bin benchmark -- --target /path/to/repo --iterations 3
+cargo run --release --features bench-tools --bin profile -- /path/to/repo
+```
+
+</details>
+
+## Supported Languages
+
+uncomment ships with 49 built-in language configurations and can process any of the **306 languages**
+in [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — grammars
+are downloaded automatically on first use, and any language can be added via configuration.
+
+<details>
+<summary><b>49 built-in languages</b></summary>
+
+Python (`.py`, `.pyw`, `.pyi`, `.pyx`, `.pxd`) · JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) ·
+TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`, `.d.ts`) · Rust (`.rs`) · Go (`.go`) · Java (`.java`) ·
+C (`.c`, `.h`) · C++ (`.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`) · C# (`.cs`) ·
+Ruby (`.rb`, `.rake`, `.gemspec`) · PHP (`.php`, `.phtml`) · Elixir (`.ex`, `.exs`) · TOML (`.toml`) ·
+JSON (`.json`) · JSON with Comments (`.jsonc`) · YAML (`.yml`, `.yaml`) ·
+HCL/Terraform (`.hcl`, `.tf`, `.tfvars`) · Makefile (`Makefile`, `.mk`) ·
+Shell/Bash (`.sh`, `.bash`, `.zsh`) · Haskell (`.hs`, `.lhs`) · HTML (`.html`, `.htm`, `.xhtml`) ·
+CSS (`.css`) · XML (`.xml`, `.xsd`, `.xsl`, `.xslt`, `.svg`) · SQL (`.sql`) · Kotlin (`.kt`, `.kts`) ·
+Swift (`.swift`) · Lua (`.lua`) · Nix (`.nix`) · PowerShell (`.ps1`, `.psm1`, `.psd1`) ·
+Protobuf (`.proto`) · INI-like configs (`.ini`, `.cfg`, `.conf`) · Dockerfile (`Dockerfile`) ·
+Scala (`.scala`, `.sc`) · Dart (`.dart`) · R (`.r`, `.R`) · Julia (`.jl`) · Zig (`.zig`) ·
+Clojure (`.clj`, `.cljs`, `.cljc`, `.edn`) · Elm (`.elm`) · Erlang (`.erl`, `.hrl`) · Vue (`.vue`) ·
+Svelte (`.svelte`) · SCSS (`.scss`) · LaTeX (`.tex`, `.sty`, `.cls`) · Fish (`.fish`) ·
+Perl (`.pl`, `.pm`) · Groovy (`.groovy`, `.gradle`) · OCaml (`.ml`, `.mli`) ·
+Fortran (`.f90`, `.f95`, `.f03`, `.f08`)
+
+</details>
+
+## Preservation Rules
+
+Certain comments are **never removed by default** — uncomment protects the ones your tooling and
+teammates rely on.
+
+**Always preserved:**
 
 - Comments containing `~keep`
-- TODO comments (unless `--remove-todo`)
-- FIXME comments (unless `--remove-fixme`)
+- `TODO` (unless `--remove-todo`), `FIXME` (unless `--remove-fixme`)
 - Documentation comments (unless `--remove-doc`)
 
-### Linting Tool Directives (Always Preserved)
+<details>
+<summary><b>Linting &amp; formatter directives (always preserved)</b></summary>
 
-The tool preserves all linting and formatting directives to ensure your CI/CD pipelines and development workflows remain intact:
+| Language | Directives |
+| -------- | ---------- |
+| Go | `//nolint`, `//golangci-lint`, `//staticcheck`, `//go:generate` |
+| Python | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# pyre-ignore` |
+| JS/TS | `eslint-disable*`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `/// <reference`, `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`, `v8/c8/istanbul ignore` |
+| Rust | `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`, `clippy::`, `#[rustfmt::skip]` |
+| Java | `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:` |
+| C/C++ | `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on` |
+| Shell | `# shellcheck disable`, `# hadolint ignore` |
+| YAML | `# yamllint disable/enable` |
+| HCL/Terraform | `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore` |
+| Ruby | `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable` |
 
-**Go:**
-
-- `//nolint`, `//nolint:gosec`, `//golangci-lint`, `//staticcheck`, `//go:generate`
-
-**Python:**
-
-- `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`
-- `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# pyre-ignore`
-
-**JavaScript/TypeScript:**
-
-- ESLint: `eslint-disable`, `eslint-enable`, `eslint-disable-next-line`
-- TypeScript: `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `@ts-check`
-- Triple-slash: `/// <reference`, `/// <amd-module`, `/// <amd-dependency`
-- Formatters: `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`
-- Coverage: `v8 ignore`, `c8 ignore`, `istanbul ignore`
-
-**Rust:**
-
-- Attributes: `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`
-- Clippy: `clippy::`, `#[rustfmt::skip]`
-
-**Java:**
-
-- `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:`
-
-**C/C++:**
-
-- `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on`
-
-**Shell/Bash:**
-
-- `# shellcheck disable`, `# hadolint ignore`
-
-**YAML:**
-
-- `# yamllint disable/enable`
-
-**HCL/Terraform:**
-
-- `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore`
-
-**Ruby:**
-
-- `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable`
+</details>
 
 ## Configuration
 
-Uncomment uses a flexible TOML-based configuration system that allows you to customize behavior for your project.
+uncomment reads a hierarchical TOML configuration, merged highest-to-lowest precedence:
 
-### Configuration File Discovery
-
-Uncomment searches for configuration files in the following order:
-
-1. Command-line specified config: `--config path/to/config.toml`
-2. `.uncommentrc.toml` in the current directory
-3. `.uncommentrc.toml` in parent directories (up to git root or filesystem root)
-4. `~/.config/uncomment/config.toml` (global configuration)
-5. Built-in defaults
-
-### Basic Configuration Example
+1. Command-line flags
+2. Local `.uncommentrc.toml` (closest to the file being processed wins)
+3. Global `~/.config/uncomment/config.toml`
+4. Built-in defaults
 
 ```toml
 [global]
@@ -336,9 +235,11 @@ remove_fixme = false
 remove_docs = false
 ```
 
-### Adding Languages via Configuration
+<details>
+<summary><b>Adding a language via configuration</b></summary>
 
-Uncomment supports 306 languages through [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack). To add a language not in the built-in list, define it in your `.uncommentrc.toml`:
+Any of the 306 tree-sitter-language-pack languages works — grammars download automatically on first
+use, no manual grammar setup:
 
 ```toml
 [languages.hare]
@@ -348,70 +249,39 @@ comment_nodes = ["comment"]
 preserve_patterns = ["TODO", "FIXME"]
 ```
 
-The grammar is downloaded automatically on first use. No manual grammar configuration needed.
-
-### Configuration Merging
-
-When multiple configuration files are found, they are merged with the following precedence (highest to lowest):
-
-1. Command-line flags
-2. Local `.uncommentrc.toml` files (closer to the file being processed wins)
-3. Global configuration (`~/.config/uncomment/config.toml`)
-4. Built-in defaults
-
-Pattern-specific configurations override language configurations for matching files.
+</details>
 
 ## How It Works
 
-Unlike regex-based tools, uncomment uses tree-sitter to build a proper Abstract Syntax Tree (AST) of your code. This means it understands the difference between:
+Unlike regex-based tools, uncomment builds a proper Abstract Syntax Tree of your code with
+tree-sitter, so it distinguishes:
 
 - Real comments vs comment-like content in strings
 - Documentation comments vs regular comments
 - Inline comments vs standalone comments
-- Language-specific metadata that should be preserved
+- Language-specific metadata that must be preserved
 
-## Architecture
-
-The tool is built with a modular, extensible architecture:
-
-1. **Language Registry**: Manages 49 built-in languages with extensible configuration
-2. **tree-sitter-language-pack**: Provides [306 language grammars](https://github.com/kreuzberg-dev/tree-sitter-language-pack) with automatic downloading
-3. **Configuration System**: TOML-based hierarchical configuration with merging
-4. **AST Visitor**: Traverses the tree-sitter AST to find comments
-5. **Preservation Engine**: Applies rules to determine what to keep
-6. **Output Generator**: Produces clean code with comments removed
-
-## Adding New Languages
-
-Add to your `.uncommentrc.toml`:
-
-```toml
-[languages.mylang]
-name = "My Language"
-extensions = ["ml", "mli"]
-comment_nodes = ["comment"]
-preserve_patterns = ["TODO", "FIXME"]
-```
-
-Any of the [306 languages](https://github.com/kreuzberg-dev/tree-sitter-language-pack) supported by tree-sitter-language-pack will work — grammars are downloaded automatically on first use.
+The pipeline is modular: a **language registry** (49 built-ins + on-demand grammars) feeds an
+**AST visitor** that finds comment nodes, a **preservation engine** decides what to keep, and an
+**output generator** emits clean code.
 
 ## Git Hooks
 
-### Pre-commit
-
-Add to your `.pre-commit-config.yaml`:
+<details>
+<summary><b>pre-commit</b></summary>
 
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/uncomment
-    rev: v2.9.0
+    rev: v3.2.0
     hooks:
       - id: uncomment
 ```
 
-### Lefthook
+</details>
 
-Add to your `lefthook.yml`:
+<details>
+<summary><b>Lefthook</b></summary>
 
 ```yaml
 pre-commit:
@@ -421,85 +291,43 @@ pre-commit:
       stage_fixed: true
 ```
 
-For both hooks, install uncomment via pip:
-
-```bash
-pip install uncomment
-```
+</details>
 
 ## Performance
 
-While slightly slower than regex-based approaches due to parsing overhead, the tool is very fast and scales well with parallel processing:
-
-### Single-threaded Performance
+AST parsing costs a little more than regex, but the tool is fast and scales well with threads.
 
 - Small files (<1000 lines): ~20-30ms
 - Large files (>10000 lines): ~100-200ms
 
-### Parallel Processing Benchmarks
+| Threads | Files/second | Speedup |
+| ------- | ------------ | ------- |
+| 1 | 1,500 | 1.0× |
+| 4 | 3,900 | 2.6× |
+| 8 | 5,100 | 3.4× |
 
-Performance scales excellently with multiple threads:
-
-| Thread Count | Files/Second | Speedup |
-| ------------ | ------------ | ------- |
-| 1 thread     | 1,500        | 1.0x    |
-| 4 threads    | 3,900        | 2.6x    |
-| 8 threads    | 5,100        | 3.4x    |
-
-## Benchmarks run on a large enterprise codebase with 5,000 mixed language files
-
-### Built-in Benchmarking
-
-Use the built-in tools to measure performance on your specific codebase:
-
-```bash
-# Basic benchmark
-benchmark --target /path/to/repo
-
-# Detailed benchmark with multiple iterations
-benchmark --target /path/to/repo --iterations 5 --threads 8
-
-# Memory and performance profiling
-profile --path /path/to/repo
-```
-
-The accuracy gained through AST parsing is worth the small performance cost, and parallel processing makes it suitable for even the largest codebases.
+_Benchmarked on a large enterprise codebase of ~5,000 mixed-language files._ Measure your own with
+the built-in `benchmark` and `profile` tools (see [optional benchmarking tools](#usage)).
 
 ## Development
 
-### Project Structure
-
-```text
-uncomment/
-├── src/               # Source code
-├── tests/             # Integration tests
-├── fixtures/          # Test fixtures
-│   ├── languages/     # Language-specific test files
-│   └── repos/         # Repository test configurations
-├── test-repos/        # Manual testing scripts
-└── scripts/           # Build and release scripts
-```
-
-### Benchmarking
-
-The project includes optional benchmarking and profiling binaries (gated behind the `bench-tools` feature):
-
-- Run `benchmark` (real-world throughput on a codebase)
-- Run `profile` (repeatable timing runs + basic analysis)
-
-### Testing
-
 ```bash
-# Run all tests
-cargo test
-
-# Run tests with output
-cargo test -- --nocapture
-
-# Run integration tests (including network-dependent)
-cargo test -- --ignored
+cargo build              # Debug build
+cargo test               # Run the test suite
+cargo test -- --ignored  # Include network-dependent tests
+cargo clippy             # Lint
+cargo fmt --all          # Format
 ```
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for local development, automation hooks, and release
+procedures.
+
+## Contributing
+
+Issues and pull requests are welcome. If uncomment is useful to you, consider
+[sponsoring development](https://github.com/sponsors/Goldziher) — it helps keep the project
+maintained for the community.
 
 ## License
 
-MIT
+[MIT](./LICENSE)

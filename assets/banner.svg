@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-label="uncomment — strip the noise, keep the code">
+  <defs>
+    <radialGradient id="glowTeal" cx="34%" cy="26%" r="62%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCyan" cx="72%" cy="82%" r="58%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#2dd4bf" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="340" rx="20" fill="#0d1117"/>
+  <rect width="1200" height="340" rx="20" fill="url(#glowTeal)"/>
+  <rect width="1200" height="340" rx="20" fill="url(#glowCyan)"/>
+
+  <!-- logo row, centered on x=600 -->
+  <!-- mark scaled 1.5x: glyph occupies ~x[13..46] -> ~50px wide; wordmark ~300px; row ~372px, starts ~414 -->
+  <g transform="translate(410,78) scale(1.5)">
+    <g stroke="#2dd4bf" stroke-width="3.6" stroke-linecap="round">
+      <line x1="13" y1="33" x2="20.5" y2="15"/>
+      <line x1="21.5" y1="33" x2="29" y2="15"/>
+    </g>
+    <circle cx="34" cy="30.5" r="2.5" fill="#6b7280"/>
+    <circle cx="40" cy="30.5" r="2.1" fill="#4b5563"/>
+    <circle cx="45" cy="30.5" r="1.6" fill="#374151"/>
+  </g>
+  <text x="490" y="132" font-family="'JetBrains Mono','SF Mono','DejaVu Sans Mono',ui-monospace,monospace" font-size="58" font-weight="700" letter-spacing="-1.5">
+    <tspan fill="#2dd4bf">un</tspan><tspan fill="#6b7280">comment</tspan>
+  </text>
+
+  <!-- tagline -->
+  <text x="600" y="196" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','DejaVu Sans Mono',ui-monospace,monospace" font-size="25" fill="#c9d1d9" letter-spacing="0.5">Strip the noise. Keep the code.</text>
+
+  <line x1="470" y1="230" x2="730" y2="230" stroke="url(#rule)" stroke-width="2"/>
+
+  <!-- feature line -->
+  <text x="600" y="268" text-anchor="middle" font-family="'SF Pro Text','DejaVu Sans',ui-sans-serif,system-ui,sans-serif" font-size="14" fill="#6b7280" letter-spacing="2.5">AST-ACCURATE &#183; 306 LANGUAGES &#183; ZERO FALSE POSITIVES &#183; SMART PRESERVATION</text>
+</svg>
