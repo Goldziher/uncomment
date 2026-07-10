@@ -1,7 +1,7 @@
 # uncomment
 
-[![PyPI version](https://badge.fury.io/py/uncomment.svg)](https://badge.fury.io/py/uncomment)
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Goldziher/uncomment/blob/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/uncomment?style=flat-square&color=2dd4bf)](https://pypi.org/project/uncomment/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2dd4bf?style=flat-square)](https://github.com/Goldziher/uncomment/blob/main/LICENSE)
 
 A blazing fast Rust-based command-line tool that removes comments from your source code. Perfect for cleaning up AI-generated code that comes with excessive explanations.
 
