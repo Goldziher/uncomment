@@ -116,10 +116,10 @@ pub struct ProcessArgs {
     )]
     pub dry_run: bool,
 
-    /// ~keep Show line-by-line diffs in dry-run mode
+    /// ~keep Show line-by-line diffs of removed comments
     #[arg(
         long = "diff",
-        help = "Show line-by-line diffs for modified files (only useful with --dry-run)",
+        help = "Show a diff of the removed comments for each modified file",
         help_heading = "Output"
     )]
     pub diff: bool,
@@ -128,10 +128,20 @@ pub struct ProcessArgs {
     #[arg(
         short = 'v',
         long,
-        help = "Show detailed processing information",
+        help = "Show detailed processing information (per-comment previews)",
         help_heading = "Output"
     )]
     pub verbose: bool,
+
+    /// ~keep Suppress per-file output; print only the summary and errors
+    #[arg(
+        short = 'q',
+        long,
+        help = "Suppress per-file output; print only the summary and errors",
+        help_heading = "Output",
+        conflicts_with = "verbose"
+    )]
+    pub quiet: bool,
 
     /// ~keep Ignore .gitignore rules when finding files
     #[arg(

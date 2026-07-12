@@ -56,6 +56,33 @@ pub fn bold(value: impl Display) -> String {
     value.bold().to_string()
 }
 
+/// Cap on the number of line spans shown per file before `--verbose`; keeps the
+/// per-file line readable on large removals.
+const LINE_RANGE_CAP: usize = 12;
+
+/// Format a comment's line span as `L3` (single line) or `L7–9` (multi-line),
+/// converting the 0-based rows to 1-based, inclusive line numbers.
+pub fn line_span(start_row: usize, end_row: usize) -> String {
+    if start_row == end_row {
+        format!("L{}", start_row + 1)
+    } else {
+        format!("L{}–{}", start_row + 1, end_row + 1)
+    }
+}
+
+/// Comma-joined line spans for the removed comments, e.g. `L3, L7–9, L15`.
+///
+/// When `verbose` is false the list is capped at [`LINE_RANGE_CAP`] entries and a
+/// `+N more` suffix is appended so a file with hundreds of removals stays readable.
+pub fn format_line_ranges(rows: impl Iterator<Item = (usize, usize)>, verbose: bool) -> String {
+    let spans: Vec<String> = rows.map(|(start, end)| line_span(start, end)).collect();
+    if verbose || spans.len() <= LINE_RANGE_CAP {
+        return spans.join(", ");
+    }
+    let hidden = spans.len() - LINE_RANGE_CAP;
+    format!("{}, +{hidden} more", spans[..LINE_RANGE_CAP].join(", "))
+}
+
 /// clap help styling that matches the brand: cyan headers/usage, green literals.
 pub fn clap_styles() -> clap::builder::Styles {
     use clap::builder::styling::{AnsiColor, Style};
@@ -116,5 +143,38 @@ pub fn print_summary(total_files: usize, modified_files: usize, comments_removed
             "{}",
             dim("All files were already comment-free or only contained preserved comments.")
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn line_span_renders_single_and_multi_line() {
+        assert_eq!(line_span(0, 0), "L1");
+        assert_eq!(line_span(6, 8), "L7–9");
+    }
+
+    #[test]
+    fn format_line_ranges_joins_spans() {
+        let rows = [(0, 0), (2, 2), (4, 5)];
+        assert_eq!(format_line_ranges(rows.into_iter(), false), "L1, L3, L5–6");
+    }
+
+    #[test]
+    fn format_line_ranges_caps_when_not_verbose() {
+        let rows: Vec<(usize, usize)> = (0..15).map(|row| (row, row)).collect();
+        let capped = format_line_ranges(rows.iter().copied(), false);
+        assert!(capped.ends_with("+3 more"), "expected cap suffix, got: {capped}");
+        assert_eq!(capped.matches('L').count(), LINE_RANGE_CAP);
+    }
+
+    #[test]
+    fn format_line_ranges_shows_all_when_verbose() {
+        let rows: Vec<(usize, usize)> = (0..15).map(|row| (row, row)).collect();
+        let full = format_line_ranges(rows.iter().copied(), true);
+        assert!(!full.contains("more"));
+        assert_eq!(full.matches('L').count(), 15);
     }
 }
