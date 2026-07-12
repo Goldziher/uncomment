@@ -125,3 +125,8 @@ enabled = true
 
 [tools.actionlint]
 enabled = true
+[[hooks.sources]]
+id = "ai-rulez"
+git = "https://github.com/Goldziher/ai-rulez.git"
+revision = "v4.9.1"
+hooks = ["ai-rulez-validate"]
