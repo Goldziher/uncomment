@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [v3.4.0] - 2026-07-12
+
+### Added
+
+- Per-file removal locations in the output. Each modified file now lists the line
+  numbers and ranges of the comments removed (e.g. `removed 4 (L3, L7–9, L15)`); the
+  list is capped with a `+N more` suffix on large files, and `--verbose` expands it to
+  a per-comment preview.
+- A preservation hint printed once at the end of a run when comments were removed,
+  explaining how to keep them: the `~keep` marker, the TODO/FIXME/docstring defaults,
+  `--ignore "<pattern>"`, `preserve_patterns`, and `--dry-run --diff`.
+- `--quiet` / `-q` to suppress per-file output for scripting; the summary and errors
+  still print, and files are still written.
+
+### Changed
+
+- `--diff` now works on real runs, not only in combination with `--dry-run`.
+
+### Fixed
+
+- `--diff` output no longer misaligns. It previously compared original and processed
+  files line-by-line by index, so every line after the first removed one was
+  mislabeled; it now renders an exact diff from the removed byte ranges with
+  surrounding context.
+
 ## [v3.3.0] - 2026-07-10
 
 ### Added
