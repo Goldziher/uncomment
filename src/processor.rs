@@ -93,16 +93,17 @@ impl Processor {
             resolved_config.traverse_git_repos = overrides.traverse_git_repos;
         }
 
-        let (processed_content, comments_removed, important_removals) =
-            self.process_content_with_config(&content, language_config.as_ref(), &resolved_config)?;
+        let outcome = self.process_content_with_config(&content, language_config.as_ref(), &resolved_config)?;
 
         Ok(ProcessedFile {
             path: path.to_path_buf(),
             original_content: content,
-            processed_content,
+            processed_content: outcome.content,
             modified: false,
-            comments_removed,
-            important_removals,
+            comments_removed: outcome.removed_comments.len(),
+            removed_comments: outcome.removed_comments,
+            removed_ranges: outcome.removed_ranges,
+            important_removals: outcome.important_removals,
         })
     }
 
@@ -111,7 +112,7 @@ impl Processor {
         content: &str,
         language_config: &crate::languages::config::LanguageConfig,
         resolved_config: &ResolvedConfig,
-    ) -> Result<(String, usize, Vec<ImportantRemoval>)> {
+    ) -> Result<ProcessOutcome> {
         let language = tree_sitter_language_pack::get_language(&language_config.tslp_name).with_context(|| {
             format!(
                 "Failed to load grammar for '{}' (tslp name: '{}')",
@@ -140,13 +141,27 @@ impl Processor {
         visitor.visit_node(tree.root_node());
 
         let comments_to_remove = visitor.get_comments_to_remove();
-        let comments_removed = comments_to_remove.len();
+
+        let removed_comments = comments_to_remove
+            .iter()
+            .map(|comment| RemovedComment {
+                start_row: comment.start_row,
+                end_row: comment.end_row,
+                is_documentation: comment.is_documentation,
+                preview: first_line_preview(comment.content(content)),
+            })
+            .collect();
 
         let important_removals = detect_important_removals(&comments_to_remove, content);
 
-        let output = self.remove_comments_from_content(content, &comments_to_remove);
+        let (output, removed_ranges) = self.remove_comments_from_content(content, &comments_to_remove);
 
-        Ok((output, comments_removed, important_removals))
+        Ok(ProcessOutcome {
+            content: output,
+            removed_comments,
+            important_removals,
+            removed_ranges,
+        })
     }
 
     fn create_preservation_rules_from_config(&self, config: &ResolvedConfig) -> Vec<PreservationRule> {
@@ -196,9 +211,15 @@ impl Processor {
         rules
     }
 
-    fn remove_comments_from_content(&self, content: &str, comments_to_remove: &[&CommentInfo]) -> String {
+    /// Rewrite `content` with the given comments removed, returning the new source
+    /// and the byte ranges (in the *original* `content`) that were deleted.
+    fn remove_comments_from_content(
+        &self,
+        content: &str,
+        comments_to_remove: &[&CommentInfo],
+    ) -> (String, Vec<(usize, usize)>) {
         if comments_to_remove.is_empty() {
-            return content.to_string();
+            return (content.to_string(), Vec::new());
         }
 
         let bytes = content.as_bytes();
@@ -239,7 +260,7 @@ impl Processor {
         if cursor < content.len() {
             output.push_str(&content[cursor..]);
         }
-        output
+        (output, removal_ranges)
     }
 
     /// Expand a comment byte range `[start, end)` to cover its whole line(s) when
@@ -325,15 +346,7 @@ impl Processor {
             .into_iter()
             .filter_map(|comment| {
                 let (remove_start, remove_end) = Self::expand_range(bytes, comment.start_byte, comment.end_byte)?;
-                let preview = comment
-                    .content(content)
-                    .lines()
-                    .next()
-                    .unwrap_or_default()
-                    .trim()
-                    .chars()
-                    .take(PREVIEW_MAX_CHARS)
-                    .collect();
+                let preview = first_line_preview(comment.content(content));
                 Some(Removal {
                     comment_start: comment.start_byte,
                     comment_end: comment.end_byte,
@@ -375,6 +388,14 @@ pub struct Removal {
 /// diagnostic message.
 const PREVIEW_MAX_CHARS: usize = 80;
 
+/// Internal result of rewriting one source string.
+struct ProcessOutcome {
+    content: String,
+    removed_comments: Vec<RemovedComment>,
+    important_removals: Vec<ImportantRemoval>,
+    removed_ranges: Vec<(usize, usize)>,
+}
+
 #[derive(Debug)]
 pub struct ProcessedFile {
     pub path: std::path::PathBuf,
@@ -382,7 +403,24 @@ pub struct ProcessedFile {
     pub processed_content: String,
     pub modified: bool,
     pub comments_removed: usize,
+    /// One entry per removed comment, in source order, for location reporting.
+    pub removed_comments: Vec<RemovedComment>,
+    /// Byte ranges deleted from `original_content`, used to render the diff.
+    pub removed_ranges: Vec<(usize, usize)>,
     pub important_removals: Vec<ImportantRemoval>,
+}
+
+/// A single removed comment, expressed by line for human-facing location output.
+#[derive(Debug, Clone)]
+pub struct RemovedComment {
+    /// 0-based first line of the comment.
+    pub start_row: usize,
+    /// 0-based last line of the comment.
+    pub end_row: usize,
+    /// Whether the comment was classified as documentation.
+    pub is_documentation: bool,
+    /// Trimmed, length-capped first line of the comment, for `--verbose` output.
+    pub preview: String,
 }
 
 #[derive(Debug, Clone)]
@@ -392,25 +430,52 @@ pub struct ImportantRemoval {
     pub preview: String,
 }
 
+/// Trimmed, length-capped first line of a comment, for human-facing messages.
+fn first_line_preview(content: &str) -> String {
+    content
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .chars()
+        .take(PREVIEW_MAX_CHARS)
+        .collect()
+}
+
 pub struct OutputWriter {
     dry_run: bool,
     verbose: bool,
     show_diff: bool,
+    quiet: bool,
 }
 
 impl OutputWriter {
-    pub fn new(dry_run: bool, verbose: bool, show_diff: bool) -> Self {
+    pub fn new(dry_run: bool, verbose: bool, show_diff: bool, quiet: bool) -> Self {
         Self {
             dry_run,
             verbose,
             show_diff,
+            quiet,
         }
     }
 
+    /// Persist the rewritten file (on a real run) and report what changed.
+    ///
+    /// The write happens before the `quiet` gate so `--quiet` silences reporting
+    /// without ever suppressing the actual edit.
     pub fn write_file(&self, processed_file: &ProcessedFile) -> Result<()> {
         use crate::ui;
 
         let modified = processed_file.original_content != processed_file.processed_content;
+
+        if modified && !self.dry_run {
+            std::fs::write(&processed_file.path, &processed_file.processed_content)
+                .with_context(|| format!("Failed to write file: {}", processed_file.path.display()))?;
+        }
+
+        if self.quiet {
+            return Ok(());
+        }
 
         if !modified {
             if self.verbose {
@@ -424,44 +489,94 @@ impl OutputWriter {
             return Ok(());
         }
 
+        let count = processed_file.comments_removed;
+        let ranges = ui::format_line_ranges(
+            processed_file
+                .removed_comments
+                .iter()
+                .map(|comment| (comment.start_row, comment.end_row)),
+            self.verbose,
+        );
+
         if self.dry_run {
             anstream::println!(
-                "{} {} {}",
+                "{} {} {} {}",
                 ui::accent("[DRY RUN]"),
                 ui::dim("Would modify:"),
-                ui::path(&processed_file.path)
+                ui::path(&processed_file.path),
+                ui::dim(format!("— would remove {count} ({ranges})")),
             );
-            if self.verbose {
-                anstream::println!(
-                    "  {}",
-                    ui::dim(format!("Removed {} comment(s)", processed_file.comments_removed))
-                );
-            }
-            if self.show_diff {
-                self.show_diff(processed_file)?;
-            }
         } else {
-            std::fs::write(&processed_file.path, &processed_file.processed_content)
-                .with_context(|| format!("Failed to write file: {}", processed_file.path.display()))?;
+            anstream::println!(
+                "{} {} {}",
+                ui::success("Modified:"),
+                ui::path(&processed_file.path),
+                ui::dim(format!("— removed {count} ({ranges})")),
+            );
+        }
 
-            if self.verbose {
+        if self.verbose {
+            for comment in &processed_file.removed_comments {
                 anstream::println!(
-                    "{} {} {} {}",
-                    ui::success(ui::CHECK),
-                    ui::success("Modified:"),
-                    ui::path(&processed_file.path),
-                    ui::dim(format!("(removed {} comment(s))", processed_file.comments_removed))
+                    "  {}  {}",
+                    ui::accent(ui::line_span(comment.start_row, comment.end_row)),
+                    ui::dim(&comment.preview),
                 );
-            } else {
-                anstream::println!("{} {}", ui::success("Modified:"), ui::path(&processed_file.path));
             }
+        }
+
+        if self.show_diff {
+            self.show_diff(processed_file);
         }
 
         Ok(())
     }
 
-    fn show_diff(&self, processed_file: &ProcessedFile) -> Result<()> {
+    /// Render a unified-style diff of the removed comments.
+    ///
+    /// Because `uncomment` only ever deletes, each original line's post-state is
+    /// that line with its overlapping deleted byte ranges cut out — so the diff is
+    /// derived exactly from [`ProcessedFile::removed_ranges`] with no guessing about
+    /// line alignment (the failure mode of a naive index-by-index compare).
+    fn show_diff(&self, processed_file: &ProcessedFile) {
         use crate::ui;
+        const CONTEXT: usize = 2;
+
+        let content = &processed_file.original_content;
+        let merged = merge_ranges(&processed_file.removed_ranges);
+
+        let mut records: Vec<DiffLine> = Vec::new();
+        let mut offset = 0usize;
+        for raw in content.split_inclusive('\n') {
+            let line_start = offset;
+            let line_full_end = offset + raw.len();
+            offset = line_full_end;
+            let text_end = line_full_end - usize::from(raw.ends_with('\n'));
+            let text = &content[line_start..text_end];
+            let remaining = cut_ranges(content, line_start, text_end, &merged);
+
+            let kind = if remaining == text {
+                DiffKind::Context
+            } else if remaining.trim().is_empty() {
+                DiffKind::Removed
+            } else {
+                DiffKind::Changed { remaining }
+            };
+            records.push(DiffLine {
+                text: text.to_string(),
+                kind,
+            });
+        }
+
+        let total = records.len();
+        let mut show = vec![false; total];
+        for (index, record) in records.iter().enumerate() {
+            if !matches!(record.kind, DiffKind::Context) {
+                let lo = index.saturating_sub(CONTEXT);
+                let hi = (index + CONTEXT).min(total.saturating_sub(1));
+                show.iter_mut().take(hi + 1).skip(lo).for_each(|flag| *flag = true);
+            }
+        }
 
         anstream::println!();
         anstream::println!("{}", ui::dim(format!("--- {}", processed_file.path.display())));
@@ -470,33 +585,86 @@ impl OutputWriter {
             ui::dim(format!("+++ {} (processed)", processed_file.path.display()))
         );
 
-        let original_lines: Vec<&str> = processed_file.original_content.lines().collect();
-        let processed_lines: Vec<&str> = processed_file.processed_content.lines().collect();
+        let width = format!("{total}").len();
+        let mut printed_any = false;
+        for (index, record) in records.iter().enumerate() {
+            if !show[index] {
+                continue;
+            }
+            if printed_any && index > 0 && !show[index - 1] {
+                anstream::println!("{}", ui::dim("  ⋯"));
+            }
+            printed_any = true;
 
-        let max_lines = original_lines.len().max(processed_lines.len());
-
-        for i in 0..max_lines {
-            let original_line = original_lines.get(i).copied().unwrap_or("");
-            let processed_line = processed_lines.get(i).copied().unwrap_or("");
-
-            if original_line != processed_line {
-                if i < original_lines.len() && i >= processed_lines.len() {
-                    anstream::println!("{}", ui::danger(format!("-{original_line}")));
-                } else if i >= original_lines.len() && i < processed_lines.len() {
-                    anstream::println!("{}", ui::success(format!("+{processed_line}")));
-                } else if original_line != processed_line {
-                    anstream::println!("{}", ui::danger(format!("-{original_line}")));
-                    anstream::println!("{}", ui::success(format!("+{processed_line}")));
+            let number = format!("{:>width$}", index + 1, width = width);
+            match &record.kind {
+                DiffKind::Context => {
+                    anstream::println!("{} {}", ui::dim(&number), ui::dim(format!(" {}", record.text)));
+                }
+                DiffKind::Removed => {
+                    anstream::println!("{} {}", ui::dim(&number), ui::danger(format!("-{}", record.text)));
+                }
+                DiffKind::Changed { remaining } => {
+                    anstream::println!("{} {}", ui::dim(&number), ui::danger(format!("-{}", record.text)));
+                    anstream::println!("{} {}", ui::dim(&number), ui::success(format!("+{remaining}")));
                 }
             }
         }
-
-        Ok(())
     }
 
     pub fn print_summary(&self, total_files: usize, modified_files: usize, comments_removed: usize) {
         crate::ui::print_summary(total_files, modified_files, comments_removed, self.dry_run);
     }
+}
+
+/// A classified original line, used only by [`OutputWriter::show_diff`].
+struct DiffLine {
+    text: String,
+    kind: DiffKind,
+}
+
+enum DiffKind {
+    /// Untouched by any removal.
+    Context,
+    /// The whole line vanished (standalone comment).
+    Removed,
+    /// Part of the line was cut (e.g. a trailing comment); `remaining` is the result.
+    Changed { remaining: String },
+}
+
+/// Merge sorted/unsorted, possibly overlapping byte ranges into disjoint ranges.
+fn merge_ranges(ranges: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    let mut sorted = ranges.to_vec();
+    sorted.sort_unstable();
+    let mut merged: Vec<(usize, usize)> = Vec::with_capacity(sorted.len());
+    for (start, end) in sorted {
+        match merged.last_mut() {
+            Some(last) if start <= last.1 => last.1 = last.1.max(end),
+            _ => merged.push((start, end)),
+        }
+    }
+    merged
+}
+
+/// Return `content[from..to]` with any bytes covered by `merged` ranges removed.
+fn cut_ranges(content: &str, from: usize, to: usize, merged: &[(usize, usize)]) -> String {
+    let mut out = String::new();
+    let mut cursor = from;
+    for &(start, end) in merged {
+        if end <= from || start >= to {
+            continue;
+        }
+        let start = start.max(from);
+        let end = end.min(to);
+        if cursor < start {
+            out.push_str(&content[cursor..start]);
+        }
+        cursor = cursor.max(end);
+    }
+    if cursor < to {
+        out.push_str(&content[cursor..to]);
+    }
+    out
 }
 
 fn detect_important_removals(comments_to_remove: &[&CommentInfo], source: &str) -> Vec<ImportantRemoval> {
@@ -587,7 +755,7 @@ mod tests {
         let mut processor = Processor::new();
         let language_config = LanguageConfig::rust();
         let resolved_config = default_resolved_config();
-        let (output, _, _) = processor
+        let ProcessOutcome { content: output, .. } = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing rust source");
         output
@@ -609,6 +777,77 @@ mod tests {
             "// remove me\n"
         );
         assert_eq!(&source[removals[1].remove_start..removals[1].remove_end], "// trailing");
+    }
+
+    #[test]
+    fn merge_ranges_combines_touching_and_overlapping() {
+        assert_eq!(merge_ranges(&[(0, 5), (5, 10)]), vec![(0, 10)], "touching ranges merge");
+        assert_eq!(
+            merge_ranges(&[(0, 5), (6, 10)]),
+            vec![(0, 5), (6, 10)],
+            "disjoint stay split"
+        );
+        assert_eq!(merge_ranges(&[(0, 7), (3, 10)]), vec![(0, 10)], "overlapping merge");
+        assert_eq!(
+            merge_ranges(&[(6, 10), (0, 5)]),
+            vec![(0, 5), (6, 10)],
+            "unsorted input is sorted"
+        );
+        assert_eq!(merge_ranges(&[]), Vec::<(usize, usize)>::new(), "empty input");
+    }
+
+    #[test]
+    fn cut_ranges_removes_only_covered_bytes() {
+        let content = "abcdefghij";
+        assert_eq!(cut_ranges(content, 0, 10, &[(3, 6)]), "abcghij", "range mid-window");
+        assert_eq!(
+            cut_ranges(content, 2, 8, &[(2, 4)]),
+            "efgh",
+            "range flush to window start"
+        );
+        assert_eq!(
+            cut_ranges(content, 2, 8, &[(6, 8)]),
+            "cdef",
+            "range flush to window end"
+        );
+        assert_eq!(cut_ranges(content, 2, 8, &[(0, 10)]), "", "range covers whole window");
+        assert_eq!(
+            cut_ranges(content, 2, 5, &[(6, 9)]),
+            "cde",
+            "range outside window is ignored"
+        );
+        assert_eq!(
+            cut_ranges(content, 0, 5, &[(3, 3)]),
+            "abcde",
+            "zero-length range is a no-op"
+        );
+    }
+
+    #[test]
+    fn records_removed_comment_locations_and_previews() {
+        let source = "// standalone\nfn main() {\n    let x = 1; // trailing\n    /* block\n       two */\n}\n";
+        let mut processor = Processor::new();
+        let language_config = LanguageConfig::rust();
+        let outcome = processor
+            .process_content_with_config(source, &language_config, &default_resolved_config())
+            .expect("processing rust source");
+
+        let spans: Vec<(usize, usize)> = outcome
+            .removed_comments
+            .iter()
+            .map(|comment| (comment.start_row, comment.end_row))
+            .collect();
+        assert_eq!(spans, vec![(0, 0), (2, 2), (3, 4)]);
+
+        let previews: Vec<&str> = outcome
+            .removed_comments
+            .iter()
+            .map(|comment| comment.preview.as_str())
+            .collect();
+        assert_eq!(previews, vec!["// standalone", "// trailing", "/* block"]);
+
+        assert!(outcome.removed_comments.iter().all(|comment| !comment.is_documentation));
+        assert_eq!(outcome.removed_comments.len(), 3);
     }
 
     #[test]
@@ -639,7 +878,7 @@ mod tests {
         let mut resolved_config = default_resolved_config();
         resolved_config.use_default_ignores = use_default_ignores;
         resolved_config.remove_docs = remove_docs;
-        let (output, _, _) = processor
+        let ProcessOutcome { content: output, .. } = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing go source");
         output
@@ -648,7 +887,7 @@ mod tests {
     fn process_language(source: &str, language_config: LanguageConfig) -> String {
         let mut processor = Processor::new();
         let resolved_config = default_resolved_config();
-        let (output, _, _) = processor
+        let ProcessOutcome { content: output, .. } = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing source");
         output
@@ -662,7 +901,7 @@ mod tests {
         let mut processor = Processor::new();
         let mut resolved_config = default_resolved_config();
         resolved_config.use_default_ignores = use_default_ignores;
-        let (output, _, _) = processor
+        let ProcessOutcome { content: output, .. } = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing source");
         output
@@ -716,7 +955,7 @@ pub enum Commands {
         let mut config = default_resolved_config();
         config.remove_docs = true;
 
-        let (processed, _, _) = processor
+        let ProcessOutcome { content: processed, .. } = processor
             .process_content_with_config(source, &language_config, &config)
             .expect("process doc comments");
 
@@ -1075,7 +1314,7 @@ def hello(): pass"#;
         let mut resolved_config = default_resolved_config();
         resolved_config.remove_docs = true;
 
-        let (output, _, _) = processor
+        let ProcessOutcome { content: output, .. } = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing python source");
 
@@ -1111,11 +1350,11 @@ def hello(): pass"#;
         let mut processor = Processor::new();
         let language_config = LanguageConfig::rust();
         let resolved_config = default_resolved_config();
-        let (output, removed, _) = processor
+        let outcome = processor
             .process_content_with_config(source, &language_config, &resolved_config)
             .expect("processing empty source");
-        assert_eq!(output, "");
-        assert_eq!(removed, 0);
+        assert_eq!(outcome.content, "");
+        assert_eq!(outcome.removed_comments.len(), 0);
     }
 
     #[test]

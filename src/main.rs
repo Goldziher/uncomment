@@ -111,7 +111,8 @@ fn main() -> Result<()> {
     let output_writer = Arc::new(OutputWriter::new(
         options.dry_run,
         cli.args.verbose,
-        options.dry_run && options.show_diff,
+        options.show_diff,
+        cli.args.quiet,
     ));
 
     let total_files = files.len();
@@ -179,7 +180,22 @@ fn main() -> Result<()> {
 
     output_writer.print_summary(total_files, modified_files, comments_removed_total);
 
-    if important_removal_count > 0 {
+    if comments_removed_total > 0 && !cli.args.quiet {
+        anstream::eprintln!();
+        anstream::eprintln!(
+            "{}",
+            ui::dim("Tip: to keep a comment, add `~keep` to it — TODO, FIXME and doc comments are kept by default.")
+        );
+        anstream::eprintln!(
+            "{}",
+            ui::dim(
+                "     Preserve matching text everywhere with --ignore \"<pattern>\" or preserve_patterns in .uncommentrc.toml."
+            )
+        );
+        anstream::eprintln!("{}", ui::dim("     Preview changes first with --dry-run --diff."));
+    }
+
+    if important_removal_count > 0 && !cli.args.quiet {
         anstream::eprintln!(
             "{} removed {} potentially important comment(s). Re-run with {} to inspect.",
             ui::warn("warning:"),
