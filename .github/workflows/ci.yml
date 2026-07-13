@@ -45,7 +45,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Cache tree-sitter parser bundles
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/tree-sitter-language-pack
           key: tslp-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
