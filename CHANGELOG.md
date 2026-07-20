@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [v3.5.0] - 2026-07-20
+
+### Added
+
+- Block-level `~keep`. A single `~keep` now preserves an entire contiguous block of
+  standalone single-line comments, not just the marked line. Multi-line rationale
+  comments (which tree-sitter models as one node per line) no longer need `~keep` on
+  every line. Scope is deliberately narrow: only `~keep` extends across a block; other
+  preservation rules stay per-comment; trailing comments never anchor or join a block;
+  block comments are already single nodes; and a blank line or intervening code ends
+  the block.
+
+### Changed
+
+- Bumped dependencies: `tree-sitter-language-pack` 1.13.2, `tree-sitter` 0.26.11,
+  `toml`, `saphyr`, `ignore`, and `anyhow`.
+
 ## [v3.4.0] - 2026-07-12
 
 ### Added
