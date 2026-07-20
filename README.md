@@ -273,7 +273,7 @@ The pipeline is modular: a **language registry** (49 built-ins + on-demand gramm
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/uncomment
-    rev: v3.4.0
+    rev: v3.5.0
     hooks:
       - id: uncomment
 ```
