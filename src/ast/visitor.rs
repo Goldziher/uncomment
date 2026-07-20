@@ -143,6 +143,71 @@ impl<'a> CommentVisitor<'a> {
         }
         false
     }
+
+    /// Extend `~keep` preservation across contiguous single-line comment blocks.
+    ///
+    /// A rationale comment often spans several consecutive `//` (or `#`, `--`, …)
+    /// lines that tree-sitter models as one node *per line*, so a per-comment
+    /// `~keep` would preserve only the marked line and strip the rest, gutting the
+    /// block. This pass groups **standalone single-line comments on consecutive
+    /// rows** into blocks and, when any line in a block carries `~keep`, preserves
+    /// the whole block.
+    ///
+    /// Scope is deliberately narrow so the behaviour is unsurprising:
+    /// - Only `~keep` extends — other preservation rules (TODO, patterns,
+    ///   directives) stay per-comment.
+    /// - Only *standalone* comments join a block; a trailing comment (`code // x`)
+    ///   never anchors or joins one, and never drags in the line below.
+    /// - Only *single-line* comment nodes group; a `/* … */` block comment is
+    ///   already one node, so `~keep` inside it preserves it without this pass.
+    /// - A blank line (non-consecutive rows) or any code between comments ends the
+    ///   block.
+    ///
+    /// The pass is purely additive: it only ever sets `should_preserve = true`,
+    /// never clears it, so running it after the per-comment decisions is safe.
+    pub fn extend_keep_blocks(&mut self) {
+        // Standalone single-line comments, in source order.
+        let mut indices: Vec<usize> = (0..self.comments.len())
+            .filter(|&i| self.is_standalone_single_line(&self.comments[i]))
+            .collect();
+        indices.sort_by_key(|&i| self.comments[i].start_byte);
+
+        let mut run_start = 0;
+        while run_start < indices.len() {
+            // Extend the run while the next comment sits on the immediately
+            // following row (consecutive standalone single-line comments).
+            let mut run_end = run_start;
+            while run_end + 1 < indices.len()
+                && self.comments[indices[run_end + 1]].start_row == self.comments[indices[run_end]].start_row + 1
+            {
+                run_end += 1;
+            }
+
+            let has_keep = indices[run_start..=run_end]
+                .iter()
+                .any(|&i| self.comments[i].content(self.source).contains("~keep"));
+            if has_keep {
+                for &i in &indices[run_start..=run_end] {
+                    self.comments[i].should_preserve = true;
+                }
+            }
+
+            run_start = run_end + 1;
+        }
+    }
+
+    /// Whether `comment` is a single-line comment node that occupies its line
+    /// alone (only whitespace precedes it). Trailing comments and multi-line
+    /// (block) comment nodes return `false`.
+    fn is_standalone_single_line(&self, comment: &CommentInfo) -> bool {
+        if comment.start_row != comment.end_row {
+            return false;
+        }
+        let line_start = self.source[..comment.start_byte].rfind('\n').map_or(0, |pos| pos + 1);
+        self.source[line_start..comment.start_byte]
+            .bytes()
+            .all(|byte| byte.is_ascii_whitespace())
+    }
 }
 
 #[cfg(test)]

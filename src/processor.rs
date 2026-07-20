@@ -139,6 +139,7 @@ impl Processor {
             &language_config.name,
         );
         visitor.visit_node(tree.root_node());
+        visitor.extend_keep_blocks();
 
         let comments_to_remove = visitor.get_comments_to_remove();
 
@@ -339,6 +340,7 @@ impl Processor {
             &language_config.name,
         );
         visitor.visit_node(tree.root_node());
+        visitor.extend_keep_blocks();
 
         let bytes = content.as_bytes();
         let removals = visitor
@@ -777,6 +779,65 @@ mod tests {
             "// remove me\n"
         );
         assert_eq!(&source[removals[1].remove_start..removals[1].remove_end], "// trailing");
+    }
+
+    #[test]
+    fn keep_marker_preserves_whole_contiguous_line_comment_block() {
+        let source = "fn f() {\n    // line one\n    // line two\n    // line three ~keep\n    let x = 1;\n}\n";
+        let output = process_rust(source);
+        assert!(output.contains("// line one"), "first block line kept: {output}");
+        assert!(output.contains("// line two"), "middle block line kept: {output}");
+        assert!(output.contains("// line three ~keep"), "marked line kept: {output}");
+    }
+
+    #[test]
+    fn keep_marker_on_first_line_preserves_block() {
+        let source = "fn f() {\n    // one ~keep\n    // two\n    // three\n    let x = 1;\n}\n";
+        let output = process_rust(source);
+        assert!(output.contains("// one ~keep"), "marked line kept: {output}");
+        assert!(output.contains("// two"), "following line kept: {output}");
+        assert!(output.contains("// three"), "following line kept: {output}");
+    }
+
+    #[test]
+    fn blank_line_breaks_keep_block() {
+        let source = "fn f() {\n    // kept ~keep\n    // kept two\n\n    // dropped one\n    // dropped two\n    let x = 1;\n}\n";
+        let output = process_rust(source);
+        assert!(output.contains("// kept ~keep"), "marked line kept: {output}");
+        assert!(output.contains("// kept two"), "same-block line kept: {output}");
+        assert!(
+            !output.contains("// dropped one"),
+            "separate paragraph stripped: {output}"
+        );
+        assert!(
+            !output.contains("// dropped two"),
+            "separate paragraph stripped: {output}"
+        );
+    }
+
+    #[test]
+    fn trailing_keep_does_not_extend_to_standalone_neighbor() {
+        let source = "fn f() {\n    let x = 1; // trailing ~keep\n    // standalone removable\n    let y = 2;\n}\n";
+        let output = process_rust(source);
+        assert!(
+            output.contains("// trailing ~keep"),
+            "trailing keep preserved per-comment: {output}"
+        );
+        assert!(
+            !output.contains("// standalone removable"),
+            "a trailing keep must not anchor a block: {output}"
+        );
+    }
+
+    #[test]
+    fn code_between_comments_breaks_keep_block() {
+        let source = "fn f() {\n    // block a ~keep\n    let x = 1;\n    // block b removable\n    let y = 2;\n}\n";
+        let output = process_rust(source);
+        assert!(output.contains("// block a ~keep"), "marked line kept: {output}");
+        assert!(
+            !output.contains("// block b removable"),
+            "code between comments ends the block: {output}"
+        );
     }
 
     #[test]
