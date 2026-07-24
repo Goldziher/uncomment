@@ -167,3 +167,69 @@ const x: string = 123;
     assert!(!result.contains("// Regular comment"));
     assert!(!result.contains("/* Regular block"));
 }
+
+#[test]
+fn test_renovate_and_bot_directives_preserved_hash_syntax() {
+    let code = r#"# Regular comment to remove
+import os
+
+# renovate: datasource=github-releases depName=golang/go
+GO_VERSION = "1.21"
+
+# datasource=docker depName=redis
+REDIS_VERSION = "7"
+
+# NOSONAR - suppress SonarQube here
+password = "risky"
+
+# cspell:disable-next-line
+value = "teh mispeling"
+
+# Another regular comment to remove
+"#;
+
+    let result = process_code(code, "py", false);
+
+    assert!(result.contains("# renovate: datasource=github-releases depName=golang/go"));
+    assert!(result.contains("# datasource=docker depName=redis"));
+    assert!(result.contains("# NOSONAR"));
+    assert!(result.contains("# cspell:disable-next-line"));
+
+    assert!(!result.contains("# Regular comment to remove"));
+    assert!(!result.contains("# Another regular comment"));
+}
+
+#[test]
+fn test_scanner_bot_directives_preserved_slash_syntax() {
+    let code = r#"// Regular comment to remove
+function risky() {
+    // snyk:ignore - known issue tracked elsewhere
+    const a = eval("1");
+
+    // codeql[js/xss] - reviewed and accepted
+    const b = render(input);
+
+    // spell-checker: disable
+    const teh = "mispeling";
+
+    // dependabot ignore for now
+    const c = 1;
+
+    // NOSONAR
+    const d = 2;
+
+    // Another regular comment
+    return a + b + c + d;
+}"#;
+
+    let result = process_code(code, "ts", false);
+
+    assert!(result.contains("// snyk:ignore"));
+    assert!(result.contains("// codeql[js/xss]"));
+    assert!(result.contains("// spell-checker: disable"));
+    assert!(result.contains("// dependabot"));
+    assert!(result.contains("// NOSONAR"));
+
+    assert!(!result.contains("// Regular comment to remove"));
+    assert!(!result.contains("// Another regular comment"));
+}

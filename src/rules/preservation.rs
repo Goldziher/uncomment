@@ -283,6 +283,19 @@ impl PreservationRule {
             Self::pattern("@public"),
             Self::pattern("@private"),
             Self::pattern("@protected"),
+            // Dependency automation bots
+            Self::pattern("renovate:"),   // # renovate: datasource=... depName=...
+            Self::pattern("datasource="), // renovate custom-manager annotations
+            Self::pattern("depName="),
+            Self::pattern("dependabot"),
+            // Security / quality scanners
+            Self::pattern("NOSONAR"), // SonarQube inline suppression (also promised in --help)
+            Self::pattern("snyk:ignore"),
+            Self::pattern("codeql["), // CodeQL inline alert suppression
+            // Spell checkers
+            Self::pattern("cspell:"),        // cSpell: disable / ignore / words
+            Self::pattern("spell-checker:"), // Code Spell Checker alternate prefix
+            Self::pattern("codespell:ignore"),
         ]);
         rules
     }
