@@ -77,7 +77,11 @@ impl Processor {
             if overrides.remove_doc {
                 resolved_config.remove_docs = true;
             }
-            resolved_config.use_default_ignores = overrides.use_default_ignores;
+            // Apply flags one-directionally so an unset flag never clobbers config-file
+            // values: only --no-default-ignores forces this off (see issue #106).
+            if !overrides.use_default_ignores {
+                resolved_config.use_default_ignores = false;
+            }
             if overrides.remove_todo {
                 resolved_config.remove_todos = true;
             }
@@ -89,8 +93,12 @@ impl Processor {
                     .preserve_patterns
                     .extend(overrides.custom_preserve_patterns.iter().cloned());
             }
-            resolved_config.respect_gitignore = overrides.respect_gitignore;
-            resolved_config.traverse_git_repos = overrides.traverse_git_repos;
+            if !overrides.respect_gitignore {
+                resolved_config.respect_gitignore = false;
+            }
+            if overrides.traverse_git_repos {
+                resolved_config.traverse_git_repos = true;
+            }
         }
 
         let outcome = self.process_content_with_config(&content, language_config.as_ref(), &resolved_config)?;
@@ -1068,6 +1076,42 @@ fn main() {}
         assert!(!without_defaults.processed_content.contains("NOTE"));
         assert!(!without_defaults.processed_content.contains("#![feature"));
         assert!(without_defaults.processed_content.contains("fn main()"));
+    }
+
+    #[test]
+    fn honors_config_file_disabling_default_ignores() {
+        // Regression for #106: a config with use_default_ignores = false must be honored
+        // when --no-default-ignores was NOT passed. Previously the CLI default clobbered it,
+        // leaving hardcoded NOTE/HACK patterns unremovable.
+        let dir = tempdir().expect("create temp dir");
+        let file_path = dir.path().join("sample.lua");
+        std::fs::write(&file_path, "-- NOTE: remove me\n-- HACK: me too\nlocal x = 1\n").expect("write test file");
+
+        let mut config = Config::default();
+        config.global.use_default_ignores = false;
+        let config_manager = ConfigManager::from_single_config(dir.path(), config).expect("config manager");
+
+        // CLI defaults: use_default_ignores = true because --no-default-ignores absent.
+        let overrides = ProcessingOptions {
+            remove_todo: false,
+            remove_fixme: false,
+            remove_doc: false,
+            custom_preserve_patterns: Vec::new(),
+            use_default_ignores: true,
+            dry_run: true,
+            show_diff: false,
+            respect_gitignore: true,
+            traverse_git_repos: false,
+        };
+
+        let mut processor = Processor::new();
+        let result = processor
+            .process_file_with_config(&file_path, &config_manager, Some(&overrides))
+            .expect("process lua file");
+
+        assert!(!result.processed_content.contains("NOTE"));
+        assert!(!result.processed_content.contains("HACK"));
+        assert!(result.processed_content.contains("local x = 1"));
     }
 
     #[test]
