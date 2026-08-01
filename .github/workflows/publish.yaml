@@ -433,6 +433,11 @@ jobs:
           {"os": "macos-latest", "target": "aarch64-apple-darwin"},
           {"os": "windows-latest", "target": "x86_64-pc-windows-gnu"}
         ]
+      # Authenticate cargo-binstall's GitHub API calls: anonymous requests share the
+      # runner IP, hit the 60/hr limit (403), and binstall's 120s backoff then exceeds its
+      # resolve deadline and fails the job (aarch64-apple-darwin, v3.5.2). github.token
+      # raises the limit to 5000/hr and is auto-masked in logs.
+      extra-binstall-args: --github-token ${{ github.token }}
       smoke-command: |
         uncomment --version
 
