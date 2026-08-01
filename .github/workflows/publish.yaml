@@ -412,6 +412,30 @@ jobs:
           gh release edit "$tag" --draft=false --repo "$GITHUB_REPOSITORY"
           echo "✓ Promoted $tag to a published release"
 
+  verify-binstall:
+    name: Verify cargo-binstall install
+    needs: [meta, finalize_release]
+    # Gate mirrors the release-build jobs (skip when assets already exist) and waits for
+    # finalize_release, which promotes the draft to a public release so cargo-binstall can
+    # fetch the archives from their public download URLs (draft assets 404 for anon requests).
+    if: ${{ needs.meta.outputs.release_assets_exist != 'true' && needs.finalize_release.result == 'success' }}
+    uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1
+    with:
+      package-name: uncomment
+      binary-name: uncomment
+      manifest-path: .
+      checkout-ref: ${{ needs.meta.outputs.tag }}
+      # This repo ships a Windows x86_64-pc-windows-gnu archive, not the msvc default the
+      # reusable workflow assumes, so the target matrix must be overridden explicitly.
+      targets: |
+        [
+          {"os": "ubuntu-latest", "target": "x86_64-unknown-linux-gnu"},
+          {"os": "macos-latest", "target": "aarch64-apple-darwin"},
+          {"os": "windows-latest", "target": "x86_64-pc-windows-gnu"}
+        ]
+      smoke-command: |
+        uncomment --version
+
   publish_crates:
     name: Publish crates.io
     needs: meta
