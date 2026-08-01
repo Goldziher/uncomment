@@ -53,6 +53,9 @@ anything with a tree-sitter grammar.
 | npm (Node.js) | `npm install -g uncomment-cli` |
 | pip (Python) | `pip install uncomment` |
 
+Prefer prebuilt binaries? [`cargo binstall uncomment`](https://github.com/cargo-bins/cargo-binstall) downloads a
+release archive instead of compiling from source.
+
 Run without installing:
 
 ```bash
