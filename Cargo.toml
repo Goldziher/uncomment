@@ -8,6 +8,12 @@ keywords = ["comments", "cli", "tree-sitter", "ast"]
 license = "MIT"
 repository = "https://github.com/Goldziher/uncomment"
 
+# ~keep cargo-binstall metadata: fetch prebuilt archives from GitHub releases.
+# ~keep archive-suffix resolves to .tar.gz on unix and .zip on windows, matching our release assets.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/uncomment-{ target }{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
+
 [lib]
 name = "uncomment"
 path = "src/lib.rs"
