@@ -419,7 +419,7 @@ jobs:
     # finalize_release, which promotes the draft to a public release so cargo-binstall can
     # fetch the archives from their public download URLs (draft assets 404 for anon requests).
     if: ${{ needs.meta.outputs.release_assets_exist != 'true' && needs.finalize_release.result == 'success' }}
-    uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1
+    uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1.8.108
     with:
       package-name: uncomment
       binary-name: uncomment

@@ -19,7 +19,7 @@ env:
 
 jobs:
   validate:
-    uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1
+    uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1.8.108
     with:
       setup-rust: true
 
