@@ -4,21 +4,7 @@ use tempfile::TempDir;
 
 /// Get the path to the compiled uncomment binary
 fn get_binary_path() -> std::path::PathBuf {
-    let build_output = Command::new("cargo")
-        .args(["build", "--bin", "uncomment"])
-        .output()
-        .expect("Failed to build binary");
-
-    if !build_output.status.success() {
-        panic!(
-            "Failed to build binary: {}",
-            String::from_utf8_lossy(&build_output.stderr)
-        );
-    }
-
-    let mut binary_path = std::env::current_dir().expect("Failed to get current directory");
-    binary_path.push("target/debug/uncomment");
-    binary_path
+    std::path::PathBuf::from(env!("CARGO_BIN_EXE_uncomment"))
 }
 
 /// Comprehensive integration test for the init command
