@@ -160,7 +160,7 @@ impl Processor {
             })
             .collect();
 
-        let comments_to_remove = visitor.get_comments_to_remove();
+        let comments_to_remove = dedupe_nested(visitor.get_comments_to_remove());
 
         let removed_comments = comments_to_remove
             .iter()
@@ -375,8 +375,7 @@ impl Processor {
         visitor.extend_keep_above();
 
         let bytes = content.as_bytes();
-        let removals = visitor
-            .get_comments_to_remove()
+        let removals = dedupe_nested(visitor.get_comments_to_remove())
             .into_iter()
             .filter_map(|comment| {
                 let (remove_start, remove_end) = Self::expand_range(bytes, comment.start_byte, comment.end_byte)?;
@@ -475,6 +474,29 @@ pub struct ImportantRemoval {
     pub line: usize,
     pub reason: Cow<'static, str>,
     pub preview: String,
+}
+
+/// Drop comments wholly contained in another, keeping the outermost.
+///
+/// Grammars routinely record one comment as several nested nodes — a Rust `///`
+/// line arrives twice, once as the outer `line_comment` and once as the inner
+/// doc node. Removal already collapses the overlap, but the reported count and
+/// line list are built from this list, so without deduplication a file with two
+/// doc comments reports four removals across two duplicated ranges.
+fn dedupe_nested(comments: Vec<&CommentInfo>) -> Vec<&CommentInfo> {
+    let mut comments = comments;
+    comments.sort_by(|a, b| a.start_byte.cmp(&b.start_byte).then(b.end_byte.cmp(&a.end_byte)));
+
+    let mut kept: Vec<&CommentInfo> = Vec::with_capacity(comments.len());
+    for comment in comments {
+        let nested = kept
+            .last()
+            .is_some_and(|outer| comment.start_byte >= outer.start_byte && comment.end_byte <= outer.end_byte);
+        if !nested {
+            kept.push(comment);
+        }
+    }
+    kept
 }
 
 /// The whole source line that `offset` falls on.
@@ -960,6 +982,21 @@ mod tests {
             outcome.content
         );
         assert!(outcome.redundant_markers.is_empty());
+    }
+
+    #[test]
+    fn nested_comment_nodes_are_counted_once() {
+        // Rust records each `///` line twice: the outer `line_comment` and the
+        // inner doc node. Both describe one comment.
+        let source = "/// Doc one.\npub fn a() {}\n\n/// Doc two.\npub fn b() {}\n";
+        let outcome = process_rust_with(source, true);
+        assert_eq!(outcome.removed_comments.len(), 2, "two doc comments, not four nodes");
+        let spans: Vec<(usize, usize)> = outcome
+            .removed_comments
+            .iter()
+            .map(|comment| (comment.start_row, comment.end_row))
+            .collect();
+        assert_eq!(spans, vec![(0, 1), (3, 4)], "no duplicated ranges");
     }
 
     #[test]

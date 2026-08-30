@@ -34,6 +34,12 @@ This changelog is generated from git tags and commit history.
 
 - `uncomment`'s own `--help` no longer prints `~keep` in its option descriptions
   ([#113](https://github.com/Goldziher/uncomment/issues/113)).
+- Removed-comment counts and line lists no longer double-count comments that the
+  grammar records as nested nodes. A Rust `///` line arrives twice, as the outer
+  `line_comment` and as the inner doc node, so `--remove-doc` over two doc comments
+  reported `would remove 4 (L1–2, L1–2, L4–5, L4–5)` instead of
+  `would remove 2 (L1–2, L4–5)`. Only the reporting was affected; the removal itself
+  already collapsed the overlap.
 
 ## [v3.5.0] - 2026-07-20
 
