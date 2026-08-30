@@ -336,7 +336,7 @@ AST parsing costs a little more than regex, but the tool is fast and scales well
 | 4 | 3,900 | 2.6× |
 | 8 | 5,100 | 3.4× |
 
-_Benchmarked on a large enterprise codebase of ~5,000 mixed-language files._ Measure your own with
+*Benchmarked on a large enterprise codebase of ~5,000 mixed-language files.* Measure your own with
 the built-in `benchmark` and `profile` tools (see [optional benchmarking tools](#usage)).
 
 ## Development
