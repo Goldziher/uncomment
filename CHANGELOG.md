@@ -4,6 +4,37 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [v3.6.0] - 2026-08-30
+
+### Added
+
+- `~keep` on its own line now protects the comment directly beneath it. The marker is
+  plain comment text, so one written inside a doc comment is republished by everything
+  that consumes doc comments — rustdoc, `utoipa`-generated OpenAPI schemas, generated
+  API clients, editor hover text. A marker on a preceding `//` line protects the comment
+  without rendering anywhere. It extends across a contiguous run of comments; a blank
+  line or any code between comments ends the run.
+
+### Changed
+
+- A redundant `~keep` inside a doc comment is now stripped from the doc text and
+  reported (`stripped 2 redundant ~keep markers`). The comment itself is untouched.
+  Such a marker does nothing where it sits — doc comments are preserved anyway unless
+  `--remove-doc` is set — while the token travels outward into rendered documentation.
+  The marker is left in place when `--remove-doc` is set, where it is the only thing
+  protecting that doc comment, and prose *about* the marker is never rewritten: a line
+  containing backticks, or a commented-out code sample, reads as documentation rather
+  than as a directive.
+- Per-file output no longer leads with a removal count when nothing was removed, so a
+  run that only stripped markers reports just that.
+- Bumped dependencies: `tree-sitter-language-pack` 1.15.12, `tree-sitter` 0.26.13,
+  `saphyr` 0.0.12, and `ignore` 0.4.33.
+
+### Fixed
+
+- `uncomment`'s own `--help` no longer prints `~keep` in its option descriptions
+  ([#113](https://github.com/Goldziher/uncomment/issues/113)).
+
 ## [v3.5.0] - 2026-07-20
 
 ### Added

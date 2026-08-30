@@ -35,22 +35,22 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// ~keep Initialize a configuration file in the current directory
+    /// Initialize a configuration file in the current directory
     #[command(about = "Create a template configuration file")]
     Init {
-        /// ~keep Output file name
+        /// Output file name
         #[arg(short, long, value_name = "FILE", default_value = ".uncommentrc.toml")]
         output: PathBuf,
 
-        /// ~keep Overwrite existing file
+        /// Overwrite existing file
         #[arg(short, long)]
         force: bool,
 
-        /// ~keep Generate configuration for all supported languages
+        /// Generate configuration for all supported languages
         #[arg(long, help = "Generate comprehensive config with all supported languages")]
         comprehensive: bool,
 
-        /// ~keep Interactive mode to select languages
+        /// Interactive mode to select languages
         #[arg(short, long, help = "Interactive mode to select languages and options")]
         interactive: bool,
     },
@@ -58,11 +58,11 @@ pub enum Commands {
 
 #[derive(Parser, Debug)]
 pub struct ProcessArgs {
-    /// ~keep Files or directories to process (supports glob patterns)
+    /// Files or directories to process (supports glob patterns)
     #[arg(value_name = "PATH", help = "Files, directories, or glob patterns to process")]
     pub paths: Vec<String>,
 
-    /// ~keep Remove TODO comments (normally preserved)
+    /// Remove TODO comments (normally preserved)
     #[arg(
         short = 'r',
         long,
@@ -71,7 +71,7 @@ pub struct ProcessArgs {
     )]
     pub remove_todo: bool,
 
-    /// ~keep Remove FIXME comments (normally preserved)
+    /// Remove FIXME comments (normally preserved)
     #[arg(
         short = 'f',
         long,
@@ -80,7 +80,7 @@ pub struct ProcessArgs {
     )]
     pub remove_fixme: bool,
 
-    /// ~keep Remove documentation comments (normally preserved)
+    /// Remove documentation comments (normally preserved)
     #[arg(
         short = 'd',
         long,
@@ -89,7 +89,7 @@ pub struct ProcessArgs {
     )]
     pub remove_doc: bool,
 
-    /// ~keep Additional patterns to preserve (beyond defaults)
+    /// Additional patterns to preserve (beyond defaults)
     #[arg(
         short = 'i',
         long = "ignore",
@@ -99,7 +99,7 @@ pub struct ProcessArgs {
     )]
     pub ignore_patterns: Vec<String>,
 
-    /// ~keep Disable automatic preservation of linting directives
+    /// Disable automatic preservation of linting directives
     #[arg(
         long = "no-default-ignores",
         help = "Disable built-in preservation patterns (ESLint, Clippy, etc.)",
@@ -107,7 +107,7 @@ pub struct ProcessArgs {
     )]
     pub no_default_ignores: bool,
 
-    /// ~keep Show what would be changed without modifying files
+    /// Show what would be changed without modifying files
     #[arg(
         short = 'n',
         long,
@@ -116,7 +116,7 @@ pub struct ProcessArgs {
     )]
     pub dry_run: bool,
 
-    /// ~keep Show line-by-line diffs of removed comments
+    /// Show line-by-line diffs of removed comments
     #[arg(
         long = "diff",
         help = "Show a diff of the removed comments for each modified file",
@@ -124,7 +124,7 @@ pub struct ProcessArgs {
     )]
     pub diff: bool,
 
-    /// ~keep Show detailed processing information
+    /// Show detailed processing information
     #[arg(
         short = 'v',
         long,
@@ -133,7 +133,7 @@ pub struct ProcessArgs {
     )]
     pub verbose: bool,
 
-    /// ~keep Suppress per-file output; print only the summary and errors
+    /// Suppress per-file output; print only the summary and errors
     #[arg(
         short = 'q',
         long,
@@ -143,7 +143,7 @@ pub struct ProcessArgs {
     )]
     pub quiet: bool,
 
-    /// ~keep Ignore .gitignore rules when finding files
+    /// Ignore .gitignore rules when finding files
     #[arg(
         long = "no-gitignore",
         help = "Process files ignored by .gitignore",
@@ -151,7 +151,7 @@ pub struct ProcessArgs {
     )]
     pub no_gitignore: bool,
 
-    /// ~keep Process files in nested git repositories
+    /// Process files in nested git repositories
     #[arg(
         long = "traverse-git-repos",
         help = "Traverse into other git repositories (useful for monorepos)",
@@ -159,7 +159,7 @@ pub struct ProcessArgs {
     )]
     pub traverse_git_repos: bool,
 
-    /// ~keep Number of parallel threads (0 = number of CPU cores)
+    /// Number of parallel threads (0 = number of CPU cores)
     #[arg(
         short = 'j',
         long = "threads",
@@ -170,7 +170,7 @@ pub struct ProcessArgs {
     )]
     pub threads: usize,
 
-    /// ~keep Path to configuration file
+    /// Path to configuration file
     #[arg(
         short = 'c',
         long = "config",
@@ -198,7 +198,7 @@ impl ProcessArgs {
 }
 
 impl Cli {
-    /// ~keep Handle the init command
+    /// Handle the init command
     pub fn handle_init_command(
         output: &PathBuf,
         force: bool,
