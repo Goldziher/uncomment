@@ -191,6 +191,33 @@ teammates rely on.
 - `TODO` (unless `--remove-todo`), `FIXME` (unless `--remove-fixme`)
 - Documentation comments (unless `--remove-doc`)
 
+### The `~keep` marker
+
+Put `~keep` on a `//`-style comment, not on a `///` or `/** */` doc comment. `~keep` is
+plain comment text, so a marker written inside a doc comment is republished by every tool
+that consumes doc comments — rustdoc, OpenAPI schemas, generated API clients, editor
+hover text.
+
+A marker on its own line protects the comment directly beneath it, which keeps it out of
+anything rendered:
+
+```rust
+// ~keep
+/// Parent element ID for hierarchical relationships.
+pub parent_id: Option<String>,
+```
+
+The marker also extends across a contiguous run of comments, so one `~keep` protects a
+whole multi-line block. A blank line or any code between comments ends the run.
+
+Inside a doc comment the marker is usually redundant, since doc comments are preserved
+anyway unless `--remove-doc` is set. uncomment strips such a marker from the doc text and
+reports it (`stripped 2 redundant ~keep markers`), leaving the comment itself untouched.
+Two cases are left alone: a marker is kept when `--remove-doc` is set, because there it is
+the only thing protecting that doc comment, and prose *about* the marker is never rewritten
+— a line containing backticks, or a commented-out code sample, is read as documentation
+rather than as a directive.
+
 <details>
 <summary><b>Linting &amp; formatter directives (always preserved)</b></summary>
 
@@ -309,7 +336,7 @@ AST parsing costs a little more than regex, but the tool is fast and scales well
 | 4 | 3,900 | 2.6× |
 | 8 | 5,100 | 3.4× |
 
-_Benchmarked on a large enterprise codebase of ~5,000 mixed-language files._ Measure your own with
+*Benchmarked on a large enterprise codebase of ~5,000 mixed-language files.* Measure your own with
 the built-in `benchmark` and `profile` tools (see [optional benchmarking tools](#usage)).
 
 ## Development

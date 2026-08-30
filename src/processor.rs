@@ -112,6 +112,7 @@ impl Processor {
             removed_comments: outcome.removed_comments,
             removed_ranges: outcome.removed_ranges,
             important_removals: outcome.important_removals,
+            redundant_markers: outcome.redundant_markers,
         })
     }
 
@@ -148,8 +149,18 @@ impl Processor {
         );
         visitor.visit_node(tree.root_node());
         visitor.extend_keep_blocks();
+        visitor.extend_keep_above();
 
-        let comments_to_remove = visitor.get_comments_to_remove();
+        let marker_ranges = visitor.redundant_keep_markers(resolved_config.remove_docs);
+        let redundant_markers = marker_ranges
+            .iter()
+            .map(|&(start, _)| RedundantMarker {
+                line: content[..start].bytes().filter(|&byte| byte == b'\n').count(),
+                preview: first_line_preview(line_containing(content, start)),
+            })
+            .collect();
+
+        let comments_to_remove = dedupe_nested(visitor.get_comments_to_remove());
 
         let removed_comments = comments_to_remove
             .iter()
@@ -163,13 +174,14 @@ impl Processor {
 
         let important_removals = detect_important_removals(&comments_to_remove, content);
 
-        let (output, removed_ranges) = self.remove_comments_from_content(content, &comments_to_remove);
+        let (output, removed_ranges) = self.remove_comments_from_content(content, &comments_to_remove, &marker_ranges);
 
         Ok(ProcessOutcome {
             content: output,
             removed_comments,
             important_removals,
             removed_ranges,
+            redundant_markers,
         })
     }
 
@@ -222,12 +234,17 @@ impl Processor {
 
     /// Rewrite `content` with the given comments removed, returning the new source
     /// and the byte ranges (in the *original* `content`) that were deleted.
+    /// Cut `comments_to_remove` from `content`, and additionally excise
+    /// `marker_ranges` — spans of redundant `~keep` text inside comments that are
+    /// otherwise preserved. Returns the new content and the byte ranges dropped
+    /// from the original, which the diff renderer replays.
     fn remove_comments_from_content(
         &self,
         content: &str,
         comments_to_remove: &[&CommentInfo],
+        marker_ranges: &[(usize, usize)],
     ) -> (String, Vec<(usize, usize)>) {
-        if comments_to_remove.is_empty() {
+        if comments_to_remove.is_empty() && marker_ranges.is_empty() {
             return (content.to_string(), Vec::new());
         }
 
@@ -250,12 +267,18 @@ impl Processor {
             filtered.push((start, end));
         }
 
-        let mut removal_ranges: Vec<(usize, usize)> = Vec::with_capacity(filtered.len());
+        let mut removal_ranges: Vec<(usize, usize)> = Vec::with_capacity(filtered.len() + marker_ranges.len());
         for (start, end) in &filtered {
             if let Some(range) = Self::expand_range(bytes, *start, *end) {
                 removal_ranges.push(range);
             }
         }
+
+        // Marker spans are excised verbatim — never widened to the whole line,
+        // because the comment around them is being kept.
+        removal_ranges.extend_from_slice(marker_ranges);
+        removal_ranges.sort_unstable();
+        removal_ranges.dedup();
 
         let mut output = String::with_capacity(content.len());
         let mut cursor = 0;
@@ -349,10 +372,10 @@ impl Processor {
         );
         visitor.visit_node(tree.root_node());
         visitor.extend_keep_blocks();
+        visitor.extend_keep_above();
 
         let bytes = content.as_bytes();
-        let removals = visitor
-            .get_comments_to_remove()
+        let removals = dedupe_nested(visitor.get_comments_to_remove())
             .into_iter()
             .filter_map(|comment| {
                 let (remove_start, remove_end) = Self::expand_range(bytes, comment.start_byte, comment.end_byte)?;
@@ -404,6 +427,7 @@ struct ProcessOutcome {
     removed_comments: Vec<RemovedComment>,
     important_removals: Vec<ImportantRemoval>,
     removed_ranges: Vec<(usize, usize)>,
+    redundant_markers: Vec<RedundantMarker>,
 }
 
 #[derive(Debug)]
@@ -418,6 +442,8 @@ pub struct ProcessedFile {
     /// Byte ranges deleted from `original_content`, used to render the diff.
     pub removed_ranges: Vec<(usize, usize)>,
     pub important_removals: Vec<ImportantRemoval>,
+    /// Redundant `~keep` markers stripped from preserved doc comments.
+    pub redundant_markers: Vec<RedundantMarker>,
 }
 
 /// A single removed comment, expressed by line for human-facing location output.
@@ -433,11 +459,51 @@ pub struct RemovedComment {
     pub preview: String,
 }
 
+/// A `~keep` marker found inside a doc comment that keeps the comment alive on
+/// its own, where the token does nothing but travel into rendered documentation.
+#[derive(Debug, Clone)]
+pub struct RedundantMarker {
+    /// 0-based line of the doc comment carrying the marker.
+    pub line: usize,
+    /// Trimmed, length-capped text of that line, for human-facing messages.
+    pub preview: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct ImportantRemoval {
     pub line: usize,
     pub reason: Cow<'static, str>,
     pub preview: String,
+}
+
+/// Drop comments wholly contained in another, keeping the outermost.
+///
+/// Grammars routinely record one comment as several nested nodes — a Rust `///`
+/// line arrives twice, once as the outer `line_comment` and once as the inner
+/// doc node. Removal already collapses the overlap, but the reported count and
+/// line list are built from this list, so without deduplication a file with two
+/// doc comments reports four removals across two duplicated ranges.
+fn dedupe_nested(comments: Vec<&CommentInfo>) -> Vec<&CommentInfo> {
+    let mut comments = comments;
+    comments.sort_by(|a, b| a.start_byte.cmp(&b.start_byte).then(b.end_byte.cmp(&a.end_byte)));
+
+    let mut kept: Vec<&CommentInfo> = Vec::with_capacity(comments.len());
+    for comment in comments {
+        let nested = kept
+            .last()
+            .is_some_and(|outer| comment.start_byte >= outer.start_byte && comment.end_byte <= outer.end_byte);
+        if !nested {
+            kept.push(comment);
+        }
+    }
+    kept
+}
+
+/// The whole source line that `offset` falls on.
+fn line_containing(content: &str, offset: usize) -> &str {
+    let start = content[..offset].rfind('\n').map_or(0, |pos| pos + 1);
+    let end = content[offset..].find('\n').map_or(content.len(), |pos| offset + pos);
+    &content[start..end]
 }
 
 /// Trimmed, length-capped first line of a comment, for human-facing messages.
@@ -508,20 +574,44 @@ impl OutputWriter {
             self.verbose,
         );
 
+        // A file can change without a single comment being removed, when the only
+        // edit was stripping redundant `~keep` markers — so the summary is built
+        // from whichever parts actually apply rather than always leading with a
+        // removal count.
+        let mut parts: Vec<String> = Vec::new();
+        if count > 0 {
+            let verb = if self.dry_run { "would remove" } else { "removed" };
+            parts.push(format!("{verb} {count} ({ranges})"));
+        }
+        let markers = processed_file.redundant_markers.len();
+        if markers > 0 {
+            let verb = if self.dry_run { "would strip" } else { "stripped" };
+            let marker_lines = ui::format_line_ranges(
+                processed_file
+                    .redundant_markers
+                    .iter()
+                    .map(|marker| (marker.line, marker.line)),
+                self.verbose,
+            );
+            let plural = if markers == 1 { "marker" } else { "markers" };
+            parts.push(format!("{verb} {markers} redundant ~keep {plural} ({marker_lines})"));
+        }
+        let detail = parts.join(", ");
+
         if self.dry_run {
             anstream::println!(
                 "{} {} {} {}",
                 ui::accent("[DRY RUN]"),
                 ui::dim("Would modify:"),
                 ui::path(&processed_file.path),
-                ui::dim(format!("— would remove {count} ({ranges})")),
+                ui::dim(format!("— {detail}")),
             );
         } else {
             anstream::println!(
                 "{} {} {}",
                 ui::success("Modified:"),
                 ui::path(&processed_file.path),
-                ui::dim(format!("— removed {count} ({ranges})")),
+                ui::dim(format!("— {detail}")),
             );
         }
 
@@ -531,6 +621,14 @@ impl OutputWriter {
                     "  {}  {}",
                     ui::accent(ui::line_span(comment.start_row, comment.end_row)),
                     ui::dim(&comment.preview),
+                );
+            }
+            for marker in &processed_file.redundant_markers {
+                anstream::println!(
+                    "  {}  {} {}",
+                    ui::accent(ui::line_span(marker.line, marker.line)),
+                    ui::dim("~keep stripped:"),
+                    ui::dim(&marker.preview),
                 );
             }
         }
@@ -787,6 +885,136 @@ mod tests {
             "// remove me\n"
         );
         assert_eq!(&source[removals[1].remove_start..removals[1].remove_end], "// trailing");
+    }
+
+    fn process_rust_with(source: &str, remove_docs: bool) -> ProcessOutcome {
+        let mut processor = Processor::new();
+        let language_config = LanguageConfig::rust();
+        let resolved_config = ResolvedConfig {
+            remove_docs,
+            ..default_resolved_config()
+        };
+        processor
+            .process_content_with_config(source, &language_config, &resolved_config)
+            .expect("processing rust source")
+    }
+
+    #[test]
+    fn above_line_marker_preserves_doc_comment_under_remove_doc() {
+        let source = "// ~keep\n/// Parent element ID.\npub fn a() {}\n";
+        let outcome = process_rust_with(source, true);
+        assert!(
+            outcome.content.contains("/// Parent element ID."),
+            "above-line marker protects the doc comment: {}",
+            outcome.content
+        );
+        assert!(outcome.content.contains("// ~keep"), "the marker itself survives");
+    }
+
+    #[test]
+    fn above_line_marker_does_not_reach_past_a_blank_line() {
+        let source = "// ~keep\n\n/// Unrelated doc.\npub fn a() {}\n";
+        let outcome = process_rust_with(source, true);
+        assert!(
+            !outcome.content.contains("/// Unrelated doc."),
+            "a blank line ends the run: {}",
+            outcome.content
+        );
+    }
+
+    #[test]
+    fn above_line_marker_does_not_reach_past_code() {
+        // The `///` node swallows its trailing newline, so row adjacency alone
+        // would make the comment after `pub fn a()` look like a neighbour.
+        let source = "// ~keep\n/// Protected doc.\npub fn a() {}\n// unrelated removable\npub fn b() {}\n";
+        let outcome = process_rust_with(source, true);
+        assert!(outcome.content.contains("/// Protected doc."), "target kept");
+        assert!(
+            !outcome.content.contains("// unrelated removable"),
+            "code between comments ends the run: {}",
+            outcome.content
+        );
+    }
+
+    #[test]
+    fn redundant_keep_marker_is_stripped_from_doc_comment() {
+        let source = "/// Parent element ID. ~keep Resolves elsewhere.\npub fn a() {}\n";
+        let outcome = process_rust_with(source, false);
+        assert!(
+            outcome.content.contains("/// Parent element ID. Resolves elsewhere."),
+            "marker stripped and spacing collapsed: {}",
+            outcome.content
+        );
+        assert_eq!(outcome.redundant_markers.len(), 1, "one marker reported");
+        assert_eq!(outcome.redundant_markers[0].line, 0);
+    }
+
+    #[test]
+    fn trailing_redundant_marker_takes_the_space_before_it() {
+        let source = "/// Parent element ID. ~keep\npub fn a() {}\n";
+        let outcome = process_rust_with(source, false);
+        assert!(
+            outcome.content.contains("/// Parent element ID.\n"),
+            "no trailing space left behind: {}",
+            outcome.content
+        );
+    }
+
+    #[test]
+    fn load_bearing_keep_marker_survives_under_remove_doc() {
+        let source = "/// Parent element ID. ~keep\npub fn a() {}\n";
+        let outcome = process_rust_with(source, true);
+        assert!(
+            outcome.content.contains("~keep"),
+            "the marker is the only thing preserving this doc comment: {}",
+            outcome.content
+        );
+        assert!(outcome.redundant_markers.is_empty(), "nothing reported as redundant");
+    }
+
+    #[test]
+    fn keep_marker_on_a_line_comment_is_never_stripped() {
+        let source = "// rationale ~keep\npub fn a() {}\n";
+        let outcome = process_rust_with(source, false);
+        assert!(
+            outcome.content.contains("// rationale ~keep"),
+            "line comments do not render into docs, so the marker stays: {}",
+            outcome.content
+        );
+        assert!(outcome.redundant_markers.is_empty());
+    }
+
+    #[test]
+    fn nested_comment_nodes_are_counted_once() {
+        // Rust records each `///` line twice: the outer `line_comment` and the
+        // inner doc node. Both describe one comment.
+        let source = "/// Doc one.\npub fn a() {}\n\n/// Doc two.\npub fn b() {}\n";
+        let outcome = process_rust_with(source, true);
+        assert_eq!(outcome.removed_comments.len(), 2, "two doc comments, not four nodes");
+        let spans: Vec<(usize, usize)> = outcome
+            .removed_comments
+            .iter()
+            .map(|comment| (comment.start_row, comment.end_row))
+            .collect();
+        assert_eq!(spans, vec![(0, 1), (3, 4)], "no duplicated ranges");
+    }
+
+    #[test]
+    fn prose_about_the_marker_is_left_alone() {
+        let cases = [
+            "/// Comments containing `~keep` are preserved.\npub fn a() {}\n",
+            "/// Write `/// ~keep Parent element ID.` to protect it.\npub fn a() {}\n",
+            "/// ```text\n/// // ~keep\n/// ```\npub fn a() {}\n",
+            "/// A ~keepsake is not a marker.\npub fn a() {}\n",
+        ];
+        for source in cases {
+            let outcome = process_rust_with(source, false);
+            assert_eq!(
+                outcome.content, source,
+                "documentation discussing the marker must survive intact: {source}"
+            );
+            assert!(outcome.redundant_markers.is_empty(), "nothing reported for: {source}");
+        }
     }
 
     #[test]

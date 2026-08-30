@@ -184,7 +184,9 @@ fn main() -> Result<()> {
         anstream::eprintln!();
         anstream::eprintln!(
             "{}",
-            ui::dim("Tip: to keep a comment, add `~keep` to it — TODO, FIXME and doc comments are kept by default.")
+            ui::dim(
+                "Tip: to keep a comment, add `~keep` to it, or to a `//` line just above it — TODO, FIXME and doc comments are kept by default."
+            )
         );
         anstream::eprintln!(
             "{}",

@@ -53,6 +53,10 @@ pub struct CommentVisitor<'a> {
     comment_node_types: &'a [String],
     doc_comment_node_types: &'a [String],
     language_handler: Box<dyn LanguageHandler>,
+    /// Indices of comments preserved *by* a `~keep` on a different comment
+    /// (block extension or an above-line marker), rather than by a marker of
+    /// their own. Used to tell a load-bearing marker from a redundant one.
+    extended: std::collections::HashSet<usize>,
 }
 
 impl<'a> CommentVisitor<'a> {
@@ -72,6 +76,7 @@ impl<'a> CommentVisitor<'a> {
             comment_node_types,
             doc_comment_node_types,
             language_handler,
+            extended: std::collections::HashSet::new(),
         }
     }
 
@@ -188,6 +193,11 @@ impl<'a> CommentVisitor<'a> {
                 .any(|&i| self.comments[i].content(self.source).contains("~keep"));
             if has_keep {
                 for &i in &indices[run_start..=run_end] {
+                    // A comment without a marker of its own owes its survival to
+                    // a neighbour's marker, which makes that marker load-bearing.
+                    if !self.comments[i].content(self.source).contains("~keep") {
+                        self.extended.insert(i);
+                    }
                     self.comments[i].should_preserve = true;
                 }
             }
@@ -196,17 +206,219 @@ impl<'a> CommentVisitor<'a> {
         }
     }
 
-    /// Whether `comment` is a single-line comment node that occupies its line
-    /// alone (only whitespace precedes it). Trailing comments and multi-line
-    /// (block) comment nodes return `false`.
-    fn is_standalone_single_line(&self, comment: &CommentInfo) -> bool {
-        if comment.start_row != comment.end_row {
+    /// Extend `~keep` preservation from a marker comment down to the comment
+    /// directly beneath it.
+    ///
+    /// `~keep` is plain comment text, so a marker written *inside* a doc comment
+    /// is republished by every tool that consumes doc comments — rustdoc, OpenAPI
+    /// schemas generated from `utoipa`, generated API clients, editor hover text.
+    /// This pass gives the marker a home that never renders: a plain line comment
+    /// on its own line, directly above the comment it protects.
+    ///
+    /// ```text
+    /// // ~keep
+    /// /// Parent element ID for hierarchical relationships.
+    /// pub parent_id: Option<String>,
+    /// ```
+    ///
+    /// [`Self::extend_keep_blocks`] already covers the case where both the marker
+    /// and its target are standalone *single-line* comments. It cannot cover this
+    /// one: a `///` node spans two rows (it swallows its trailing newline), so it
+    /// never joins a single-line run. This pass matches on byte adjacency instead
+    /// of row arithmetic, so it reaches doc comments and block comments alike.
+    ///
+    /// Scope mirrors the block pass:
+    /// - Only a *standalone, non-documentation* comment acts as a marker, since a
+    ///   doc comment carrying `~keep` is the very thing this exists to avoid.
+    /// - Preservation runs forward through comments separated by nothing but
+    ///   whitespace spanning at most one newline, so a blank line or any code
+    ///   between comments ends the run.
+    ///
+    /// Purely additive: only ever sets `should_preserve = true`.
+    pub fn extend_keep_above(&mut self) {
+        let mut indices: Vec<usize> = (0..self.comments.len()).collect();
+        indices.sort_by_key(|&i| (self.comments[i].start_byte, self.comments[i].end_byte));
+
+        for position in 0..indices.len() {
+            let marker = indices[position];
+            if !self.is_keep_marker_line(&self.comments[marker]) {
+                continue;
+            }
+
+            let mut previous_end = self.comments[marker].end_byte;
+            for &next in &indices[position + 1..] {
+                if !Self::gap_is_adjacent(
+                    &self.source[previous_end.min(self.comments[next].start_byte)..self.comments[next].start_byte],
+                ) {
+                    break;
+                }
+                if !self.comments[next].should_preserve {
+                    self.extended.insert(next);
+                }
+                self.comments[next].should_preserve = true;
+                previous_end = previous_end.max(self.comments[next].end_byte);
+            }
+        }
+    }
+
+    /// Whether `comment` is a standalone, non-documentation comment whose text
+    /// carries `~keep` — the form that may protect the comment below it.
+    fn is_keep_marker_line(&self, comment: &CommentInfo) -> bool {
+        let content = comment.content(self.source);
+        !Self::is_doc_comment(comment, content) && self.is_standalone(comment) && content.contains("~keep")
+    }
+
+    /// Whether a comment is documentation, by the same content-based test the
+    /// [`PreservationRule::Documentation`] rule applies. Grammar handlers leave
+    /// [`CommentInfo::is_documentation`] unset for most languages — Rust records a
+    /// `///` line as a plain `line_comment` — so the flag alone under-reports.
+    fn is_doc_comment(comment: &CommentInfo, content: &str) -> bool {
+        PreservationRule::documentation().matches(comment, content)
+    }
+
+    /// Whether the source between two comments separates them by nothing but the
+    /// line break, so they read as one contiguous run. Any code, or a blank line
+    /// (two or more newlines), ends the run.
+    fn gap_is_adjacent(gap: &str) -> bool {
+        gap.bytes().all(|byte| byte.is_ascii_whitespace()) && gap.bytes().filter(|&b| b == b'\n').count() <= 1
+    }
+
+    /// Byte ranges of `~keep` markers that sit inside a preserved documentation
+    /// comment and do nothing there, together with the surrounding space that
+    /// should collapse with them.
+    ///
+    /// Such a marker is redundant: doc comments are preserved anyway unless
+    /// `--remove-doc` is set, so the token only travels outward into rendered
+    /// documentation. Callers pass `remove_docs` so the one case where an in-doc
+    /// marker *is* load-bearing — it is the only thing protecting this doc comment
+    /// from `--remove-doc` — is left untouched.
+    ///
+    /// Ranges are deduplicated: a `///` line is commonly recorded twice, once as
+    /// the outer comment node and once as its inner doc node.
+    #[must_use]
+    pub fn redundant_keep_markers(&self, remove_docs: bool) -> Vec<(usize, usize)> {
+        if remove_docs {
+            return Vec::new();
+        }
+
+        // A `///` line is commonly recorded twice: once as the outer comment node,
+        // which still carries the `///`, and once as an inner doc node whose text
+        // begins after it. The two disagree about where the doc marker ends, so a
+        // span counts as a marker only when no node covering it objects.
+        let mut ranges: Vec<(usize, usize)> = Vec::new();
+        let mut rejected: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        for (index, comment) in self.comments.iter().enumerate() {
+            let content = comment.content(self.source);
+            if !comment.should_preserve || !Self::is_doc_comment(comment, content) {
+                continue;
+            }
+            // A marker that is holding a neighbouring comment alive is doing work,
+            // even from inside a doc comment. Leave it be.
+            if self.run_members(index).any(|member| self.extended.contains(&member)) {
+                continue;
+            }
+            if !content.contains("~keep") {
+                continue;
+            }
+            for (offset, _) in content.match_indices("~keep") {
+                let start = comment.start_byte + offset;
+                if Self::is_marker_occurrence(content, offset) {
+                    ranges.push(Self::widen_marker(self.source, start, start + "~keep".len()));
+                } else {
+                    rejected.insert(start);
+                }
+            }
+        }
+
+        ranges.retain(|&(start, end)| !rejected.contains(&(end - "~keep".len())) && !rejected.contains(&start));
+        ranges.sort_unstable();
+        ranges.dedup();
+        ranges
+    }
+
+    /// Indices of comments that share a contiguous run with `index`, itself
+    /// included — the comments whose survival a marker on `index` could explain.
+    fn run_members(&self, index: usize) -> impl Iterator<Item = usize> + '_ {
+        let anchor = &self.comments[index];
+        let (low, high) = (anchor.start_row.saturating_sub(1), anchor.end_row + 1);
+        (0..self.comments.len())
+            .filter(move |&other| self.comments[other].start_row >= low && self.comments[other].start_row <= high)
+    }
+
+    /// Whether the `~keep` at `offset` in a doc comment is an actual marker
+    /// rather than prose *about* the marker.
+    ///
+    /// Documentation that explains `~keep` — this crate's own docs, a README
+    /// excerpt, a rustdoc example — mentions the token constantly, and rewriting
+    /// those mentions would corrupt the very documentation this feature exists to
+    /// protect. Three cheap signals separate the two:
+    ///
+    /// - A marker is a whole word. `~keepsake` is not one.
+    /// - A line carrying a backtick is discussing the token, not using it, so
+    ///   `` `~keep` `` and `` `/// ~keep Parent element ID.` `` are both left alone.
+    /// - A `//` or `#` *inside* the doc text (past the doc marker itself) means the
+    ///   line is a commented-out code sample, as in a rustdoc fenced block.
+    ///
+    /// The bias is deliberate: leaving a real marker in place is a cosmetic miss,
+    /// while stripping a word out of prose is data loss.
+    fn is_marker_occurrence(content: &str, offset: usize) -> bool {
+        let end = offset + "~keep".len();
+        let preceded_by_word = content[..offset]
+            .chars()
+            .next_back()
+            .is_some_and(|c| !c.is_whitespace());
+        let followed_by_word = content[end..].chars().next().is_some_and(|c| !c.is_whitespace());
+        if preceded_by_word || followed_by_word {
             return false;
         }
+
+        let line_start = content[..offset].rfind('\n').map_or(0, |pos| pos + 1);
+        let line_end = content[offset..].find('\n').map_or(content.len(), |pos| offset + pos);
+        let line = &content[line_start..line_end];
+        if line.contains('`') {
+            return false;
+        }
+
+        // Skip the doc marker that opens the line (`///`, `//!`, `##`, `/**`, `*`)
+        // so only a comment marker *within* the documented text counts.
+        let body = line.trim_start();
+        let body_offset = line.len() - body.len();
+        let text = body.trim_start_matches(['/', '!', '*', '#']);
+        let text_start = line_start + body_offset + (body.len() - text.len());
+        if text_start > offset {
+            return false;
+        }
+        let before = &content[text_start..offset];
+        !before.contains("//") && !before.contains('#')
+    }
+
+    /// Grow a `~keep` span to swallow one adjacent space, so stripping the token
+    /// from `/// ~keep Parent element ID.` leaves `/// Parent element ID.` rather
+    /// than a doubled space. Prefers the space after the marker; falls back to the
+    /// one before it when the marker ends the line.
+    fn widen_marker(source: &str, start: usize, end: usize) -> (usize, usize) {
+        if source[end..].starts_with(' ') {
+            return (start, end + 1);
+        }
+        if source[..start].ends_with(' ') {
+            return (start - 1, end);
+        }
+        (start, end)
+    }
+
+    /// Whether `comment` occupies its line alone (only whitespace precedes it).
+    fn is_standalone(&self, comment: &CommentInfo) -> bool {
         let line_start = self.source[..comment.start_byte].rfind('\n').map_or(0, |pos| pos + 1);
         self.source[line_start..comment.start_byte]
             .bytes()
             .all(|byte| byte.is_ascii_whitespace())
+    }
+
+    /// Whether `comment` is a single-line comment node that occupies its line
+    /// alone (only whitespace precedes it). Trailing comments and multi-line
+    /// (block) comment nodes return `false`.
+    fn is_standalone_single_line(&self, comment: &CommentInfo) -> bool {
+        comment.start_row == comment.end_row && self.is_standalone(comment)
     }
 }
 
