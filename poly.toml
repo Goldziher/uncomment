@@ -24,7 +24,9 @@ exclude = [
 
 [lint.typos]
 extend_words = { ba = "ba", edn = "edn" }
-extend_exclude = ["CHANGELOG.md"]
+# The linting-directive fixtures spell words wrong on purpose, to prove a
+# cspell/spell-checker directive keeps the comment carrying it alive.
+extend_exclude = ["CHANGELOG.md", "tests/linting_directives_simple_test.rs"]
 
 [lint.uncomment]
 enabled = true
