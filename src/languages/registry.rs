@@ -48,6 +48,7 @@ impl LanguageRegistry {
             LanguageConfig::sql(),
             LanguageConfig::kotlin(),
             LanguageConfig::swift(),
+            LanguageConfig::objc(),
             LanguageConfig::lua(),
             LanguageConfig::nix(),
             LanguageConfig::powershell(),
@@ -286,6 +287,7 @@ mod tests {
         assert!(languages.contains(&"sql".to_string()));
         assert!(languages.contains(&"kotlin".to_string()));
         assert!(languages.contains(&"swift".to_string()));
+        assert!(languages.contains(&"objc".to_string()));
         assert!(languages.contains(&"lua".to_string()));
         assert!(languages.contains(&"nix".to_string()));
         assert!(languages.contains(&"powershell".to_string()));
@@ -315,6 +317,7 @@ mod tests {
         assert!(registry.is_supported_extension("sql"));
         assert!(registry.is_supported_extension("kt"));
         assert!(registry.is_supported_extension("swift"));
+        assert!(registry.is_supported_extension("m"));
         assert!(registry.is_supported_extension("lua"));
         assert!(registry.is_supported_extension("nix"));
         assert!(registry.is_supported_extension("ps1"));

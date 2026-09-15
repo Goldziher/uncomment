@@ -46,12 +46,12 @@ anything with a tree-sitter grammar.
 
 ## Installation
 
-| Channel | Command |
-| ------- | ------- |
+| Channel                | Command                                            |
+| ---------------------- | -------------------------------------------------- |
 | Homebrew (macOS/Linux) | `brew tap goldziher/tap && brew install uncomment` |
-| Cargo (Rust) | `cargo install uncomment` |
-| npm (Node.js) | `npm install -g uncomment-cli` |
-| pip (Python) | `pip install uncomment` |
+| Cargo (Rust)           | `cargo install uncomment`                          |
+| npm (Node.js)          | `npm install -g uncomment-cli`                     |
+| pip (Python)           | `pip install uncomment`                            |
 
 Prefer prebuilt binaries? [`cargo binstall uncomment`](https://github.com/cargo-bins/cargo-binstall) downloads a
 release archive instead of compiling from source.
@@ -124,7 +124,7 @@ The `init` command detects the languages in your project and writes a matching `
 # Smart detection — includes only the languages it finds
 uncomment init
 
-# All 49 built-in languages
+# All 50 built-in languages
 uncomment init --comprehensive
 
 # Interactive selection
@@ -155,12 +155,12 @@ cargo run --release --features bench-tools --bin profile -- /path/to/repo
 
 ## Supported Languages
 
-uncomment ships with 49 built-in language configurations and can process any of the **306 languages**
+uncomment ships with 50 built-in language configurations and can process any of the **306 languages**
 in [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — grammars
 are downloaded automatically on first use, and any language can be added via configuration.
 
 <details>
-<summary><b>49 built-in languages</b></summary>
+<summary><b>50 built-in languages</b></summary>
 
 Python (`.py`, `.pyw`, `.pyi`, `.pyx`, `.pxd`) · JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) ·
 TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`, `.d.ts`) · Rust (`.rs`) · Go (`.go`) · Java (`.java`) ·
@@ -170,7 +170,7 @@ JSON (`.json`) · JSON with Comments (`.jsonc`) · YAML (`.yml`, `.yaml`) ·
 HCL/Terraform (`.hcl`, `.tf`, `.tfvars`) · Makefile (`Makefile`, `.mk`) ·
 Shell/Bash (`.sh`, `.bash`, `.zsh`) · Haskell (`.hs`, `.lhs`) · HTML (`.html`, `.htm`, `.xhtml`) ·
 CSS (`.css`) · XML (`.xml`, `.xsd`, `.xsl`, `.xslt`, `.svg`) · SQL (`.sql`) · Kotlin (`.kt`, `.kts`) ·
-Swift (`.swift`) · Lua (`.lua`) · Nix (`.nix`) · PowerShell (`.ps1`, `.psm1`, `.psd1`) ·
+Objective-C (`.m`) · Swift (`.swift`) · Lua (`.lua`) · Nix (`.nix`) · PowerShell (`.ps1`, `.psm1`, `.psd1`) ·
 Protobuf (`.proto`) · INI-like configs (`.ini`, `.cfg`, `.conf`) · Dockerfile (`Dockerfile`) ·
 Scala (`.scala`, `.sc`) · Dart (`.dart`) · R (`.r`, `.R`) · Julia (`.jl`) · Zig (`.zig`) ·
 Clojure (`.clj`, `.cljs`, `.cljc`, `.edn`) · Elm (`.elm`) · Erlang (`.erl`, `.hrl`) · Vue (`.vue`) ·
@@ -179,6 +179,11 @@ Perl (`.pl`, `.pm`) · Groovy (`.groovy`, `.gradle`) · OCaml (`.ml`, `.mli`) ·
 Fortran (`.f90`, `.f95`, `.f03`, `.f08`)
 
 </details>
+
+Objective-C uses the `objc` grammar. The `.m` extension is also used by MATLAB;
+Uncomment treats it as Objective-C by default. When processing a mixed project,
+pass only the Objective-C paths. Headers (`.h`) retain the C configuration;
+Objective-C++ (`.mm`) is not included in built-in support.
 
 ## Preservation Rules
 
@@ -221,18 +226,18 @@ rather than as a directive.
 <details>
 <summary><b>Linting &amp; formatter directives (always preserved)</b></summary>
 
-| Language | Directives |
-| -------- | ---------- |
-| Go | `//nolint`, `//golangci-lint`, `//staticcheck`, `//go:generate` |
-| Python | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# pyre-ignore` |
-| JS/TS | `eslint-disable*`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `/// <reference`, `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`, `v8/c8/istanbul ignore` |
-| Rust | `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`, `clippy::`, `#[rustfmt::skip]` |
-| Java | `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:` |
-| C/C++ | `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on` |
-| Shell | `# shellcheck disable`, `# hadolint ignore` |
-| YAML | `# yamllint disable/enable` |
-| HCL/Terraform | `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore` |
-| Ruby | `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable` |
+| Language      | Directives                                                                                                                                                           |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Go            | `//nolint`, `//golangci-lint`, `//staticcheck`, `//go:generate`                                                                                                      |
+| Python        | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# pyre-ignore`      |
+| JS/TS         | `eslint-disable*`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `/// <reference`, `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`, `v8/c8/istanbul ignore` |
+| Rust          | `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`, `clippy::`, `#[rustfmt::skip]`                                                                              |
+| Java          | `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:`                                                                                       |
+| C/C++         | `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on`                                                                                                |
+| Shell         | `# shellcheck disable`, `# hadolint ignore`                                                                                                                          |
+| YAML          | `# yamllint disable/enable`                                                                                                                                          |
+| HCL/Terraform | `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore`                                                                                              |
+| Ruby          | `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable`                                                                                                   |
 
 </details>
 
@@ -291,7 +296,7 @@ tree-sitter, so it distinguishes:
 - Inline comments vs standalone comments
 - Language-specific metadata that must be preserved
 
-The pipeline is modular: a **language registry** (49 built-ins + on-demand grammars) feeds an
+The pipeline is modular: a **language registry** (50 built-ins + on-demand grammars) feeds an
 **AST visitor** that finds comment nodes, a **preservation engine** decides what to keep, and an
 **output generator** emits clean code.
 
@@ -332,9 +337,9 @@ AST parsing costs a little more than regex, but the tool is fast and scales well
 
 | Threads | Files/second | Speedup |
 | ------- | ------------ | ------- |
-| 1 | 1,500 | 1.0× |
-| 4 | 3,900 | 2.6× |
-| 8 | 5,100 | 3.4× |
+| 1       | 1,500        | 1.0×    |
+| 4       | 3,900        | 2.6×    |
+| 8       | 5,100        | 3.4×    |
 
 *Benchmarked on a large enterprise codebase of ~5,000 mixed-language files.* Measure your own with
 the built-in `benchmark` and `profile` tools (see [optional benchmarking tools](#usage)).
