@@ -5,12 +5,12 @@ set -e
 echo "Testing Homebrew formula locally..."
 
 if ! brew tap | grep -q "goldziher/tap"; then
-  echo "Adding local tap..."
-  brew tap goldziher/tap "$(pwd)/homebrew-tap"
+	echo "Adding local tap..."
+	brew tap goldziher/tap "$(pwd)/homebrew-tap"
 else
-  echo "Tap already exists, updating..."
-  brew untap goldziher/tap
-  brew tap goldziher/tap "$(pwd)/homebrew-tap"
+	echo "Tap already exists, updating..."
+	brew untap goldziher/tap
+	brew tap goldziher/tap "$(pwd)/homebrew-tap"
 fi
 
 echo "Installing uncomment from local tap..."

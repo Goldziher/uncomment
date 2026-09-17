@@ -46,12 +46,12 @@ anything with a tree-sitter grammar.
 
 ## Installation
 
-| Channel                | Command                                            |
-| ---------------------- | -------------------------------------------------- |
+| Channel | Command |
+| ------- | ------- |
 | Homebrew (macOS/Linux) | `brew tap goldziher/tap && brew install uncomment` |
-| Cargo (Rust)           | `cargo install uncomment`                          |
-| npm (Node.js)          | `npm install -g uncomment-cli`                     |
-| pip (Python)           | `pip install uncomment`                            |
+| Cargo (Rust) | `cargo install uncomment` |
+| npm (Node.js) | `npm install -g uncomment-cli` |
+| pip (Python) | `pip install uncomment` |
 
 Prefer prebuilt binaries? [`cargo binstall uncomment`](https://github.com/cargo-bins/cargo-binstall) downloads a
 release archive instead of compiling from source.
@@ -226,18 +226,18 @@ rather than as a directive.
 <details>
 <summary><b>Linting &amp; formatter directives (always preserved)</b></summary>
 
-| Language      | Directives                                                                                                                                                           |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Go            | `//nolint`, `//golangci-lint`, `//staticcheck`, `//go:generate`                                                                                                      |
-| Python        | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# pyre-ignore`      |
-| JS/TS         | `eslint-disable*`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `/// <reference`, `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`, `v8/c8/istanbul ignore` |
-| Rust          | `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`, `clippy::`, `#[rustfmt::skip]`                                                                              |
-| Java          | `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:`                                                                                       |
-| C/C++         | `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on`                                                                                                |
-| Shell         | `# shellcheck disable`, `# hadolint ignore`                                                                                                                          |
-| YAML          | `# yamllint disable/enable`                                                                                                                                          |
-| HCL/Terraform | `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore`                                                                                              |
-| Ruby          | `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable`                                                                                                   |
+| Language | Directives |
+| -------- | ---------- |
+| Go | `//nolint`, `//golangci-lint`, `//staticcheck`, `//go:generate` |
+| Python | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# pyre-ignore` |
+| JS/TS | `eslint-disable*`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `/// <reference`, `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`, `v8/c8/istanbul ignore` |
+| Rust | `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`, `clippy::`, `#[rustfmt::skip]` |
+| Java | `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:` |
+| C/C++ | `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on` |
+| Shell | `# shellcheck disable`, `# hadolint ignore` |
+| YAML | `# yamllint disable/enable` |
+| HCL/Terraform | `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore` |
+| Ruby | `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable` |
 
 </details>
 
@@ -337,9 +337,9 @@ AST parsing costs a little more than regex, but the tool is fast and scales well
 
 | Threads | Files/second | Speedup |
 | ------- | ------------ | ------- |
-| 1       | 1,500        | 1.0×    |
-| 4       | 3,900        | 2.6×    |
-| 8       | 5,100        | 3.4×    |
+| 1 | 1,500 | 1.0× |
+| 4 | 3,900 | 2.6× |
+| 8 | 5,100 | 3.4× |
 
 *Benchmarked on a large enterprise codebase of ~5,000 mixed-language files.* Measure your own with
 the built-in `benchmark` and `profile` tools (see [optional benchmarking tools](#usage)).
