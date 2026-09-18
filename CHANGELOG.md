@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [v3.7.0] - 2026-09-18
+
+### Added
+
+- Built-in Objective-C support. `.m` files are now recognized out of the box and
+  routed through the C-family handler with the `objc` grammar, which models
+  `//` and `/* … */` comments. Because `.m` is also the MATLAB extension,
+  `uncomment` treats it as Objective-C by default — in a mixed project pass only
+  the Objective-C paths. Headers (`.h`) keep the C configuration, and
+  Objective-C++ (`.mm`) is not part of built-in support
+  ([#124](https://github.com/Goldziher/uncomment/issues/124)).
+
+### Changed
+
+- Bumped dependencies: `tree-sitter` 0.27.0, `tree-sitter-language-pack` 1.20.0,
+  `dirs` 7.0.0, and `toml` 1.1.6.
+
 ## [v3.6.0] - 2026-08-30
 
 ### Added
