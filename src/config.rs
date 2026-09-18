@@ -297,6 +297,14 @@ extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
 preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
 
+# Example: Add Objective-C support
+[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]
+
 # [languages.custom]
 # name = "Custom Language"
 # extensions = ["cst"]
@@ -360,6 +368,13 @@ name = "Swift"
 extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
 preserve_patterns = ["swiftlint:", "TODO:", "FIXME:"]
+
+[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]
 
 [languages.kotlin]
 name = "Kotlin"
@@ -488,6 +503,13 @@ name = "Swift"
 extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
 preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]
 
 [languages.kotlin]
 name = "Kotlin"
@@ -635,7 +657,7 @@ remove_fixme = false
         let supported_extensions = [
             "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "rs", "go", "java",
             "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml", "yaml", "hcl", "tf", "tfvars", "vue",
-            "svelte", "astro", "swift", "kt", "kts", "dart", "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj",
+            "svelte", "astro", "swift", "m", "kt", "kts", "dart", "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj",
             "cljs", "cljc", "edn", "r", "jl", "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl",
             "xslt", "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
         ];
@@ -705,6 +727,7 @@ traverse_git_repos = false
                 "js" | "jsx" | "mjs" | "cjs" => "js",
                 "ts" | "tsx" | "mts" | "cts" => "ts",
                 "swift" => "swift",
+                "m" => "objc",
                 "kt" | "kts" => "kt",
                 "hs" | "lhs" => "hs",
                 "html" | "htm" | "xhtml" => "html",
@@ -755,7 +778,7 @@ preserve_patterns = []
         let supported_extensions = [
             "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "rs", "go", "java",
             "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml", "yaml", "hcl", "tf", "tfvars", "vue",
-            "svelte", "astro", "swift", "kt", "kts", "dart", "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj",
+            "svelte", "astro", "swift", "m", "kt", "kts", "dart", "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj",
             "cljs", "cljc", "edn", "r", "jl", "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl",
             "xslt", "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
         ];
@@ -787,6 +810,7 @@ preserve_patterns = []
                             "svelte" => "Svelte",
                             "astro" => "Astro",
                             "swift" => "Swift",
+                            "m" => "Objective-C",
                             "kt" | "kts" => "Kotlin",
                             "dart" => "Dart",
                             "zig" => "Zig",
@@ -869,6 +893,7 @@ traverse_git_repos = false
                 "Svelte" => "svelte",
                 "Astro" => "astro",
                 "Swift" => "swift",
+                "Objective-C" => "objc",
                 "Kotlin" => "kt",
                 "Dart" => "dart",
                 "Zig" => "zig",
@@ -942,6 +967,7 @@ preserve_patterns = []
             ("vue", "Vue.js single-file components"),
             ("svelte", "Svelte components"),
             ("swift", "Swift (iOS/macOS development)"),
+            ("objc", "Objective-C (iOS/macOS development)"),
             ("kotlin", "Kotlin (Android/JVM development)"),
             ("dart", "Dart (Flutter development)"),
             ("zig", "Zig systems language"),
@@ -1026,6 +1052,7 @@ traverse_git_repos = false
             ("vue", "Vue.js single-file components"),
             ("svelte", "Svelte components"),
             ("swift", "Swift (iOS/macOS development)"),
+            ("objc", "Objective-C (iOS/macOS development)"),
             ("kotlin", "Kotlin (Android/JVM development)"),
             ("dart", "Dart (Flutter development)"),
             ("zig", "Zig systems language"),
@@ -1238,6 +1265,16 @@ preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]"#,
         );
 
         map.insert(
+            "objc".to_string(),
+            r#"[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]"#,
+        );
+
+        map.insert(
             "kt".to_string(),
             r#"[languages.kotlin]
 name = "Kotlin"
@@ -1358,6 +1395,16 @@ name = "Swift"
 extensions = [".swift"]
 comment_nodes = ["comment", "multiline_comment"]
 preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]"#,
+        );
+
+        map.insert(
+            "objc",
+            r#"[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]"#,
         );
 
         map.insert(

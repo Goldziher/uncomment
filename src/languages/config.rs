@@ -221,6 +221,10 @@ impl LanguageConfig {
         )
     }
 
+    pub fn objc() -> Self {
+        Self::new("objc", vec!["m"], vec!["comment"], vec!["comment"], "objc")
+    }
+
     pub fn swift() -> Self {
         Self::new(
             "swift",
@@ -433,6 +437,7 @@ mod tests {
             LanguageConfig::sql(),
             LanguageConfig::kotlin(),
             LanguageConfig::swift(),
+            LanguageConfig::objc(),
             LanguageConfig::lua(),
             LanguageConfig::nix(),
             LanguageConfig::powershell(),
