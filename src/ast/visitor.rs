@@ -8,7 +8,7 @@ pub struct CommentInfo {
     pub end_byte: usize,
     pub start_row: usize,
     pub end_row: usize,
-    pub node_type: &'static str,
+    pub node_type: String,
     pub should_preserve: bool,
     pub is_documentation: bool,
 }
@@ -21,7 +21,7 @@ impl CommentInfo {
             end_byte: node.end_byte(),
             start_row: node.start_position().row,
             end_row: node.end_position().row,
-            node_type: node.kind(),
+            node_type: node.kind().to_string(),
             should_preserve: false,
             is_documentation: false,
         }
@@ -427,13 +427,13 @@ mod tests {
     use super::*;
     use crate::rules::preservation::PreservationRule;
 
-    fn create_mock_comment(node_type: &'static str) -> CommentInfo {
+    fn create_mock_comment(node_type: &str) -> CommentInfo {
         CommentInfo {
             start_byte: 0,
             end_byte: 0,
             start_row: 0,
             end_row: 0,
-            node_type,
+            node_type: node_type.to_string(),
             should_preserve: false,
             is_documentation: false,
         }

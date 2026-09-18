@@ -1,6 +1,6 @@
 [package]
 name = "uncomment"
-version = "3.6.0"
+version = "3.7.0"
 authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
 description = "A CLI tool to remove comments from code using tree-sitter for accurate parsing"
 edition = "2024"
@@ -41,7 +41,7 @@ ahash = "0.8"
 anstream = "1.0"
 anyhow = "1.0.104"
 clap = { version = "4.6", features = ["derive", "color", "wrap_help"] }
-dirs = "6.0"
+dirs = "7.0"
 glob = "0.3.4"
 ignore = "0.4.33"
 indicatif = "0.18"
@@ -52,9 +52,9 @@ owo-colors = "4"
 rayon = "1.12.0"
 saphyr = "0.0.12"
 serde = { version = "1.0", features = ["derive"] }
-toml = "1.1.4"
-tree-sitter = "0.26.13"
-tree-sitter-language-pack = "1.15.12"
+toml = "1.1.6"
+tree-sitter = "0.27.0"
+tree-sitter-language-pack = "1.20.0"
 walkdir = "2.5"
 
 [target.'cfg(unix)'.dependencies]

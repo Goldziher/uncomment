@@ -305,13 +305,13 @@ impl PreservationRule {
 mod tests {
     use super::*;
 
-    fn create_test_comment(node_type: &'static str, row: usize) -> CommentInfo {
+    fn create_test_comment(node_type: &str, row: usize) -> CommentInfo {
         CommentInfo {
             start_byte: 0,
             end_byte: 0,
             start_row: row,
             end_row: row,
-            node_type,
+            node_type: node_type.to_string(),
             should_preserve: false,
             is_documentation: false,
         }
