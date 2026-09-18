@@ -71,6 +71,34 @@ func hello() {
     assert!(processed.processed_content.contains("print(\"Hello, Swift!\")"));
 }
 
+/// Test processor with Objective-C via tslp
+#[test]
+fn test_processor_with_objc() {
+    let temp_dir = TempDir::new().unwrap();
+    let config_manager = ConfigManager::new(temp_dir.path()).unwrap();
+    let mut processor = Processor::new();
+
+    let test_file = temp_dir.path().join("test.m");
+    let test_content = r#"
+// This is an Objective-C comment
+@implementation Example
+- (void)hello {
+    /* Block comment */
+    NSLog(@"Hello, Objective-C!");
+}
+@end
+"#;
+    fs::write(&test_file, test_content).unwrap();
+
+    let result = processor.process_file_with_config(&test_file, &config_manager, None);
+    assert!(result.is_ok());
+
+    let processed = result.unwrap();
+    assert!(!processed.processed_content.contains("This is an Objective-C comment"));
+    assert!(!processed.processed_content.contains("Block comment"));
+    assert!(processed.processed_content.contains("NSLog(@\"Hello, Objective-C!\");"));
+}
+
 /// Test multiple languages with tslp
 #[test]
 fn test_processor_multiple_languages() {

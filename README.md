@@ -124,7 +124,7 @@ The `init` command detects the languages in your project and writes a matching `
 # Smart detection — includes only the languages it finds
 uncomment init
 
-# All 49 built-in languages
+# All 50 built-in languages
 uncomment init --comprehensive
 
 # Interactive selection
@@ -155,12 +155,12 @@ cargo run --release --features bench-tools --bin profile -- /path/to/repo
 
 ## Supported Languages
 
-uncomment ships with 49 built-in language configurations and can process any of the **306 languages**
+uncomment ships with 50 built-in language configurations and can process any of the **306 languages**
 in [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — grammars
 are downloaded automatically on first use, and any language can be added via configuration.
 
 <details>
-<summary><b>49 built-in languages</b></summary>
+<summary><b>50 built-in languages</b></summary>
 
 Python (`.py`, `.pyw`, `.pyi`, `.pyx`, `.pxd`) · JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) ·
 TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`, `.d.ts`) · Rust (`.rs`) · Go (`.go`) · Java (`.java`) ·
@@ -170,7 +170,7 @@ JSON (`.json`) · JSON with Comments (`.jsonc`) · YAML (`.yml`, `.yaml`) ·
 HCL/Terraform (`.hcl`, `.tf`, `.tfvars`) · Makefile (`Makefile`, `.mk`) ·
 Shell/Bash (`.sh`, `.bash`, `.zsh`) · Haskell (`.hs`, `.lhs`) · HTML (`.html`, `.htm`, `.xhtml`) ·
 CSS (`.css`) · XML (`.xml`, `.xsd`, `.xsl`, `.xslt`, `.svg`) · SQL (`.sql`) · Kotlin (`.kt`, `.kts`) ·
-Swift (`.swift`) · Lua (`.lua`) · Nix (`.nix`) · PowerShell (`.ps1`, `.psm1`, `.psd1`) ·
+Objective-C (`.m`) · Swift (`.swift`) · Lua (`.lua`) · Nix (`.nix`) · PowerShell (`.ps1`, `.psm1`, `.psd1`) ·
 Protobuf (`.proto`) · INI-like configs (`.ini`, `.cfg`, `.conf`) · Dockerfile (`Dockerfile`) ·
 Scala (`.scala`, `.sc`) · Dart (`.dart`) · R (`.r`, `.R`) · Julia (`.jl`) · Zig (`.zig`) ·
 Clojure (`.clj`, `.cljs`, `.cljc`, `.edn`) · Elm (`.elm`) · Erlang (`.erl`, `.hrl`) · Vue (`.vue`) ·
@@ -179,6 +179,11 @@ Perl (`.pl`, `.pm`) · Groovy (`.groovy`, `.gradle`) · OCaml (`.ml`, `.mli`) ·
 Fortran (`.f90`, `.f95`, `.f03`, `.f08`)
 
 </details>
+
+Objective-C uses the `objc` grammar. The `.m` extension is also used by MATLAB;
+Uncomment treats it as Objective-C by default. When processing a mixed project,
+pass only the Objective-C paths. Headers (`.h`) retain the C configuration;
+Objective-C++ (`.mm`) is not included in built-in support.
 
 ## Preservation Rules
 
@@ -291,7 +296,7 @@ tree-sitter, so it distinguishes:
 - Inline comments vs standalone comments
 - Language-specific metadata that must be preserved
 
-The pipeline is modular: a **language registry** (49 built-ins + on-demand grammars) feeds an
+The pipeline is modular: a **language registry** (50 built-ins + on-demand grammars) feeds an
 **AST visitor** that finds comment nodes, a **preservation engine** decides what to keep, and an
 **output generator** emits clean code.
 

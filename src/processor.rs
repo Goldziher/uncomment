@@ -1578,6 +1578,32 @@ let s = "// not a comment"
     }
 
     #[test]
+    fn removes_objc_comments_without_touching_strings() {
+        let source = r#"// remove me
+NSString *s = @"// not a comment";
+"#;
+
+        let processed = process_language(source, LanguageConfig::objc());
+        assert!(!processed.contains("// remove me"));
+        assert!(processed.contains("@\"// not a comment\""));
+    }
+
+    #[test]
+    fn preserves_objc_preprocessor_trailing_comments() {
+        let source = r#"#import "Local.h" // fallback
+#define kTimeout 30 // seconds
+// remove me
+NSString *s = @"// not a comment";
+"#;
+
+        let processed = process_language(source, LanguageConfig::objc());
+        assert!(processed.contains("#import \"Local.h\" // fallback"));
+        assert!(processed.contains("#define kTimeout 30 // seconds"));
+        assert!(!processed.contains("remove me"));
+        assert!(processed.contains("@\"// not a comment\""));
+    }
+
+    #[test]
     fn removes_lua_comments_without_touching_strings() {
         let source = r#"-- remove me
 local s = "-- not a comment"

@@ -199,7 +199,7 @@ pub fn get_handler(language_name: &str) -> Box<dyn LanguageHandler> {
         "python" => Box::new(PythonHandler),
         "go" => Box::new(GoHandler),
         "ruby" => Box::new(RubyHandler),
-        "c" | "cpp" => Box::new(CFamilyHandler),
+        "c" | "cpp" | "objc" => Box::new(CFamilyHandler),
         _ => Box::new(DefaultHandler),
     }
 }
