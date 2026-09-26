@@ -1,4 +1,4 @@
-use crate::languages::config::LanguageConfig;
+use crate::languages::config::{CommentSyntax, LanguageConfig};
 use ahash::AHashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -181,10 +181,11 @@ impl LanguageRegistry {
     ) {
         for config in config_languages.values() {
             let name_lower = config.name.to_lowercase();
-            let tslp_name = if let Some(existing_config) = self.languages.get(&name_lower) {
-                existing_config.tslp_name.clone()
+            let (tslp_name, comment_syntax) = if let Some(existing_config) = self.languages.get(&name_lower) {
+                (existing_config.tslp_name.clone(), existing_config.comment_syntax)
             } else if tree_sitter_language_pack::has_language(&name_lower) {
-                name_lower.clone()
+                let syntax = CommentSyntax::for_tree_sitter_language(&name_lower);
+                (name_lower.clone(), syntax)
             } else {
                 continue;
             };
@@ -195,6 +196,7 @@ impl LanguageRegistry {
                 comment_types: config.comment_nodes.clone(),
                 doc_comment_types: config.doc_comment_nodes.clone(),
                 tslp_name,
+                comment_syntax,
             };
             self.register_language(language_config);
         }
