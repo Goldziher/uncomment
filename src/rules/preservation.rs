@@ -132,6 +132,7 @@ impl PreservationRule {
             Self::pattern("TODO"),
             Self::pattern("FIXME"),
             Self::pattern("HACK"),
+            Self::pattern("XXX"),
             Self::pattern("NOTE"),
             Self::pattern("WARNING"),
             Self::pattern("COPYRIGHT"),
@@ -148,6 +149,7 @@ impl PreservationRule {
             Self::pattern("@ts-ignore"),
             Self::pattern("@ts-expect-error"),
             Self::pattern("/// <reference"),
+            Self::pattern("NOSONAR"),
             Self::shebang(),
         ]
     }
@@ -289,7 +291,6 @@ impl PreservationRule {
             Self::pattern("depName="),
             Self::pattern("dependabot"),
             // Security / quality scanners
-            Self::pattern("NOSONAR"), // SonarQube inline suppression (also promised in --help)
             Self::pattern("snyk:ignore"),
             Self::pattern("codeql["), // CodeQL inline alert suppression
             // Spell checkers
@@ -460,5 +461,43 @@ mod tests {
 
         let explicit_shebang_node = create_test_comment("shebang", 0);
         assert!(rule.matches(&explicit_shebang_node, "ignored"));
+    }
+
+    #[test]
+    fn test_xxx_pattern_preserved() {
+        let comment = create_test_comment("line_comment", 5);
+        let default_rules = PreservationRule::default_rules();
+        let matches = default_rules
+            .iter()
+            .any(|rule| rule.matches(&comment, "// XXX: this is load-bearing"));
+        assert!(matches, "XXX should be preserved by default rules");
+
+        let comprehensive_rules = PreservationRule::comprehensive_rules();
+        let matches_comprehensive = comprehensive_rules
+            .iter()
+            .any(|rule| rule.matches(&comment, "// XXX: this is load-bearing"));
+        assert!(matches_comprehensive, "XXX should be preserved by comprehensive rules");
+    }
+
+    #[test]
+    fn test_nosonar_pattern_preserved() {
+        let comment = create_test_comment("line_comment", 5);
+        let default_rules = PreservationRule::default_rules();
+        let matches = default_rules
+            .iter()
+            .any(|rule| rule.matches(&comment, "// NOSONAR suppression"));
+        assert!(
+            matches,
+            "NOSONAR should be preserved by default rules as promised in help text"
+        );
+
+        let comprehensive_rules = PreservationRule::comprehensive_rules();
+        let matches_comprehensive = comprehensive_rules
+            .iter()
+            .any(|rule| rule.matches(&comment, "// NOSONAR suppression"));
+        assert!(
+            matches_comprehensive,
+            "NOSONAR should be preserved by comprehensive rules"
+        );
     }
 }
