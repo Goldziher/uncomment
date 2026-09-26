@@ -1,8 +1,13 @@
 use ahash::{AHashMap, AHashSet};
 use anyhow::{Context, Result};
+use globset::{GlobBuilder, GlobMatcher};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Once, RwLock};
+
+const CONFIG_FILE_NAMES: [&str; 2] = [".uncommentrc.toml", "uncomment.toml"];
 
 #[derive(Debug, Clone)]
 pub struct DetectionInfo {
@@ -108,6 +113,94 @@ pub struct PatternConfig {
     pub use_default_ignores: Option<bool>,
 }
 
+impl PatternConfig {
+    fn apply_to(&self, resolved: &mut ResolvedConfig) {
+        if let Some(value) = self.remove_todos {
+            resolved.remove_todos = value;
+        }
+        if let Some(value) = self.remove_fixme {
+            resolved.remove_fixme = value;
+        }
+        if let Some(value) = self.remove_docs {
+            resolved.remove_docs = value;
+        }
+        if let Some(value) = self.use_default_ignores {
+            resolved.use_default_ignores = value;
+        }
+        if !self.preserve_patterns.is_empty() {
+            resolved
+                .preserve_patterns
+                .extend(self.preserve_patterns.iter().cloned());
+            resolved.preserve_patterns.sort();
+            resolved.preserve_patterns.dedup();
+        }
+    }
+}
+
+/// `literal_separator` keeps `*` from crossing a `/`, so `src/*.py` matches
+/// `src/main.py` but not `src/inner/main.py`.
+fn compile_pattern_glob(pattern: &str) -> Result<GlobMatcher> {
+    GlobBuilder::new(pattern)
+        .literal_separator(true)
+        .build()
+        .map(|glob| glob.compile_matcher())
+        .with_context(|| format!("Invalid glob in [patterns.\"{pattern}\"]"))
+}
+
+#[derive(Debug)]
+struct CompiledPattern {
+    pattern: String,
+    matcher: GlobMatcher,
+    depth: usize,
+    config: PatternConfig,
+}
+
+/// A parsed config file together with the directory its `[patterns]` globs are
+/// anchored at, and those globs compiled once up front.
+#[derive(Debug)]
+struct LoadedConfig {
+    dir: PathBuf,
+    config: Config,
+    patterns: Vec<CompiledPattern>,
+}
+
+impl LoadedConfig {
+    fn new(dir: PathBuf, config: Config) -> Result<Self> {
+        let mut patterns = Vec::with_capacity(config.patterns.len());
+        for (pattern, pattern_config) in &config.patterns {
+            patterns.push(CompiledPattern {
+                matcher: compile_pattern_glob(pattern)?,
+                depth: pattern.split('/').filter(|part| !part.is_empty()).count(),
+                pattern: pattern.clone(),
+                config: pattern_config.clone(),
+            });
+        }
+
+        // `Config::patterns` is a HashMap, so its iteration order is randomised per
+        // process. Impose a total order instead: broader globs first, ties broken by
+        // the glob text, last match wins.
+        patterns.sort_by(|left, right| {
+            left.depth
+                .cmp(&right.depth)
+                .then_with(|| left.pattern.cmp(&right.pattern))
+        });
+
+        Ok(Self { dir, config, patterns })
+    }
+
+    fn apply_patterns(&self, file_path: &Path, resolved: &mut ResolvedConfig) {
+        let Ok(relative) = file_path.strip_prefix(&self.dir) else {
+            return;
+        };
+
+        for pattern in &self.patterns {
+            if pattern.matcher.is_match(relative) {
+                pattern.config.apply_to(resolved);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ResolvedConfig {
     pub remove_todos: bool,
@@ -122,11 +215,29 @@ pub struct ResolvedConfig {
 
 #[derive(Debug)]
 pub struct ConfigManager {
-    configs: Vec<(PathBuf, Config)>,
+    /// The user-level config, merged beneath every project config.
+    global_config: Option<Arc<LoadedConfig>>,
 
-    path_configs: AHashMap<PathBuf, ResolvedConfig>,
+    /// The root directory and its ancestors up to the git root, outermost first.
+    /// Only these may register custom languages, so the language registry stays
+    /// the same no matter which files are processed.
+    ancestor_configs: Vec<Arc<LoadedConfig>>,
 
-    root_dir: PathBuf,
+    /// An explicit `--config` file, which replaces directory discovery entirely.
+    forced_config: Option<Arc<LoadedConfig>>,
+
+    /// Memoised "is there a config file in this directory?", filled on first use.
+    dir_configs: RwLock<AHashMap<PathBuf, Option<Arc<LoadedConfig>>>>,
+
+    /// Memoised per-file resolution results.
+    file_configs: RwLock<AHashMap<PathBuf, ResolvedConfig>>,
+
+    /// The highest directory the upward search may reach.
+    ceiling: PathBuf,
+
+    current_dir: PathBuf,
+
+    lazy_language_warning: Once,
 }
 
 fn default_true() -> bool {
@@ -178,6 +289,12 @@ impl Config {
             if lang_config.comment_nodes.is_empty() {
                 return Err(anyhow::anyhow!("Language '{}' has no comment node types", lang_name));
             }
+        }
+
+        let mut pattern_names: Vec<&String> = self.patterns.keys().collect();
+        pattern_names.sort();
+        for pattern in pattern_names {
+            compile_pattern_glob(pattern)?;
         }
 
         Ok(())
@@ -1524,133 +1641,185 @@ comment_nodes = ["comment"]"#,
 
 impl ConfigManager {
     pub fn new<P: AsRef<Path>>(root_dir: P) -> Result<Self> {
-        let root_dir = root_dir.as_ref().to_path_buf();
-        let configs = Self::discover_configs(&root_dir)?;
+        let current_dir = std::env::current_dir().unwrap_or_default();
+        let root_dir = absolute_path(root_dir.as_ref(), &current_dir);
+        let ceiling = Self::search_ceiling(&root_dir);
 
-        let mut manager = Self {
-            configs,
-            path_configs: AHashMap::new(),
-            root_dir,
-        };
+        // Only the ancestor chain can ever apply to `root_dir` itself, and it is
+        // bounded by path depth rather than by tree size. Everything below the root
+        // is discovered lazily, on the first file that needs it.
+        let mut ancestor_configs = Vec::new();
+        let mut dir_configs = AHashMap::new();
+        let mut dir = Some(root_dir.as_path());
+        while let Some(current) = dir {
+            let loaded = Self::load_dir_config(current);
+            if let Some(loaded) = &loaded {
+                ancestor_configs.push(loaded.clone());
+            }
+            dir_configs.insert(current.to_path_buf(), loaded);
 
-        manager.precompute_configs()?;
-        Ok(manager)
+            if current == ceiling {
+                break;
+            }
+            dir = current.parent();
+        }
+        ancestor_configs.reverse();
+
+        Ok(Self {
+            global_config: Self::load_global_config(),
+            ancestor_configs,
+            forced_config: None,
+            dir_configs: RwLock::new(dir_configs),
+            file_configs: RwLock::new(AHashMap::new()),
+            ceiling,
+            current_dir,
+            lazy_language_warning: Once::new(),
+        })
     }
 
     pub fn from_single_config<P: AsRef<Path>>(root_dir: P, config: Config) -> Result<Self> {
-        let root_dir = root_dir.as_ref().to_path_buf();
-        let configs = vec![(root_dir.clone(), config)];
+        let current_dir = std::env::current_dir().unwrap_or_default();
+        let root_dir = absolute_path(root_dir.as_ref(), &current_dir);
+        let loaded = Arc::new(LoadedConfig::new(root_dir.clone(), config)?);
 
-        let mut manager = Self {
-            configs,
-            path_configs: AHashMap::new(),
-            root_dir,
-        };
-
-        manager.precompute_configs()?;
-        Ok(manager)
+        Ok(Self {
+            global_config: None,
+            ancestor_configs: vec![loaded.clone()],
+            forced_config: Some(loaded),
+            dir_configs: RwLock::new(AHashMap::new()),
+            file_configs: RwLock::new(AHashMap::new()),
+            ceiling: root_dir,
+            current_dir,
+            lazy_language_warning: Once::new(),
+        })
     }
 
-    fn discover_configs(root_dir: &Path) -> Result<Vec<(PathBuf, Config)>> {
-        let mut configs = Vec::new();
-
-        for entry in walkdir::WalkDir::new(root_dir) {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.is_file() {
-                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-
-                if matches!(file_name, ".uncommentrc.toml" | "uncomment.toml") {
-                    match Config::from_file(path) {
-                        Ok(config) => {
-                            configs.push((path.to_path_buf(), config));
-                        }
-                        Err(e) => {
-                            eprintln!("Warning: Failed to load config file {}: {e}", path.display());
-                        }
-                    }
-                }
+    /// The nearest enclosing git root, or `root_dir` when there is none. Bounding the
+    /// upward search here keeps configuration outside the repository from applying.
+    fn search_ceiling(root_dir: &Path) -> PathBuf {
+        let mut dir = Some(root_dir);
+        while let Some(current) = dir {
+            // In worktrees and submodules `.git` is a file, not a directory.
+            if current.join(".git").exists() {
+                return current.to_path_buf();
             }
+            dir = current.parent();
         }
-
-        if let Some(global_config_path) = Self::global_config_path()
-            && global_config_path.exists()
-        {
-            match Config::from_file(&global_config_path) {
-                Ok(config) => {
-                    configs.push((global_config_path, config));
-                }
-                Err(e) => {
-                    eprintln!("Warning: Failed to load global config: {e}");
-                }
-            }
-        }
-
-        configs.sort_by_key(|(path, _)| path.components().count());
-
-        Ok(configs)
+        root_dir.to_path_buf()
     }
 
     fn global_config_path() -> Option<PathBuf> {
         dirs::config_dir().map(|dir| dir.join("uncomment").join("config.toml"))
     }
 
-    fn precompute_configs(&mut self) -> Result<()> {
-        let mut dirs_to_process = vec![self.root_dir.clone()];
+    fn load_global_config() -> Option<Arc<LoadedConfig>> {
+        let path = Self::global_config_path()?;
+        if !path.exists() {
+            return None;
+        }
 
-        for entry in walkdir::WalkDir::new(&self.root_dir) {
-            let entry = entry?;
-            if entry.path().is_dir() {
-                dirs_to_process.push(entry.path().to_path_buf());
+        let dir = path.parent()?.to_path_buf();
+        match Config::from_file(&path).and_then(|config| LoadedConfig::new(dir, config)) {
+            Ok(loaded) => Some(Arc::new(loaded)),
+            Err(e) => {
+                eprintln!("Warning: Failed to load global config: {e}");
+                None
             }
         }
-
-        for dir_path in dirs_to_process {
-            let resolved = self.resolve_config_for_path(&dir_path);
-            self.path_configs.insert(dir_path, resolved);
-        }
-
-        Ok(())
     }
 
-    fn resolve_config_for_path(&self, path: &Path) -> ResolvedConfig {
-        let mut base_config = Config::default();
-        let global_config_path = Self::global_config_path();
-
-        if let Some((_, global_config)) = self
-            .configs
-            .iter()
-            .find(|(config_path, _)| global_config_path.as_ref() == Some(config_path))
-        {
-            base_config = base_config.merge_with(global_config);
-        }
-
-        let mut current_path = path;
-        let mut applicable_configs = Vec::new();
-
-        loop {
-            for (config_path, config) in &self.configs {
-                if let Some(config_dir) = config_path.parent()
-                    && config_dir == current_path
-                {
-                    applicable_configs.push(config);
-                }
+    fn load_dir_config(dir: &Path) -> Option<Arc<LoadedConfig>> {
+        for file_name in CONFIG_FILE_NAMES {
+            let path = dir.join(file_name);
+            if !path.is_file() {
+                continue;
             }
 
-            if let Some(parent) = current_path.parent() {
-                current_path = parent;
-            } else {
+            match Config::from_file(&path).and_then(|config| LoadedConfig::new(dir.to_path_buf(), config)) {
+                Ok(loaded) => return Some(Arc::new(loaded)),
+                Err(e) => eprintln!("Warning: Failed to load config file {}: {e}", path.display()),
+            }
+        }
+
+        None
+    }
+
+    fn dir_config(&self, dir: &Path) -> Option<Arc<LoadedConfig>> {
+        if let Ok(cache) = self.dir_configs.read()
+            && let Some(entry) = cache.get(dir)
+        {
+            return entry.clone();
+        }
+
+        let loaded = Self::load_dir_config(dir);
+
+        if let Some(loaded) = &loaded
+            && !loaded.config.languages.is_empty()
+        {
+            let path = loaded.dir.display().to_string();
+            self.lazy_language_warning.call_once(|| {
+                eprintln!(
+                    "Warning: [languages] in the config under {path} is ignored; custom languages are only \
+                     registered from the invocation directory and its ancestors."
+                );
+            });
+        }
+
+        if let Ok(mut cache) = self.dir_configs.write() {
+            cache.insert(dir.to_path_buf(), loaded.clone());
+        }
+
+        loaded
+    }
+
+    /// The config files that apply to `dir`, outermost first.
+    fn config_chain(&self, dir: &Path) -> Vec<Arc<LoadedConfig>> {
+        if let Some(forced) = &self.forced_config {
+            return vec![forced.clone()];
+        }
+
+        let mut chain = Vec::new();
+        let mut current = Some(dir);
+        while let Some(candidate) = current {
+            if !candidate.starts_with(&self.ceiling) {
                 break;
             }
+            if let Some(loaded) = self.dir_config(candidate) {
+                chain.push(loaded);
+            }
+            current = candidate.parent();
+        }
+        chain.reverse();
+
+        chain
+    }
+
+    /// Resolve the effective configuration for one file.
+    ///
+    /// Layers are applied outermost first: the user-level config, then every
+    /// `.uncommentrc.toml`/`uncomment.toml` from the search ceiling down to the
+    /// file's own directory.
+    ///
+    /// `[patterns."<glob>"]` sections are applied last. Each glob is matched against
+    /// the file path **relative to the directory holding the config file that
+    /// declared it**, so a nested config's globs are anchored at that nested
+    /// directory rather than at the invocation root. Within one config file the globs
+    /// are applied in a fixed order — fewer path components first, ties broken by the
+    /// glob text — and the last match wins, which keeps the result independent of
+    /// `HashMap` iteration order.
+    fn resolve_config_for_file(&self, file_path: &Path) -> ResolvedConfig {
+        let dir = file_path.parent().unwrap_or(file_path);
+        let chain = self.config_chain(dir);
+
+        let mut base_config = Config::default();
+        if let Some(global) = &self.global_config {
+            base_config = base_config.merge_with(&global.config);
+        }
+        for loaded in &chain {
+            base_config = base_config.merge_with(&loaded.config);
         }
 
-        applicable_configs.reverse();
-        for config in applicable_configs {
-            base_config = base_config.merge_with(config);
-        }
-
-        ResolvedConfig {
+        let mut resolved = ResolvedConfig {
             remove_todos: base_config.global.remove_todos,
             remove_fixme: base_config.global.remove_fixme,
             remove_docs: base_config.global.remove_docs,
@@ -1659,24 +1828,36 @@ impl ConfigManager {
             respect_gitignore: base_config.global.respect_gitignore,
             traverse_git_repos: base_config.global.traverse_git_repos,
             language_config: None,
+        };
+
+        for loaded in &chain {
+            loaded.apply_patterns(file_path, &mut resolved);
         }
+
+        resolved
     }
 
     pub fn get_config_for_file<P: AsRef<Path>>(&self, file_path: P) -> ResolvedConfig {
         let file_path = file_path.as_ref();
 
         let absolute_file_path = if file_path.is_absolute() {
-            file_path.to_path_buf()
+            Cow::Borrowed(file_path)
         } else {
-            std::env::current_dir().unwrap_or_default().join(file_path)
+            Cow::Owned(self.current_dir.join(file_path))
         };
 
-        let dir_path = absolute_file_path.parent().unwrap_or(&absolute_file_path);
+        if let Ok(cache) = self.file_configs.read()
+            && let Some(cached) = cache.get(absolute_file_path.as_ref())
+        {
+            return cached.clone();
+        }
 
-        self.path_configs
-            .get(dir_path)
-            .cloned()
-            .unwrap_or_else(|| self.resolve_config_for_path(dir_path))
+        let resolved = self.resolve_config_for_file(absolute_file_path.as_ref());
+        if let Ok(mut cache) = self.file_configs.write() {
+            cache.insert(absolute_file_path.into_owned(), resolved.clone());
+        }
+
+        resolved
     }
 
     pub fn get_config_for_file_with_language<P: AsRef<Path>>(
@@ -1712,13 +1893,21 @@ impl ConfigManager {
         config
     }
 
+    /// The configs allowed to declare custom languages, innermost first so the
+    /// closest one wins. Lazily discovered configs are deliberately excluded: the
+    /// language registry is built once, before any file is looked at.
+    fn language_sources(&self) -> impl DoubleEndedIterator<Item = &Arc<LoadedConfig>> {
+        self.ancestor_configs.iter().rev().chain(self.global_config.iter())
+    }
+
     pub fn get_language_config(&self, language_name: &str) -> Option<LanguageConfig> {
-        for (_, config) in self.configs.iter().rev() {
-            if let Some(lang_config) = config.languages.get(language_name) {
+        for loaded in self.language_sources() {
+            if let Some(lang_config) = loaded.config.languages.get(language_name) {
                 return Some(lang_config.clone());
             }
 
-            if let Some((_, lang_config)) = config
+            if let Some((_, lang_config)) = loaded
+                .config
                 .languages
                 .iter()
                 .find(|(key, _)| key.eq_ignore_ascii_case(language_name))
@@ -1732,13 +1921,21 @@ impl ConfigManager {
     pub fn get_all_languages(&self) -> HashMap<String, LanguageConfig> {
         let mut languages = HashMap::new();
 
-        for (_, config) in &self.configs {
-            for (name, lang_config) in &config.languages {
+        for loaded in self.language_sources().rev() {
+            for (name, lang_config) in &loaded.config.languages {
                 languages.insert(name.clone(), lang_config.clone());
             }
         }
 
         languages
+    }
+}
+
+fn absolute_path(path: &Path, current_dir: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        current_dir.join(path)
     }
 }
 

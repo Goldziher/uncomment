@@ -8,6 +8,18 @@ This changelog is generated from git tags and commit history.
 
 ### Fixed
 
+- `[patterns."<glob>"]` config sections now actually do something. They were parsed and
+  then never consulted — resolution only ever read `[global]` — so every per-path
+  override emitted by `uncomment init` silently did nothing. Globs are relative to the
+  directory of the config file that declared them, are matched per file (so
+  `**/*.spec.ts` works), and are applied after `[global]` and before `[languages]`
+  overrides. Overlapping globs resolve by specificity — deeper pattern wins — under a
+  total order fixed at config load, so results no longer depend on hash iteration order.
+
+  **This changes behaviour for anyone who ran `uncomment init` and kept the generated
+  `[patterns]` examples**, which set `remove_todos = true` under `tests/**/*` and
+  `remove_docs = true` for `**/*.spec.*` and `**/*.generated.*`.
+
 - `XXX` and `NOSONAR` comments are now preserved by default, as `--help` has always
   claimed. Neither pattern was in the default rule set, so `// XXX: load-bearing` was
   silently deleted by a plain `uncomment` run despite being documented as protected.
