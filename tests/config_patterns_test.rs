@@ -225,3 +225,120 @@ remove_todos = true
         "an explicit language override is applied after patterns and wins"
     );
 }
+
+/// `preserve_patterns = []` is written under "be more aggressive with generated files" in
+/// eight shipped templates, so it has to mean "clear the inherited list", not "inherit it".
+#[test]
+fn empty_preserve_patterns_in_a_pattern_section_clears_the_inherited_list() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(
+        &root.join(".uncommentrc.toml"),
+        r#"
+[global]
+preserve_patterns = ["KEEPME"]
+
+[patterns."**/*.generated.*"]
+preserve_patterns = []
+
+[patterns."extra/**/*"]
+preserve_patterns = ["ALSOKEEP"]
+"#,
+    );
+
+    let generated = root.join("thing.generated.py");
+    let extra = root.join("extra").join("thing.py");
+    let plain = root.join("thing.py");
+    for path in [&generated, &extra, &plain] {
+        write(path, PY_WITH_TODO);
+    }
+
+    let manager = ConfigManager::new(root).unwrap();
+
+    assert!(
+        manager.get_config_for_file(&generated).preserve_patterns.is_empty(),
+        "an explicit empty list must clear the inherited patterns, got: {:?}",
+        manager.get_config_for_file(&generated).preserve_patterns
+    );
+    assert_eq!(
+        manager.get_config_for_file(&plain).preserve_patterns,
+        vec!["KEEPME".to_string()],
+        "a file matching no pattern keeps the global list"
+    );
+    assert_eq!(
+        manager.get_config_for_file(&extra).preserve_patterns,
+        vec!["ALSOKEEP".to_string(), "KEEPME".to_string()],
+        "a non-empty list still extends the inherited one"
+    );
+}
+
+/// An omitted `preserve_patterns` key inherits; only an explicit `[]` clears.
+#[test]
+fn omitted_preserve_patterns_in_a_pattern_section_inherits() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(
+        &root.join(".uncommentrc.toml"),
+        r#"
+[global]
+preserve_patterns = ["KEEPME"]
+
+[patterns."**/*.py"]
+remove_todos = true
+"#,
+    );
+
+    let file = root.join("thing.py");
+    write(&file, PY_WITH_TODO);
+
+    let resolved = ConfigManager::new(root).unwrap().get_config_for_file(&file);
+    assert!(resolved.remove_todos);
+    assert_eq!(resolved.preserve_patterns, vec!["KEEPME".to_string()]);
+}
+
+/// A forced `--config` anchors its globs at the invocation directory, not at the
+/// directory holding the config file.
+#[test]
+fn forced_config_globs_are_anchored_at_the_invocation_directory() {
+    let temp = TempDir::new().unwrap();
+    let shared = temp.path().join("shared");
+    let project = temp.path().join("project");
+
+    write(
+        &shared.join("uncomment.toml"),
+        r#"
+[global]
+remove_todos = false
+
+[patterns."src/**/*.py"]
+remove_todos = true
+"#,
+    );
+
+    let inside = project.join("src").join("thing.py");
+    let outside = project.join("other").join("thing.py");
+    write(&inside, PY_WITH_TODO);
+    write(&outside, PY_WITH_TODO);
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_uncomment"))
+        .current_dir(&project)
+        .args(["--config", "../shared/uncomment.toml", "src", "other"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "run failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    assert!(
+        !fs::read_to_string(&inside).unwrap().contains("TODO: tracked work"),
+        "src/**/*.py is matched relative to the invocation directory"
+    );
+    assert!(
+        fs::read_to_string(&outside).unwrap().contains("TODO: tracked work"),
+        "other/thing.py matches nothing, so the global remove_todos = false stands"
+    );
+}

@@ -60,6 +60,28 @@ This changelog is generated from git tags and commit history.
   claimed. Neither pattern was in the default rule set, so `// XXX: load-bearing` was
   silently deleted by a plain `uncomment` run despite being documented as protected.
 
+- A config file that does not contain a `[global]` section no longer resets every global
+  setting to its default. A nested `.uncommentrc.toml` carrying only `[patterns]` used to
+  deserialize as all-defaults and silently erase the enclosing config's `remove_docs`,
+  `remove_todos` and the rest; only the keys a file actually contains now override the
+  layer above it.
+
+- `preserve_patterns = []` inside a `[patterns."<glob>"]` section now clears the inherited
+  patterns instead of being ignored. Omitting the key inherits, an empty list clears, and
+  a non-empty list extends — previously there was no way to opt a path back out.
+
+- A config file that fails to parse or validate is now a hard error naming the file,
+  instead of being silently replaced by defaults. The previous behaviour was the dangerous
+  one: a typo in `.uncommentrc.toml` meant the run continued under default settings and
+  deleted comments the config existed to protect. A config discovered below the invocation
+  directory is also recorded and reported, and fails the run's exit code.
+
+- A `..` component in an input path can no longer reach a sibling directory's config or
+  escape the git-root ceiling. `uncomment ../other` used to resolve config against the
+  literal path, so `repo/sub/..` matched `repo/sub`'s settings — `Path::starts_with` and
+  `parent` are both lexical. Paths are normalized before any containment check, which also
+  removes a spurious "`[languages]` … is ignored" warning on such a path.
+
 ### Changed
 
 - Unknown keys in `.uncommentrc.toml` / `uncomment.toml` are now a load error naming the
