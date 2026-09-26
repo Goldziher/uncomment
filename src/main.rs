@@ -1,21 +1,14 @@
-mod ast;
-mod cli;
-mod config;
-pub mod languages;
-pub mod processor;
-mod rules;
-mod ui;
-
 use anyhow::{Context, Result};
 use clap::Parser;
-use cli::{Cli, Commands};
-use config::ConfigManager;
 use glob::glob;
 use once_cell::sync::Lazy;
-use processor::OutputWriter;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use uncomment::cli::{Cli, Commands};
+use uncomment::config::{self, ConfigManager};
+use uncomment::processor::{self, OutputWriter};
+use uncomment::{languages, ui};
 
 static DEFAULT_LANGUAGE_REGISTRY: Lazy<languages::LanguageRegistry> = Lazy::new(languages::LanguageRegistry::new);
 
