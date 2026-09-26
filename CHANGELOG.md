@@ -8,6 +8,25 @@ This changelog is generated from git tags and commit history.
 
 ### Added
 
+- `uncomment keep` writes `~keep` markers into the comments you chose to keep, so a
+  decision taken over a whole repository can be applied in one pass instead of by hand.
+  Select comments with `--from FILE` (a scan inventory with the lines you don't want
+  deleted), `--id`, `--match SUBSTRING`, or `--all-removable`.
+
+  A line comment gets ` ~keep` appended; a block, doc or docstring comment gets a plain
+  marker line directly above it, at its own indentation. That split is not cosmetic — a
+  Python docstring is a string node whose bytes are `__doc__` at runtime, and a marker
+  written with a doc prefix (`///`, `##`) is classified as documentation and does nothing
+  at all. Every marker is verified rather than assumed: the rewritten file is re-inspected
+  under a configuration where a `~keep` marker is the only thing that can preserve a
+  comment, and a marker that fails to protect its target is rolled back and the comment
+  reported as unmarkable. Shebangs, language directives and comments sharing a line with
+  code are refused for the same reason, never guessed at.
+
+  Re-running is a no-op, including through a decisions file recorded before the first run:
+  appending a marker changes a comment's bytes and therefore its id, so each comment
+  answers to both its current id and the id it had before being marked.
+
 - `Processor::inspect` reports **every** comment in a file, kept and removed alike, each
   with the reason it was kept — a matched pattern, documentation, a file header, a
   shebang, its own `~keep` marker, a neighbour's marker, or a language directive.

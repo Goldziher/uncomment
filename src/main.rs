@@ -37,6 +37,7 @@ fn main() -> Result<()> {
                 comprehensive,
                 interactive,
             } => Cli::handle_init_command(output, *force, *comprehensive, *interactive),
+            Commands::Keep(args) => uncomment::keep::run(args),
         };
     }
 
