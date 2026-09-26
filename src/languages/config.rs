@@ -1,5 +1,109 @@
 use ahash::AHashSet;
 
+/// A language's literal comment delimiters, as opposed to the tree-sitter node kind
+/// names in [`LanguageConfig::comment_types`].
+///
+/// `line` is always the *plain* line-comment token, never a documentation form:
+/// [`crate::rules::preservation::PreservationRule::Documentation`] classifies `///`,
+/// `//!`, `/**` and `##` as documentation, and a marker comment written with one of
+/// those is preserved as documentation instead of being read as a marker — it does
+/// nothing, silently.
+///
+/// Either form may be absent. CSS and OCaml have only a block pair, Python and YAML
+/// only a line token, and plain JSON has neither.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommentSyntax {
+    pub line: Option<&'static str>,
+    pub block: Option<(&'static str, &'static str)>,
+}
+
+impl CommentSyntax {
+    /// No comment syntax at all.
+    pub const NONE: Self = Self {
+        line: None,
+        block: None,
+    };
+    /// `//` plus `/* */` — the C family and the languages modelled on it.
+    pub const C_STYLE: Self = Self::both("//", "/*", "*/");
+    /// `//` with no block form, as in Zig.
+    pub const SLASH: Self = Self::line_only("//");
+    /// `#` with no block form.
+    pub const HASH: Self = Self::line_only("#");
+    /// `#` plus the C block pair, as in Nix and HCL.
+    pub const HASH_C_BLOCK: Self = Self::both("#", "/*", "*/");
+    /// `<!-- -->` only — markup languages.
+    pub const MARKUP: Self = Self::block_only("<!--", "-->");
+    /// `/* */` only — CSS.
+    pub const C_BLOCK: Self = Self::block_only("/*", "*/");
+    /// `--` plus `{- -}` — the Haskell family.
+    pub const DASH_BRACE: Self = Self::both("--", "{-", "-}");
+
+    #[must_use]
+    pub const fn line_only(line: &'static str) -> Self {
+        Self {
+            line: Some(line),
+            block: None,
+        }
+    }
+
+    #[must_use]
+    pub const fn block_only(open: &'static str, close: &'static str) -> Self {
+        Self {
+            line: None,
+            block: Some((open, close)),
+        }
+    }
+
+    #[must_use]
+    pub const fn both(line: &'static str, open: &'static str, close: &'static str) -> Self {
+        Self {
+            line: Some(line),
+            block: Some((open, close)),
+        }
+    }
+
+    /// Syntax shared by every language that parses with the given tree-sitter grammar,
+    /// used as a fallback for languages registered at runtime without their own entry.
+    ///
+    /// Returns `None` where no single answer is correct — `json` backs both plain JSON
+    /// (no comments) and JSONC (`//` and `/* */`), so guessing either would be wrong.
+    #[must_use]
+    pub fn for_tree_sitter_language(tslp_name: &str) -> Option<Self> {
+        let syntax = match tslp_name {
+            "c" | "cpp" | "csharp" | "dart" | "go" | "groovy" | "java" | "javascript" | "kotlin" | "objc" | "php"
+            | "proto" | "rust" | "scala" | "scss" | "swift" | "tsx" | "typescript" => Self::C_STYLE,
+            "bash" | "dockerfile" | "elixir" | "fish" | "make" | "perl" | "python" | "r" | "toml" | "yaml" => {
+                Self::HASH
+            }
+            "hcl" | "nix" => Self::HASH_C_BLOCK,
+            "html" | "svelte" | "vue" | "xml" => Self::MARKUP,
+            "elm" | "haskell" => Self::DASH_BRACE,
+            "css" => Self::C_BLOCK,
+            "zig" => Self::SLASH,
+            "clojure" | "ini" => Self::line_only(";"),
+            "erlang" | "latex" => Self::line_only("%"),
+            "fortran" => Self::line_only("!"),
+            "ruby" => Self::both("#", "=begin", "=end"),
+            "sql" => Self::both("--", "/*", "*/"),
+            "lua" => Self::both("--", "--[[", "]]"),
+            "powershell" => Self::both("#", "<#", "#>"),
+            "julia" => Self::both("#", "#=", "=#"),
+            "ocaml" => Self::block_only("(*", "*)"),
+            _ => return None,
+        };
+        Some(syntax)
+    }
+}
+
+/// Outcome of asking a [`LanguageConfig`] for its literal comment syntax.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommentSyntaxResolution {
+    Resolved(CommentSyntax),
+    /// Nothing is known about this language's delimiters. Callers must skip and report,
+    /// never fall back to a guess: a wrong marker is worse than no marker.
+    Unknown,
+}
+
 #[derive(Debug, Clone)]
 pub struct LanguageConfig {
     pub name: String,
@@ -7,6 +111,7 @@ pub struct LanguageConfig {
     pub comment_types: Vec<String>,
     pub doc_comment_types: Vec<String>,
     pub tslp_name: String,
+    pub comment_syntax: Option<CommentSyntax>,
 }
 
 impl LanguageConfig {
@@ -23,6 +128,36 @@ impl LanguageConfig {
             comment_types: comment_types.iter().map(|&s| s.to_string()).collect(),
             doc_comment_types: doc_comment_types.iter().map(|&s| s.to_string()).collect(),
             tslp_name: tslp_name.to_string(),
+            comment_syntax: None,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_comment_syntax(mut self, syntax: CommentSyntax) -> Self {
+        self.comment_syntax = Some(syntax);
+        self
+    }
+
+    /// This language's literal delimiters, falling back to the grammar family when the
+    /// config carries no entry of its own.
+    #[must_use]
+    pub fn resolve_comment_syntax(&self) -> CommentSyntaxResolution {
+        if let Some(syntax) = self.comment_syntax {
+            return CommentSyntaxResolution::Resolved(syntax);
+        }
+
+        match CommentSyntax::for_tree_sitter_language(&self.tslp_name) {
+            Some(syntax) => CommentSyntaxResolution::Resolved(syntax),
+            None => CommentSyntaxResolution::Unknown,
+        }
+    }
+
+    /// The plain line-comment token to prefix a marker line with, if the language has one.
+    #[must_use]
+    pub fn line_comment_token(&self) -> Option<&'static str> {
+        match self.resolve_comment_syntax() {
+            CommentSyntaxResolution::Resolved(syntax) => syntax.line,
+            CommentSyntaxResolution::Unknown => None,
         }
     }
 
@@ -65,6 +200,7 @@ impl LanguageConfig {
             vec!["doc_comment", "inner_doc_comment", "outer_doc_comment"],
             "rust",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn python() -> Self {
@@ -75,6 +211,7 @@ impl LanguageConfig {
             vec!["string"],
             "python",
         )
+        .with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn javascript() -> Self {
@@ -85,6 +222,7 @@ impl LanguageConfig {
             vec!["comment"],
             "javascript",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn typescript() -> Self {
@@ -95,14 +233,16 @@ impl LanguageConfig {
             vec!["comment"],
             "typescript",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn tsx() -> Self {
         Self::new("tsx", vec!["tsx"], vec!["comment"], vec!["comment"], "tsx")
+            .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn go() -> Self {
-        Self::new("go", vec!["go"], vec!["comment"], vec!["comment"], "go")
+        Self::new("go", vec!["go"], vec!["comment"], vec!["comment"], "go").with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn ruby() -> Self {
@@ -113,22 +253,25 @@ impl LanguageConfig {
             vec![],
             "ruby",
         )
+        .with_comment_syntax(CommentSyntax::both("#", "=begin", "=end"))
     }
 
     pub fn php() -> Self {
         Self::new("php", vec!["php", "phtml"], vec!["comment"], vec![], "php")
+            .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn elixir() -> Self {
         Self::new("elixir", vec!["ex", "exs"], vec!["comment"], vec![], "elixir")
+            .with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn toml() -> Self {
-        Self::new("toml", vec!["toml"], vec!["comment"], vec![], "toml")
+        Self::new("toml", vec!["toml"], vec!["comment"], vec![], "toml").with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn csharp() -> Self {
-        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], "csharp")
+        Self::new("csharp", vec!["cs"], vec!["comment"], vec![], "csharp").with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn java() -> Self {
@@ -139,10 +282,12 @@ impl LanguageConfig {
             vec!["block_comment"],
             "java",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn c() -> Self {
         Self::new("c", vec!["c", "h"], vec!["comment"], vec!["comment"], "c")
+            .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn cpp() -> Self {
@@ -153,26 +298,28 @@ impl LanguageConfig {
             vec!["comment"],
             "cpp",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn json() -> Self {
-        Self::new("json", vec!["json"], vec![], vec![], "json")
+        Self::new("json", vec!["json"], vec![], vec![], "json").with_comment_syntax(CommentSyntax::NONE)
     }
 
     pub fn jsonc() -> Self {
-        Self::new("jsonc", vec!["jsonc"], vec!["comment"], vec![], "json")
+        Self::new("jsonc", vec!["jsonc"], vec!["comment"], vec![], "json").with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn yaml() -> Self {
-        Self::new("yaml", vec!["yaml", "yml"], vec!["comment"], vec![], "yaml")
+        Self::new("yaml", vec!["yaml", "yml"], vec!["comment"], vec![], "yaml").with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn hcl() -> Self {
         Self::new("hcl", vec!["hcl", "tf", "tfvars"], vec!["comment"], vec![], "hcl")
+            .with_comment_syntax(CommentSyntax::HASH_C_BLOCK)
     }
 
     pub fn make() -> Self {
-        Self::new("make", vec!["mk"], vec!["comment"], vec![], "make")
+        Self::new("make", vec!["mk"], vec!["comment"], vec![], "make").with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn shell() -> Self {
@@ -183,18 +330,21 @@ impl LanguageConfig {
             vec!["comment"],
             "bash",
         )
+        .with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn haskell() -> Self {
         Self::new("haskell", vec!["hs", "lhs"], vec!["comment"], vec![], "haskell")
+            .with_comment_syntax(CommentSyntax::DASH_BRACE)
     }
 
     pub fn html() -> Self {
         Self::new("html", vec!["html", "htm", "xhtml"], vec!["comment"], vec![], "html")
+            .with_comment_syntax(CommentSyntax::MARKUP)
     }
 
     pub fn css() -> Self {
-        Self::new("css", vec!["css"], vec!["comment"], vec![], "css")
+        Self::new("css", vec!["css"], vec!["comment"], vec![], "css").with_comment_syntax(CommentSyntax::C_BLOCK)
     }
 
     pub fn xml() -> Self {
@@ -205,10 +355,12 @@ impl LanguageConfig {
             vec![],
             "xml",
         )
+        .with_comment_syntax(CommentSyntax::MARKUP)
     }
 
     pub fn sql() -> Self {
         Self::new("sql", vec!["sql"], vec!["comment"], vec![], "sql")
+            .with_comment_syntax(CommentSyntax::both("--", "/*", "*/"))
     }
 
     pub fn kotlin() -> Self {
@@ -219,10 +371,12 @@ impl LanguageConfig {
             vec![],
             "kotlin",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn objc() -> Self {
         Self::new("objc", vec!["m"], vec!["comment"], vec!["comment"], "objc")
+            .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn swift() -> Self {
@@ -233,14 +387,16 @@ impl LanguageConfig {
             vec![],
             "swift",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn lua() -> Self {
         Self::new("lua", vec!["lua"], vec!["comment"], vec![], "lua")
+            .with_comment_syntax(CommentSyntax::both("--", "--[[", "]]"))
     }
 
     pub fn nix() -> Self {
-        Self::new("nix", vec!["nix"], vec!["comment"], vec![], "nix")
+        Self::new("nix", vec!["nix"], vec!["comment"], vec![], "nix").with_comment_syntax(CommentSyntax::HASH_C_BLOCK)
     }
 
     pub fn powershell() -> Self {
@@ -251,18 +407,20 @@ impl LanguageConfig {
             vec![],
             "powershell",
         )
+        .with_comment_syntax(CommentSyntax::both("#", "<#", "#>"))
     }
 
     pub fn proto() -> Self {
-        Self::new("proto", vec!["proto"], vec!["comment"], vec![], "proto")
+        Self::new("proto", vec!["proto"], vec!["comment"], vec![], "proto").with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn ini() -> Self {
         Self::new("ini", vec!["ini", "cfg", "conf"], vec!["comment"], vec![], "ini")
+            .with_comment_syntax(CommentSyntax::line_only(";"))
     }
 
     pub fn dockerfile() -> Self {
-        Self::new("dockerfile", vec![], vec!["comment"], vec![], "dockerfile")
+        Self::new("dockerfile", vec![], vec!["comment"], vec![], "dockerfile").with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn scala() -> Self {
@@ -273,6 +431,7 @@ impl LanguageConfig {
             vec!["block_comment"],
             "scala",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn dart() -> Self {
@@ -283,18 +442,20 @@ impl LanguageConfig {
             vec!["documentation_comment"],
             "dart",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn r() -> Self {
-        Self::new("r", vec!["r", "R"], vec!["comment"], vec![], "r")
+        Self::new("r", vec!["r", "R"], vec!["comment"], vec![], "r").with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn julia() -> Self {
         Self::new("julia", vec!["jl"], vec!["line_comment"], vec![], "julia")
+            .with_comment_syntax(CommentSyntax::both("#", "#=", "=#"))
     }
 
     pub fn zig() -> Self {
-        Self::new("zig", vec!["zig"], vec!["line_comment"], vec![], "zig")
+        Self::new("zig", vec!["zig"], vec!["line_comment"], vec![], "zig").with_comment_syntax(CommentSyntax::SLASH)
     }
 
     pub fn clojure() -> Self {
@@ -305,26 +466,31 @@ impl LanguageConfig {
             vec![],
             "clojure",
         )
+        .with_comment_syntax(CommentSyntax::line_only(";"))
     }
 
     pub fn elm() -> Self {
         Self::new("elm", vec!["elm"], vec!["line_comment", "block_comment"], vec![], "elm")
+            .with_comment_syntax(CommentSyntax::DASH_BRACE)
     }
 
     pub fn erlang() -> Self {
         Self::new("erlang", vec!["erl", "hrl"], vec!["comment"], vec![], "erlang")
+            .with_comment_syntax(CommentSyntax::line_only("%"))
     }
 
     pub fn vue() -> Self {
-        Self::new("vue", vec!["vue"], vec!["comment"], vec![], "vue")
+        Self::new("vue", vec!["vue"], vec!["comment"], vec![], "vue").with_comment_syntax(CommentSyntax::MARKUP)
     }
 
     pub fn svelte() -> Self {
         Self::new("svelte", vec!["svelte"], vec!["comment"], vec![], "svelte")
+            .with_comment_syntax(CommentSyntax::MARKUP)
     }
 
     pub fn scss() -> Self {
         Self::new("scss", vec!["scss"], vec!["comment", "js_comment"], vec![], "scss")
+            .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn latex() -> Self {
@@ -335,14 +501,15 @@ impl LanguageConfig {
             vec![],
             "latex",
         )
+        .with_comment_syntax(CommentSyntax::line_only("%"))
     }
 
     pub fn fish() -> Self {
-        Self::new("fish", vec!["fish"], vec!["comment"], vec![], "fish")
+        Self::new("fish", vec!["fish"], vec!["comment"], vec![], "fish").with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn perl() -> Self {
-        Self::new("perl", vec!["pl", "pm"], vec!["comment"], vec![], "perl")
+        Self::new("perl", vec!["pl", "pm"], vec!["comment"], vec![], "perl").with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn groovy() -> Self {
@@ -353,10 +520,12 @@ impl LanguageConfig {
             vec!["block_comment"],
             "groovy",
         )
+        .with_comment_syntax(CommentSyntax::C_STYLE)
     }
 
     pub fn ocaml() -> Self {
         Self::new("ocaml", vec!["ml", "mli"], vec!["comment"], vec![], "ocaml")
+            .with_comment_syntax(CommentSyntax::block_only("(*", "*)"))
     }
 
     pub fn fortran() -> Self {
@@ -367,12 +536,18 @@ impl LanguageConfig {
             vec![],
             "fortran",
         )
+        .with_comment_syntax(CommentSyntax::line_only("!"))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Prefixes `PreservationRule::Documentation` treats as documentation. Duplicated
+    /// here so a unit test can guard the table without reaching into the rules module;
+    /// `tests/language_syntax_test.rs` runs the real classifier.
+    const DOC_PREFIXES: &[&str] = &["/**", "///", "//!", "##", "\"\"\"", "'''"];
 
     #[test]
     fn test_language_config_creation() {
@@ -449,6 +624,64 @@ mod tests {
             assert!(!lang.name.is_empty());
             assert!(!lang.extensions.is_empty());
             assert!(!lang.comment_types.is_empty());
+        }
+    }
+
+    #[test]
+    fn new_leaves_comment_syntax_unset() {
+        let config = LanguageConfig::new("custom", vec!["cst"], vec!["comment"], vec![], "unheard-of");
+        assert_eq!(config.comment_syntax, None);
+        assert_eq!(config.resolve_comment_syntax(), CommentSyntaxResolution::Unknown);
+        assert_eq!(config.line_comment_token(), None);
+    }
+
+    #[test]
+    fn builtin_configs_carry_their_own_syntax() {
+        assert_eq!(LanguageConfig::rust().comment_syntax, Some(CommentSyntax::C_STYLE));
+        assert_eq!(LanguageConfig::python().line_comment_token(), Some("#"));
+        assert_eq!(LanguageConfig::json().comment_syntax, Some(CommentSyntax::NONE));
+        assert_eq!(LanguageConfig::json().line_comment_token(), None);
+    }
+
+    #[test]
+    fn family_fallback_resolves_by_tree_sitter_name() {
+        let config = LanguageConfig::new("bash-ish", vec!["bsh"], vec!["comment"], vec![], "bash");
+        assert_eq!(
+            config.resolve_comment_syntax(),
+            CommentSyntaxResolution::Resolved(CommentSyntax::HASH)
+        );
+    }
+
+    #[test]
+    fn ambiguous_json_family_does_not_guess() {
+        assert_eq!(CommentSyntax::for_tree_sitter_language("json"), None);
+    }
+
+    #[test]
+    fn no_builtin_line_token_is_a_documentation_prefix() {
+        for syntax in [
+            CommentSyntax::C_STYLE,
+            CommentSyntax::SLASH,
+            CommentSyntax::HASH,
+            CommentSyntax::HASH_C_BLOCK,
+            CommentSyntax::DASH_BRACE,
+            CommentSyntax::both("#", "=begin", "=end"),
+            CommentSyntax::both("--", "/*", "*/"),
+            CommentSyntax::both("--", "--[[", "]]"),
+            CommentSyntax::both("#", "<#", "#>"),
+            CommentSyntax::both("#", "#=", "=#"),
+            CommentSyntax::line_only(";"),
+            CommentSyntax::line_only("%"),
+            CommentSyntax::line_only("!"),
+        ] {
+            let line = syntax.line.expect("every syntax in this list has a line token");
+            let marker = format!("{line} ~keep");
+            for prefix in DOC_PREFIXES {
+                assert!(
+                    !marker.starts_with(prefix),
+                    "`{marker}` starts with doc prefix `{prefix}`"
+                );
+            }
         }
     }
 }
