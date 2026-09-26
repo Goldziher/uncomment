@@ -410,12 +410,15 @@ preserve_patterns = ["PRODUCTION"]
     let src_file = root.join("src").join("main.py");
     let regular_file = root.join("regular.py");
 
-    let file_content = r#"""
+    // r##"…"## so the leading """ is literal; r#"""… would start the content with a bare "".
+    let file_content = r##""""
 Docstring
 """
 # TODO: todo comment
 # PRODUCTION: prod comment
-def hello(): pass"#;
+def hello():
+    pass
+"##;
 
     fs::write(&test_file, file_content).unwrap();
     fs::write(&src_file, file_content).unwrap();
@@ -439,13 +442,33 @@ def hello(): pass"#;
     let src_result = fs::read_to_string(&src_file).unwrap();
     let regular_result = fs::read_to_string(&regular_file).unwrap();
 
-    // All should preserve TODO and docs due to global config
-    assert!(test_result.contains("TODO: todo comment"));
-    assert!(test_result.contains("Docstring"));
+    // test_example.py matches [patterns."test_*.py"], which turns both removals back on,
+    // overriding the global remove_todos = false / remove_docs = false.
+    assert!(
+        !test_result.contains("TODO: todo comment"),
+        "pattern test_*.py sets remove_todos = true, so the TODO must go: {test_result}"
+    );
+    assert!(
+        !test_result.contains("Docstring"),
+        "pattern test_*.py sets remove_docs = true, so the docstring must go: {test_result}"
+    );
+
+    // src/main.py matches [patterns."src/*.py"], which only adds a preserve pattern, so the
+    // global keep-everything settings still apply and PRODUCTION is preserved on top.
     assert!(src_result.contains("TODO: todo comment"));
     assert!(src_result.contains("Docstring"));
+    assert!(
+        src_result.contains("PRODUCTION: prod comment"),
+        "preserve_patterns from the matching pattern section must apply: {src_result}"
+    );
+
+    // regular.py matches no pattern section, so it gets the global config unchanged.
     assert!(regular_result.contains("TODO: todo comment"));
     assert!(regular_result.contains("Docstring"));
+    assert!(
+        !regular_result.contains("PRODUCTION: prod comment"),
+        "PRODUCTION is only preserved for src/*.py, not globally: {regular_result}"
+    );
 }
 
 #[test]
