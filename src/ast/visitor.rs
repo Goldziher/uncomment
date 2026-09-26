@@ -46,10 +46,26 @@ impl CommentInfo {
     }
 }
 
+/// What the visit pass concluded about one comment, recorded per comment so a caller
+/// can name *why* it survived. Captured before the `~keep` extension passes run, so a
+/// comment kept only by a neighbour's marker has no `matched_rule` here — see
+/// [`CommentVisitor::is_extended`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VisitDecision<'a> {
+    /// First preservation rule whose test the comment's own text passed.
+    pub matched_rule: Option<&'a PreservationRule>,
+    /// Whether the grammar handler forced preservation from surrounding syntax — a Go
+    /// build/embed directive, a cgo preamble, a trailing preprocessor comment, a Ruby
+    /// magic comment.
+    pub forced_by_grammar: bool,
+}
+
 pub struct CommentVisitor<'a> {
     source: &'a str,
     preservation_rules: &'a [PreservationRule],
     comments: Vec<CommentInfo>,
+    /// Parallel to `comments`: why each one was kept, as decided during the visit.
+    decisions: Vec<VisitDecision<'a>>,
     comment_node_types: &'a [String],
     doc_comment_node_types: &'a [String],
     language_handler: Box<dyn LanguageHandler>,
@@ -73,6 +89,7 @@ impl<'a> CommentVisitor<'a> {
             source,
             preservation_rules,
             comments: Vec::with_capacity(32),
+            decisions: Vec::with_capacity(32),
             comment_node_types,
             doc_comment_node_types,
             language_handler,
@@ -95,15 +112,20 @@ impl<'a> CommentVisitor<'a> {
                 comment_info = comment_info.with_documentation(is_doc);
             }
 
-            let forced_preserve = self
+            let forced_by_grammar = self
                 .language_handler
                 .should_preserve_comment(&node, parent, self.source)
                 .unwrap_or(false);
 
             let content = comment_info.content(self.source);
-            let should_preserve = forced_preserve || self.should_preserve_comment(&comment_info, content);
+            let matched_rule = self.matching_preservation_rule(&comment_info, content);
+            let should_preserve = forced_by_grammar || matched_rule.is_some();
             let comment_with_preservation = comment_info.with_preservation(should_preserve);
             self.comments.push(comment_with_preservation);
+            self.decisions.push(VisitDecision {
+                matched_rule,
+                forced_by_grammar,
+            });
         }
 
         let mut cursor = node.walk();
@@ -118,6 +140,28 @@ impl<'a> CommentVisitor<'a> {
             .iter()
             .filter(|comment| !comment.should_preserve)
             .collect()
+    }
+
+    /// Every comment the visit collected, in discovery order — preserved and removable
+    /// alike. Index into it to pair an entry with [`Self::decision`] and
+    /// [`Self::is_extended`].
+    #[must_use]
+    pub fn comments(&self) -> &[CommentInfo] {
+        &self.comments
+    }
+
+    /// What the visit pass concluded about the comment at `index`. An index past the
+    /// end reports "nothing matched" rather than panicking.
+    #[must_use]
+    pub fn decision(&self, index: usize) -> VisitDecision<'a> {
+        self.decisions.get(index).copied().unwrap_or_default()
+    }
+
+    /// Whether the comment at `index` owes its survival to a `~keep` carried by a
+    /// *different* comment rather than one of its own.
+    #[must_use]
+    pub fn is_extended(&self, index: usize) -> bool {
+        self.extended.contains(&index)
     }
 
     fn is_comment_node(&self, node: &Node, parent: Option<Node>) -> bool {
@@ -140,13 +184,14 @@ impl<'a> CommentVisitor<'a> {
         false
     }
 
-    fn should_preserve_comment(&self, comment: &CommentInfo, content: &str) -> bool {
-        for rule in self.preservation_rules {
-            if rule.matches(comment, content) {
-                return true;
-            }
-        }
-        false
+    /// The first configured rule whose test `content` passes, or `None` when no rule
+    /// keeps this comment. Rule order is meaningful: the caller reports the winner as
+    /// the reason, and `~keep` sits near the front so a marker is named as a marker
+    /// rather than as whatever else the text happens to match.
+    fn matching_preservation_rule(&self, comment: &CommentInfo, content: &str) -> Option<&'a PreservationRule> {
+        self.preservation_rules
+            .iter()
+            .find(|rule| rule.matches(comment, content))
     }
 
     /// Extend `~keep` preservation across contiguous single-line comment blocks.
@@ -272,7 +317,7 @@ impl<'a> CommentVisitor<'a> {
     /// [`PreservationRule::Documentation`] rule applies. Grammar handlers leave
     /// [`CommentInfo::is_documentation`] unset for most languages — Rust records a
     /// `///` line as a plain `line_comment` — so the flag alone under-reports.
-    fn is_doc_comment(comment: &CommentInfo, content: &str) -> bool {
+    pub(crate) fn is_doc_comment(comment: &CommentInfo, content: &str) -> bool {
         PreservationRule::documentation().matches(comment, content)
     }
 

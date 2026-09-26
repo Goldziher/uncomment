@@ -1,5 +1,6 @@
-use crate::ast::visitor::{CommentInfo, CommentVisitor};
+use crate::ast::visitor::{CommentInfo, CommentVisitor, VisitDecision};
 use crate::config::{ConfigManager, ResolvedConfig};
+use crate::languages::config::CommentSyntaxResolution;
 use crate::languages::registry::LanguageRegistry;
 use crate::rules::preservation::PreservationRule;
 use anyhow::{Context, Result};
@@ -337,12 +338,52 @@ impl Processor {
     /// than consuming the already-rewritten string. Config discovery is *not*
     /// performed — the caller supplies a fully [`ResolvedConfig`].
     ///
+    /// A filter over [`Self::inspect`], which reports preserved comments too.
+    ///
     /// # Errors
     ///
     /// Returns [`UncommentError::LanguageNotSupported`](crate::UncommentError) (via
     /// `anyhow`) when `path`'s extension maps to no known language, and propagates
     /// grammar-load / parse failures.
     pub fn plan_removals(&mut self, content: &str, path: &Path, config: &ResolvedConfig) -> Result<Vec<Removal>> {
+        let removals = self
+            .inspect(content, path, config)?
+            .into_iter()
+            .filter_map(|comment| match comment.verdict {
+                Verdict::Remove {
+                    expanded_start,
+                    expanded_end,
+                } => Some(Removal {
+                    comment_start: comment.start_byte,
+                    comment_end: comment.end_byte,
+                    remove_start: expanded_start,
+                    remove_end: expanded_end,
+                    start_row: comment.start_row,
+                    is_documentation: comment.is_documentation,
+                    preview: first_line_preview(&comment.text),
+                }),
+                Verdict::Preserve => None,
+            })
+            .collect();
+        Ok(removals)
+    }
+
+    /// Every comment in `content`, kept and removed alike, with why — the read-only
+    /// inventory [`Self::plan_removals`] filters down to its removals.
+    ///
+    /// Like `plan_removals` this touches no filesystem, rewrites nothing, picks the
+    /// language from `path`'s extension via the built-in registry, and performs no
+    /// config discovery. Entries are ordered by `start_byte` ascending.
+    ///
+    /// Comments the grammar records as several nested nodes (a Rust `///` line arrives
+    /// as both an outer `line_comment` and an inner doc node) are collapsed to the
+    /// outermost, so one comment is reported once.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `path`'s extension maps to no known language, and
+    /// propagates grammar-load / parse failures.
+    pub fn inspect(&mut self, content: &str, path: &Path, config: &ResolvedConfig) -> Result<Vec<InspectedComment>> {
         let language_config = self
             .registry
             .detect_language_arc(path)
@@ -374,26 +415,201 @@ impl Processor {
         visitor.extend_keep_blocks();
         visitor.extend_keep_above();
 
+        let comments = visitor.comments();
+        let mut selected = dedupe_nested_indices(comments, |comment| !comment.should_preserve);
+        selected.extend(dedupe_nested_indices(comments, |comment| comment.should_preserve));
+        // Each side is already ascending, so a stable sort merges them without
+        // disturbing the removable side's order — that order is `plan_removals`' output.
+        selected.sort_by(|&a, &b| comments[a].start_byte.cmp(&comments[b].start_byte));
+
         let bytes = content.as_bytes();
-        let removals = dedupe_nested(visitor.get_comments_to_remove())
-            .into_iter()
-            .filter_map(|comment| {
-                let (remove_start, remove_end) = Self::expand_range(bytes, comment.start_byte, comment.end_byte)?;
-                let preview = first_line_preview(comment.content(content));
-                Some(Removal {
-                    comment_start: comment.start_byte,
-                    comment_end: comment.end_byte,
-                    remove_start,
-                    remove_end,
-                    start_row: comment.start_row,
-                    is_documentation: comment.is_documentation,
-                    preview,
-                })
-            })
-            .collect();
-        Ok(removals)
+        let syntax = language_config.resolve_comment_syntax();
+        let mut inspected = Vec::with_capacity(selected.len());
+        for index in selected {
+            let comment = &comments[index];
+            let text = comment.content(content);
+            let verdict = if comment.should_preserve {
+                Verdict::Preserve
+            } else {
+                match Self::expand_range(bytes, comment.start_byte, comment.end_byte) {
+                    Some((expanded_start, expanded_end)) => Verdict::Remove {
+                        expanded_start,
+                        expanded_end,
+                    },
+                    // A degenerate node (empty, or past the end of the source) describes
+                    // no comment and no edit.
+                    None => continue,
+                }
+            };
+            let reason = if comment.should_preserve {
+                preserve_reason(visitor.decision(index), visitor.is_extended(index))
+            } else {
+                None
+            };
+            inspected.push(InspectedComment {
+                start_byte: comment.start_byte,
+                end_byte: comment.end_byte,
+                start_row: comment.start_row,
+                end_row: comment.end_row,
+                node_type: comment.node_type.clone(),
+                kind: classify_kind(comment, text, syntax),
+                verdict,
+                reason,
+                text: text.to_string(),
+                is_documentation: comment.is_documentation,
+            });
+        }
+        Ok(inspected)
     }
 }
+
+/// The shape a comment is written in, independent of whether it survives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommentKind {
+    Line,
+    Block,
+    /// Documentation in comment syntax: `///`, `//!`, `/** */`, `##`, or a comment the
+    /// grammar handler recognised as documentation from its position.
+    Doc,
+    /// Documentation the grammar records as a string literal rather than a comment —
+    /// a Python docstring and its equivalents.
+    Docstring,
+}
+
+/// Why a comment survived.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PreserveReason {
+    /// A preservation pattern matched the comment's text; carries that pattern.
+    Pattern(String),
+    Documentation,
+    FileHeader,
+    Shebang,
+    /// The comment carries its own `~keep`.
+    KeepMarker,
+    /// The comment carries no marker and survives only because an adjacent comment's
+    /// `~keep` extends over it.
+    ExtendedByNeighbourMarker,
+    /// The language handler forced preservation from surrounding syntax rather than
+    /// from the comment's own text — a Go build/embed directive, a cgo preamble, a
+    /// trailing preprocessor comment, a Ruby magic comment.
+    LanguageDirective,
+}
+
+/// What [`Processor::inspect`] decided to do with a comment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Verdict {
+    /// The comment will be stripped. The expanded range is what a deleting edit should
+    /// remove: the comment span, widened to the whole line(s) when nothing but
+    /// whitespace surrounds it.
+    Remove {
+        expanded_start: usize,
+        expanded_end: usize,
+    },
+    Preserve,
+}
+
+/// One comment found in a source file, with the verdict and the reason behind it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InspectedComment {
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_row: usize,
+    pub end_row: usize,
+    pub node_type: String,
+    pub kind: CommentKind,
+    pub verdict: Verdict,
+    /// `Some` for every preserved comment, `None` for every removed one.
+    pub reason: Option<PreserveReason>,
+    pub text: String,
+    /// The grammar handler's own documentation classification, reported verbatim by
+    /// [`Removal::is_documentation`]. Deliberately distinct from `kind`: Rust records
+    /// `///` as a plain `line_comment` the handler never flags, while a Go `// Foo does
+    /// …` above a declaration is documentation written in line-comment syntax.
+    pub is_documentation: bool,
+}
+
+/// Name why a preserved comment survived, or `None` for one that is being removed or
+/// whose survival has no recorded cause.
+///
+/// A rule matching the comment's own text wins over the neighbouring-marker fallback,
+/// so a `// TODO` swept into a `~keep` block still reports as the pattern match it is,
+/// and only a comment with no reason of its own is attributed to its neighbour.
+fn preserve_reason(decision: VisitDecision<'_>, extended: bool) -> Option<PreserveReason> {
+    if let Some(rule) = decision.matched_rule {
+        return Some(match rule {
+            PreservationRule::Pattern(pattern) if pattern.as_ref() == KEEP_MARKER => PreserveReason::KeepMarker,
+            PreservationRule::Pattern(pattern) => PreserveReason::Pattern(pattern.as_ref().to_string()),
+            PreservationRule::Documentation => PreserveReason::Documentation,
+            PreservationRule::FileHeader => PreserveReason::FileHeader,
+            PreservationRule::Shebang => PreserveReason::Shebang,
+        });
+    }
+    if decision.forced_by_grammar {
+        return Some(PreserveReason::LanguageDirective);
+    }
+    extended.then_some(PreserveReason::ExtendedByNeighbourMarker)
+}
+
+/// Classify a comment by shape, preferring the language's own delimiters over row
+/// arithmetic: a Rust `///` node spans two rows because it swallows its newline, and a
+/// `/* one liner */` spans one, so row count alone gets both backwards.
+fn classify_kind(comment: &CommentInfo, text: &str, syntax: CommentSyntaxResolution) -> CommentKind {
+    if comment.node_type.contains("string") {
+        return CommentKind::Docstring;
+    }
+    if CommentVisitor::is_doc_comment(comment, text) {
+        return CommentKind::Doc;
+    }
+    if let CommentSyntaxResolution::Resolved(syntax) = syntax {
+        let trimmed = text.trim_start();
+        if let Some((open, _)) = syntax.block
+            && trimmed.starts_with(open)
+        {
+            return CommentKind::Block;
+        }
+        if let Some(line) = syntax.line
+            && trimmed.starts_with(line)
+        {
+            return CommentKind::Line;
+        }
+    }
+    if comment.start_row == comment.end_row {
+        CommentKind::Line
+    } else {
+        CommentKind::Block
+    }
+}
+
+/// Indices of the comments [`dedupe_nested`] would keep, considering only those
+/// `include` accepts, ordered by `start_byte` ascending.
+///
+/// Nesting is resolved within one side of the verdict rather than across the whole
+/// list: a removable comment nested inside a preserved one is still its own removal,
+/// and collapsing the two would change what gets stripped.
+fn dedupe_nested_indices(comments: &[CommentInfo], include: impl Fn(&CommentInfo) -> bool) -> Vec<usize> {
+    let mut indices: Vec<usize> = (0..comments.len()).filter(|&index| include(&comments[index])).collect();
+    indices.sort_by(|&a, &b| {
+        comments[a]
+            .start_byte
+            .cmp(&comments[b].start_byte)
+            .then(comments[b].end_byte.cmp(&comments[a].end_byte))
+    });
+
+    let mut kept: Vec<usize> = Vec::with_capacity(indices.len());
+    for index in indices {
+        let nested = kept.last().is_some_and(|&outer| {
+            comments[index].start_byte >= comments[outer].start_byte
+                && comments[index].end_byte <= comments[outer].end_byte
+        });
+        if !nested {
+            kept.push(index);
+        }
+    }
+    kept
+}
+
+/// The marker token that protects a comment from removal.
+const KEEP_MARKER: &str = "~keep";
 
 /// A single comment that [`Processor::plan_removals`] determined is removable,
 /// expressed as byte offsets into the analysed source.
@@ -1723,5 +1939,298 @@ def hello(): pass"#;
         let processed = process_rust(source);
         assert!(!processed.contains("// trailing"));
         assert!(processed.contains("fn main()"));
+    }
+
+    /// Sources covering the comment shapes that behave differently from each other:
+    /// Rust `///` and `//!` (recorded as nested node pairs) plus a `/** */` block,
+    /// Python docstrings (`string` nodes, not comments), JSDoc, and a `#`-comment
+    /// language with a shebang.
+    fn inventory_cases() -> Vec<(&'static str, LanguageConfig, &'static str)> {
+        vec![
+            (
+                "sample.rs",
+                LanguageConfig::rust(),
+                "//! Crate entry point.\n\n/// Documented.\npub fn a() {}\n\n/** Block doc. */\npub fn b() {}\n\n// plain removable\npub fn c() {\n    let x = 1; // trailing removable\n    /* block\n       removable */\n}\n",
+            ),
+            (
+                "module.py",
+                LanguageConfig::python(),
+                "\"\"\"Module docstring.\"\"\"\n\n\ndef f():\n    \"\"\"Function docstring.\"\"\"\n    # remove me\n    return 1  # trailing removable\n",
+            ),
+            (
+                "app.js",
+                LanguageConfig::javascript(),
+                "/** JSDoc summary. */\nfunction f() {\n  // remove me\n  return 1; /* block removable */\n}\n",
+            ),
+            (
+                "script.sh",
+                LanguageConfig::shell(),
+                "#!/usr/bin/env bash\n# remove me\necho \"ok\"  # trailing removable\n",
+            ),
+        ]
+    }
+
+    /// Apply a removal plan to `source` the way a host tool would, so the plan can be
+    /// compared against what the rewriting path actually produces.
+    fn apply_removals(source: &str, removals: &[Removal]) -> String {
+        let merged = merge_ranges(
+            &removals
+                .iter()
+                .map(|removal| (removal.remove_start, removal.remove_end))
+                .collect::<Vec<_>>(),
+        );
+        let mut output = String::with_capacity(source.len());
+        let mut cursor = 0;
+        for (start, end) in merged {
+            if cursor < start {
+                output.push_str(&source[cursor..start]);
+            }
+            cursor = cursor.max(end);
+        }
+        output.push_str(&source[cursor..]);
+        output
+    }
+
+    #[test]
+    fn plan_removals_is_inspect_filtered_to_remove_verdicts() {
+        for (path, _, source) in inventory_cases() {
+            let mut processor = Processor::new();
+            let config = default_resolved_config();
+
+            let expected: Vec<Removal> = processor
+                .inspect(source, Path::new(path), &config)
+                .expect("inspect")
+                .into_iter()
+                .filter_map(|comment| match comment.verdict {
+                    Verdict::Remove {
+                        expanded_start,
+                        expanded_end,
+                    } => Some(Removal {
+                        comment_start: comment.start_byte,
+                        comment_end: comment.end_byte,
+                        remove_start: expanded_start,
+                        remove_end: expanded_end,
+                        start_row: comment.start_row,
+                        is_documentation: comment.is_documentation,
+                        preview: first_line_preview(&comment.text),
+                    }),
+                    Verdict::Preserve => None,
+                })
+                .collect();
+
+            let removals = processor
+                .plan_removals(source, Path::new(path), &config)
+                .expect("plan removals");
+            assert_eq!(removals, expected, "plan_removals diverged from inspect for {path}");
+            assert!(
+                removals.len() >= 2,
+                "{path} must exercise several removals, got {removals:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn inspect_removals_reproduce_the_rewritten_source() {
+        for (path, language_config, source) in inventory_cases() {
+            let mut processor = Processor::new();
+            let removals = processor
+                .plan_removals(source, Path::new(path), &default_resolved_config())
+                .expect("plan removals");
+            assert_eq!(
+                apply_removals(source, &removals),
+                process_language(source, language_config),
+                "the inventory's removals disagree with the rewriting path for {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn inspect_is_ordered_and_every_preserved_comment_names_a_reason() {
+        for (path, _, source) in inventory_cases() {
+            let mut processor = Processor::new();
+            let inspected = processor
+                .inspect(source, Path::new(path), &default_resolved_config())
+                .expect("inspect");
+
+            assert!(
+                inspected
+                    .windows(2)
+                    .all(|pair| pair[0].start_byte <= pair[1].start_byte),
+                "{path} is not ordered by start_byte: {inspected:?}"
+            );
+            assert!(
+                inspected.iter().any(|comment| comment.verdict == Verdict::Preserve),
+                "{path} must exercise at least one preserved comment"
+            );
+            for comment in &inspected {
+                match comment.verdict {
+                    Verdict::Preserve => assert!(
+                        comment.reason.is_some(),
+                        "preserved comment has no reason in {path}: {comment:?}"
+                    ),
+                    Verdict::Remove { .. } => assert!(
+                        comment.reason.is_none(),
+                        "removed comment carries a reason in {path}: {comment:?}"
+                    ),
+                }
+                assert_eq!(
+                    comment.text,
+                    &source[comment.start_byte..comment.end_byte],
+                    "text does not match its byte range in {path}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn inspect_reports_one_entry_per_comment_for_nested_node_pairs() {
+        // Rust records each `///` line twice, as the outer `line_comment` and as the
+        // inner doc node; the inventory is per comment, not per node.
+        let source = "/// Doc one.\npub fn a() {}\n\n/// Doc two.\npub fn b() {}\n";
+        let mut processor = Processor::new();
+        let inspected = processor
+            .inspect(source, Path::new("sample.rs"), &default_resolved_config())
+            .expect("inspect");
+        assert_eq!(inspected.len(), 2, "two doc comments, not four nodes: {inspected:?}");
+        assert!(
+            inspected.iter().all(
+                |comment| comment.kind == CommentKind::Doc && comment.reason == Some(PreserveReason::Documentation)
+            )
+        );
+    }
+
+    #[test]
+    fn inspect_classifies_comment_shapes() {
+        let source = "//! Crate docs.\n\n/// Documented.\npub fn a() {}\n\n/** Block doc. */\npub fn b() {}\n\n// plain\npub fn c() {}\n\n/* block\n   comment */\npub fn d() {}\n";
+        let mut processor = Processor::new();
+        let inspected = processor
+            .inspect(source, Path::new("sample.rs"), &default_resolved_config())
+            .expect("inspect");
+        let shapes: Vec<(CommentKind, &str)> = inspected
+            .iter()
+            .map(|comment| (comment.kind, comment.text.lines().next().unwrap_or_default()))
+            .collect();
+        assert_eq!(
+            shapes,
+            vec![
+                (CommentKind::Doc, "//! Crate docs."),
+                (CommentKind::Doc, "/// Documented."),
+                (CommentKind::Doc, "/** Block doc. */"),
+                (CommentKind::Line, "// plain"),
+                (CommentKind::Block, "/* block"),
+            ]
+        );
+
+        let python = "\"\"\"Module docstring.\"\"\"\n# plain\n";
+        let inspected = processor
+            .inspect(python, Path::new("module.py"), &default_resolved_config())
+            .expect("inspect python");
+        assert_eq!(inspected[0].kind, CommentKind::Docstring);
+        assert_eq!(inspected[1].kind, CommentKind::Line);
+    }
+
+    #[test]
+    fn above_line_marker_separates_the_marker_from_what_it_extends_over() {
+        let source = "// ~keep\n/// Parent element ID.\npub fn a() {}\n";
+        let config = ResolvedConfig {
+            remove_docs: true,
+            ..default_resolved_config()
+        };
+        let mut processor = Processor::new();
+        let inspected = processor
+            .inspect(source, Path::new("sample.rs"), &config)
+            .expect("inspect");
+
+        let reasons: Vec<(&str, Option<&PreserveReason>)> = inspected
+            .iter()
+            .map(|comment| (comment.text.lines().next().unwrap_or_default(), comment.reason.as_ref()))
+            .collect();
+        assert_eq!(
+            reasons,
+            vec![
+                ("// ~keep", Some(&PreserveReason::KeepMarker)),
+                (
+                    "/// Parent element ID.",
+                    Some(&PreserveReason::ExtendedByNeighbourMarker)
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn keep_block_members_are_attributed_to_the_marker_they_borrow() {
+        // The `// TODO` line has a reason of its own even though the marker also covers
+        // it, so `keep` must not read it as marker-dependent.
+        let source = "fn f() {\n    // TODO: later\n    // context line\n    // rationale ~keep\n    let x = 1;\n}\n";
+        let mut processor = Processor::new();
+        let inspected = processor
+            .inspect(source, Path::new("sample.rs"), &default_resolved_config())
+            .expect("inspect");
+
+        let reasons: Vec<Option<&PreserveReason>> = inspected.iter().map(|comment| comment.reason.as_ref()).collect();
+        assert_eq!(
+            reasons,
+            vec![
+                Some(&PreserveReason::Pattern("TODO".to_string())),
+                Some(&PreserveReason::ExtendedByNeighbourMarker),
+                Some(&PreserveReason::KeepMarker),
+            ]
+        );
+    }
+
+    #[test]
+    fn inspect_names_shebang_and_pattern_reasons() {
+        let source = "#!/usr/bin/env bash\n# NOTE: load bearing\n# remove me\necho ok\n";
+        let mut processor = Processor::new();
+        let inspected = processor
+            .inspect(source, Path::new("script.sh"), &default_resolved_config())
+            .expect("inspect");
+        assert_eq!(inspected[0].reason, Some(PreserveReason::Shebang));
+        assert_eq!(inspected[1].reason, Some(PreserveReason::Pattern("NOTE".to_string())));
+        assert!(matches!(inspected[2].verdict, Verdict::Remove { .. }));
+    }
+
+    #[test]
+    fn grammar_forced_preservation_is_named_a_language_directive() {
+        // The trailing `/* GUARD */` survives because the C handler recognises a
+        // comment trailing a preprocessor line, not because any pattern matched it.
+        let source = "#ifndef GUARD\n#define GUARD\n// remove me\nint x;\n#endif  /* GUARD */\n";
+        let mut processor = Processor::new();
+        let inspected = processor
+            .inspect(source, Path::new("header.h"), &default_resolved_config())
+            .expect("inspect");
+        let guard = inspected
+            .iter()
+            .find(|comment| comment.text.contains("GUARD */"))
+            .expect("guard comment inspected");
+        assert_eq!(guard.reason, Some(PreserveReason::LanguageDirective));
+        assert_eq!(guard.verdict, Verdict::Preserve);
+    }
+
+    #[test]
+    fn inspect_expanded_range_swallows_a_standalone_comment_line() {
+        let source = "// standalone\nfn main() {\n    let x = 1; // trailing\n}\n";
+        let mut processor = Processor::new();
+        let inspected = processor
+            .inspect(source, Path::new("sample.rs"), &default_resolved_config())
+            .expect("inspect");
+        let ranges: Vec<&str> = inspected
+            .iter()
+            .filter_map(|comment| match comment.verdict {
+                Verdict::Remove {
+                    expanded_start,
+                    expanded_end,
+                } => Some(&source[expanded_start..expanded_end]),
+                Verdict::Preserve => None,
+            })
+            .collect();
+        assert_eq!(ranges, vec!["// standalone\n", "// trailing"]);
+    }
+
+    #[test]
+    fn inspect_unsupported_extension_errors() {
+        let mut processor = Processor::new();
+        let result = processor.inspect("noop", Path::new("file.unknownext"), &default_resolved_config());
+        assert!(result.is_err());
     }
 }
