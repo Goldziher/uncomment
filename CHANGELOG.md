@@ -6,6 +6,23 @@ This changelog is generated from git tags and commit history.
 
 ## [Unreleased]
 
+### Added
+
+- `Processor::inspect` reports **every** comment in a file, kept and removed alike, each
+  with the reason it was kept — a matched pattern, documentation, a file header, a
+  shebang, its own `~keep` marker, a neighbour's marker, or a language directive.
+  `plan_removals` is now a filter over it and keeps its previous signature and output.
+  This is the groundwork for the forthcoming `scan`, `keep` and `lint` subcommands; the
+  CLI's behaviour is unchanged, verified byte-for-byte against the previous release
+  binary over a 714-file tree.
+
+- Library modules `edit` (validated multi-edit application, rejecting overlapping,
+  out-of-bounds and non-character-boundary ranges rather than corrupting a file), `git`
+  (current branch and its issue key, read from `.git/HEAD` including the linked-worktree
+  `gitdir:` indirection), `scan::id` (comment identifiers that deliberately exclude line
+  and byte offsets, so they survive unrelated edits to the file) and `paths` (lexical
+  normalization, so a `..` component can no longer defeat a containment check).
+
 ### Fixed
 
 - `[patterns."<glob>"]` config sections now actually do something. They were parsed and
