@@ -4,30 +4,35 @@ priority: high
 
 # Grammar Management
 
-Tree-sitter grammars are the foundation of uncomment's parsing capabilities. They can be loaded statically (compiled in) or dynamically (at runtime).
+Every grammar comes from the `tree-sitter-language-pack` crate, resolved at runtime by
+`tree_sitter_language_pack::get_language(&language_config.tslp_name)`. There is no grammar
+compilation, no git or local grammar source, no `~/.cache` and no shared-library loading —
+so a language uncomment does not already know is a *registration* problem, never a build one.
 
-## Static Grammars
+## Adding a built-in language
 
-- Registered in `src/grammar/mod.rs` via the `static_languages()` HashMap
-- Added as dependencies in `Cargo.toml` (e.g., `tree-sitter-python = "0.X"`)
-- Configured in `src/languages/registry.rs` with `GrammarSource::Static`
+1. Add a constructor to `src/languages/config.rs` following the existing ones:
+   `LanguageConfig::new(name, extensions, comment_nodes, doc_comment_nodes, tslp_name)`,
+   chained with `.with_comment_syntax(...)`.
+2. Add it to the `configs` vector in `register_default_languages` in
+   `src/languages/registry.rs`.
+3. Add a fixture under `fixtures/languages/`.
 
-## Dynamic Grammar Loading
+`comment_nodes` and `doc_comment_nodes` are tree-sitter **node kinds**, not literal
+delimiters — `line_comment`, `block_comment`, `comment`, `string`. Inspect the real parse
+tree rather than guessing; the kinds differ per grammar, and Python records a docstring as
+`string`. `tslp_name` is the language-pack key, which is not always the language name.
 
-Three source types are supported:
-
-1. **Git**: `{ type = "git", url = "...", branch = "main" }` — Clones the repository and compiles the grammar
-2. **Local**: `{ type = "local", path = "/path/to/grammar" }` — Uses a local grammar directory
-3. **Library**: `{ type = "library", path = "/path/to/libtree-sitter-lang.so" }` — Loads a pre-compiled shared library (`.so`/`.dylib`)
-
-## Caching
-
-- Compiled grammars are cached at `~/.cache/uncomment/grammars/`
-- Cache invalidation should be handled when grammar source URLs or branches change
-- Never block on network requests without a timeout
+`comment_syntax` is the separate, literal delimiter data (`CommentSyntax { line, block }`),
+used to write `~keep` markers rather than to find comments. Its `line` field is **always
+the plain form** (`//`, `#`, `--`), never a doc form such as `///` or `##`: a marker written
+with a doc prefix is classified as documentation and silently does nothing. Use `None` when
+a language has no line-comment form.
 
 ## Guidelines
 
-- When adding a new built-in language, add the tree-sitter dependency, register it in `grammar/mod.rs`, configure it in `languages/registry.rs`, and add a test fixture in `fixtures/languages/`
-- Handle compilation failures gracefully with clear error messages
-- Cache language parsers in `GrammarManager` to avoid reinitialization
+- A missing or misnamed `tslp_name` fails at parse time, per file. Report it with the
+  language name and the key that was tried, as `Processor` does.
+- `register_configured_languages` lets a user's config override a built-in; it inherits
+  `tslp_name` and `comment_syntax` from the built-in being overridden, so an override that
+  only changes `comment_nodes` keeps working.
