@@ -8,6 +8,7 @@ const AFTER_LONG_HELP: &str = "Examples:
   uncomment main.rs --remove-doc     Also strip doc comments and docstrings
   uncomment . -j 0                   Process the whole tree using all CPU cores
   uncomment init                     Generate a .uncommentrc.toml for this project
+  uncomment keep src/ --all-removable  Mark every removable comment with ~keep
 
 Preserved by default: TODO, FIXME, HACK, XXX, NOSONAR, the ~keep marker, doc
 comments, and common linting directives (eslint-disable, noqa, @ts-ignore, ...).
@@ -54,6 +55,16 @@ pub enum Commands {
         #[arg(short, long, help = "Interactive mode to select languages and options")]
         interactive: bool,
     },
+
+    /// Write `~keep` markers into the comments a decision selected
+    #[command(
+        about = "Apply ~keep markers to selected comments",
+        long_about = "Writes a decision taken over a comment inventory back into the source: a line \
+                      comment gets ` ~keep` appended, a block, doc or docstring comment gets a plain \
+                      marker line directly above it. Select comments by id, by substring, or take \
+                      every comment a default run would remove."
+    )]
+    Keep(crate::keep::KeepArgs),
 }
 
 #[derive(Parser, Debug)]

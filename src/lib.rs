@@ -3,6 +3,7 @@ pub mod cli;
 pub mod config;
 pub mod edit;
 pub mod git;
+pub mod keep;
 pub mod languages;
 pub mod paths;
 pub mod processor;
