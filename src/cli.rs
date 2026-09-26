@@ -10,8 +10,8 @@ const AFTER_LONG_HELP: &str = "Examples:
   uncomment init                     Generate a .uncommentrc.toml for this project
 
 Preserved by default: TODO, FIXME, HACK, XXX, NOSONAR, the ~keep marker, doc
-comments, and linting directives (eslint-disable, clippy::, noqa, ...). Override
-with the flags above or a .uncommentrc.toml (see `uncomment init`).";
+comments, and common linting directives (eslint-disable, noqa, @ts-ignore, ...).
+Override with the flags above or a .uncommentrc.toml (see `uncomment init`).";
 
 #[derive(Parser, Debug)]
 #[command(

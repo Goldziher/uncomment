@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [Unreleased]
+
+### Fixed
+
+- `XXX` and `NOSONAR` comments are now preserved by default, as `--help` has always
+  claimed. Neither pattern was in the default rule set, so `// XXX: load-bearing` was
+  silently deleted by a plain `uncomment` run despite being documented as protected.
+
+### Changed
+
+- `--help` no longer lists `clippy::` among the directives preserved by default. It is
+  only in the comprehensive rule set, so the claim was misleading.
+
 ## [v3.7.0] - 2026-09-18
 
 ### Added
