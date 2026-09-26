@@ -1,10 +1,13 @@
 pub mod ast;
 pub mod cli;
 pub mod config;
+pub mod edit;
+pub mod git;
 pub mod languages;
 pub mod paths;
 pub mod processor;
 pub mod rules;
+pub mod scan;
 pub mod ui;
 
 pub use processor::{ProcessingOptions, Processor, Removal};
