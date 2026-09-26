@@ -35,6 +35,7 @@ fn prompt_bool(prompt: &str, default: bool) -> Result<bool> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(default)]
     pub global: GlobalConfig,
@@ -47,6 +48,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
     /// Whether to remove TODO comments
     #[serde(default = "default_false")]
@@ -73,6 +75,7 @@ pub struct GlobalConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LanguageConfig {
     pub name: String,
 
@@ -98,6 +101,7 @@ pub struct LanguageConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PatternConfig {
     /// Whether to remove TODO comments
     pub remove_todos: Option<bool>,

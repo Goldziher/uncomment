@@ -26,6 +26,17 @@ This changelog is generated from git tags and commit history.
 
 ### Changed
 
+- Unknown keys in `.uncommentrc.toml` / `uncomment.toml` are now a load error naming the
+  offending key, instead of being silently ignored. A typo such as `remove_todoz = true`
+  previously parsed fine and did nothing. Every shipped `uncomment init` template still
+  round-trips, and every key documented in the README remains valid.
+
+- Config precedence is now unambiguous in two cases that previously depended on sort
+  order: a directory holding both `.uncommentrc.toml` and `uncomment.toml` uses
+  `.uncommentrc.toml` outright, and the user-level global config is always the
+  lowest-precedence layer. A config between the invocation directory and the git root
+  now applies at all — previously a repo-root config was invisible from a subdirectory.
+
 - `--help` no longer lists `clippy::` among the directives preserved by default. It is
   only in the comprehensive rule set, so the claim was misleading.
 
