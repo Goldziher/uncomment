@@ -27,6 +27,26 @@ This changelog is generated from git tags and commit history.
   appending a marker changes a comment's bytes and therefore its id, so each comment
   answers to both its current id and the id it had before being marked.
 
+- `uncomment lint` checks tag comments — TODO, FIXME, HACK, XXX — and removes nothing, so
+  it can run as its own pre-commit hook or CI step. Three rules, each `error`, `warn` or
+  `off`: the tag is the canonical one (`FIXME` → `TODO`), it carries a tracking key
+  (`TODO(PROJ-123):`), and that key is not the issue the current branch is working on —
+  that one closes when the branch merges, which would leave the TODO pointing at a dead
+  ticket and the work invisible. `--fix` rewrites non-canonical tags in place; a missing key
+  is reported rather than invented, unless `--todo-key KEY` says which one to write.
+
+  Every part of the convention is configuration, under `[lint]` in `.uncommentrc.toml` —
+  the tags, the canonical one, the key pattern, and how the current issue is read out of
+  the branch name — because no two repositories agree on it. Linting is off until
+  `enabled = true` appears under `[lint]`, and a run that matches files under no such
+  config says so rather than reporting a clean bill of health.
+
+  Tags are read from parsed comments, so a `TODO` inside a string
+  literal is not a violation. Adoption on an existing codebase is what `--changed-only`
+  (lint only what differs from the base ref) and `--write-baseline` / `--baseline` (record
+  today's violations, report them without failing) are for; because comment ids exclude
+  line numbers, a baseline survives unrelated edits to the files it covers.
+
 - `Processor::inspect` reports **every** comment in a file, kept and removed alike, each
   with the reason it was kept — a matched pattern, documentation, a file header, a
   shebang, its own `~keep` marker, a neighbour's marker, or a language directive.

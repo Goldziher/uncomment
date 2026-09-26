@@ -38,6 +38,12 @@ fn main() -> Result<()> {
                 interactive,
             } => Cli::handle_init_command(output, *force, *comprehensive, *interactive),
             Commands::Keep(args) => uncomment::keep::run(args),
+            // `lint` reports its verdict through the exit code, so a pre-commit hook or a CI step can
+            // gate on it. Exiting only on failure keeps the success path running every `Drop`.
+            Commands::Lint(args) => match uncomment::lint::run(args)? {
+                0 => Ok(()),
+                code => std::process::exit(code),
+            },
         };
     }
 
