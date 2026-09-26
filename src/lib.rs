@@ -2,6 +2,7 @@ pub mod ast;
 pub mod cli;
 pub mod config;
 pub mod languages;
+pub mod paths;
 pub mod processor;
 pub mod rules;
 pub mod ui;
