@@ -5,6 +5,7 @@ pub mod edit;
 pub mod git;
 pub mod keep;
 pub mod languages;
+pub mod lint;
 pub mod paths;
 pub mod processor;
 pub mod rules;

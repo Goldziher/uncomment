@@ -9,6 +9,7 @@ const AFTER_LONG_HELP: &str = "Examples:
   uncomment . -j 0                   Process the whole tree using all CPU cores
   uncomment init                     Generate a .uncommentrc.toml for this project
   uncomment keep src/ --all-removable  Mark every removable comment with ~keep
+  uncomment lint src/                  Check TODO/FIXME tags, removing nothing
 
 Preserved by default: TODO, FIXME, HACK, XXX, NOSONAR, the ~keep marker, doc
 comments, and common linting directives (eslint-disable, noqa, @ts-ignore, ...).
@@ -65,6 +66,17 @@ pub enum Commands {
                       every comment a default run would remove."
     )]
     Keep(crate::keep::KeepArgs),
+
+    /// Check tag comments (TODO, FIXME, ...) against a configured convention
+    #[command(
+        about = "Lint tag comments — TODO, FIXME, HACK, XXX — removing nothing",
+        long_about = "Checks tag comments against the convention configured under `[lint]`: that the \
+                      tag is the canonical one, that it carries an issue key, and that the key is not \
+                      the issue the current branch is working on — that one closes when the branch \
+                      merges, which would leave the TODO pointing at a dead ticket. Removes nothing, \
+                      and exits 1 when anything failed, so it works as its own pre-commit hook."
+    )]
+    Lint(crate::lint::LintArgs),
 }
 
 #[derive(Parser, Debug)]
