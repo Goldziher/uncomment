@@ -1,8 +1,8 @@
+use crate::paths;
 use ahash::{AHashMap, AHashSet};
 use anyhow::{Context, Result};
 use globset::{GlobBuilder, GlobMatcher};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Once, RwLock};
@@ -37,7 +37,7 @@ fn prompt_bool(prompt: &str, default: bool) -> Result<bool> {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    #[serde(default)]
+    #[serde(default = "GlobalConfig::unspecified")]
     pub global: GlobalConfig,
 
     #[serde(default)]
@@ -47,31 +47,103 @@ pub struct Config {
     pub patterns: HashMap<String, PatternConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GlobalConfig {
     /// Whether to remove TODO comments
-    #[serde(default = "default_false")]
     pub remove_todos: bool,
 
     /// Whether to remove FIXME comments
-    #[serde(default = "default_false")]
     pub remove_fixme: bool,
 
-    #[serde(default = "default_false")]
     pub remove_docs: bool,
 
-    #[serde(default)]
     pub preserve_patterns: Vec<String>,
 
-    #[serde(default = "default_true")]
     pub use_default_ignores: bool,
 
-    #[serde(default = "default_true")]
     pub respect_gitignore: bool,
 
-    #[serde(default = "default_false")]
     pub traverse_git_repos: bool,
+
+    /// Which flags the config file actually contained. `None` marks a value assembled in
+    /// code, where every field is deliberate.
+    #[serde(skip)]
+    specified: Option<SpecifiedFlags>,
+}
+
+/// The `[global]` keys one config file set, so that layering can tell "key absent" from
+/// "key set to the default value". Without this a nested config carrying only
+/// `[patterns]` deserializes to all-defaults and erases the outer config's settings.
+#[derive(Debug, Clone, Copy, Default)]
+struct SpecifiedFlags {
+    remove_todos: Option<bool>,
+    remove_fixme: Option<bool>,
+    remove_docs: Option<bool>,
+    use_default_ignores: Option<bool>,
+    respect_gitignore: Option<bool>,
+    traverse_git_repos: Option<bool>,
+}
+
+/// The wire form of `[global]`: every flag optional, so an absent key stays absent.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GlobalConfigFile {
+    remove_todos: Option<bool>,
+    remove_fixme: Option<bool>,
+    remove_docs: Option<bool>,
+    #[serde(default)]
+    preserve_patterns: Vec<String>,
+    use_default_ignores: Option<bool>,
+    respect_gitignore: Option<bool>,
+    traverse_git_repos: Option<bool>,
+}
+
+impl<'de> Deserialize<'de> for GlobalConfig {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let file = GlobalConfigFile::deserialize(deserializer)?;
+        let defaults = Self::default();
+
+        Ok(Self {
+            remove_todos: file.remove_todos.unwrap_or(defaults.remove_todos),
+            remove_fixme: file.remove_fixme.unwrap_or(defaults.remove_fixme),
+            remove_docs: file.remove_docs.unwrap_or(defaults.remove_docs),
+            preserve_patterns: file.preserve_patterns,
+            use_default_ignores: file.use_default_ignores.unwrap_or(defaults.use_default_ignores),
+            respect_gitignore: file.respect_gitignore.unwrap_or(defaults.respect_gitignore),
+            traverse_git_repos: file.traverse_git_repos.unwrap_or(defaults.traverse_git_repos),
+            specified: Some(SpecifiedFlags {
+                remove_todos: file.remove_todos,
+                remove_fixme: file.remove_fixme,
+                remove_docs: file.remove_docs,
+                use_default_ignores: file.use_default_ignores,
+                respect_gitignore: file.respect_gitignore,
+                traverse_git_repos: file.traverse_git_repos,
+            }),
+        })
+    }
+}
+
+impl GlobalConfig {
+    /// A `[global]` section the file did not contain: nothing is specified, so every flag
+    /// is inherited from the enclosing layer.
+    fn unspecified() -> Self {
+        Self {
+            specified: Some(SpecifiedFlags::default()),
+            ..Self::default()
+        }
+    }
+
+    /// The flags this layer contributes to a merge.
+    fn specified(&self) -> SpecifiedFlags {
+        self.specified.unwrap_or(SpecifiedFlags {
+            remove_todos: Some(self.remove_todos),
+            remove_fixme: Some(self.remove_fixme),
+            remove_docs: Some(self.remove_docs),
+            use_default_ignores: Some(self.use_default_ignores),
+            respect_gitignore: Some(self.respect_gitignore),
+            traverse_git_repos: Some(self.traverse_git_repos),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,8 +183,9 @@ pub struct PatternConfig {
 
     pub remove_docs: Option<bool>,
 
-    #[serde(default)]
-    pub preserve_patterns: Vec<String>,
+    /// `None` inherits the patterns already in force, `Some([])` clears them, and a
+    /// non-empty list extends them.
+    pub preserve_patterns: Option<Vec<String>>,
 
     pub use_default_ignores: Option<bool>,
 }
@@ -131,12 +204,14 @@ impl PatternConfig {
         if let Some(value) = self.use_default_ignores {
             resolved.use_default_ignores = value;
         }
-        if !self.preserve_patterns.is_empty() {
-            resolved
-                .preserve_patterns
-                .extend(self.preserve_patterns.iter().cloned());
-            resolved.preserve_patterns.sort();
-            resolved.preserve_patterns.dedup();
+        match &self.preserve_patterns {
+            None => {}
+            Some(patterns) if patterns.is_empty() => resolved.preserve_patterns.clear(),
+            Some(patterns) => {
+                resolved.preserve_patterns.extend(patterns.iter().cloned());
+                resolved.preserve_patterns.sort();
+                resolved.preserve_patterns.dedup();
+            }
         }
     }
 }
@@ -242,13 +317,10 @@ pub struct ConfigManager {
     current_dir: PathBuf,
 
     lazy_language_warning: Once,
-}
 
-fn default_true() -> bool {
-    true
-}
-fn default_false() -> bool {
-    false
+    /// First failure from a lazily discovered config, readable through
+    /// `deferred_config_error`.
+    deferred_error: RwLock<Option<String>>,
 }
 
 impl Default for GlobalConfig {
@@ -261,6 +333,7 @@ impl Default for GlobalConfig {
             use_default_ignores: true,
             respect_gitignore: true,
             traverse_git_repos: false,
+            specified: None,
         }
     }
 }
@@ -1106,7 +1179,7 @@ preserve_patterns = []
 
         println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
         print!("> ");
-        io::stdout().flush().unwrap();
+        io::stdout().flush()?;
 
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
@@ -1191,7 +1264,7 @@ traverse_git_repos = false
 
         println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
         print!("> ");
-        io::stdout().flush().unwrap();
+        io::stdout().flush()?;
 
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
@@ -1610,15 +1683,26 @@ comment_nodes = ["comment"]"#,
         map
     }
 
+    /// Layer `other` on top of `self`. A `[global]` key `other`'s file did not contain
+    /// keeps `self`'s value, so a config carrying only `[patterns]` changes no globals.
     pub fn merge_with(&self, other: &Config) -> Config {
         let mut merged = self.clone();
 
-        merged.global.remove_todos = other.global.remove_todos;
-        merged.global.remove_fixme = other.global.remove_fixme;
-        merged.global.remove_docs = other.global.remove_docs;
-        merged.global.use_default_ignores = other.global.use_default_ignores;
-        merged.global.respect_gitignore = other.global.respect_gitignore;
-        merged.global.traverse_git_repos = other.global.traverse_git_repos;
+        let specified = other.global.specified();
+        let overrides = [
+            (&mut merged.global.remove_todos, specified.remove_todos),
+            (&mut merged.global.remove_fixme, specified.remove_fixme),
+            (&mut merged.global.remove_docs, specified.remove_docs),
+            (&mut merged.global.use_default_ignores, specified.use_default_ignores),
+            (&mut merged.global.respect_gitignore, specified.respect_gitignore),
+            (&mut merged.global.traverse_git_repos, specified.traverse_git_repos),
+        ];
+        for (target, value) in overrides {
+            if let Some(value) = value {
+                *target = value;
+            }
+        }
+        merged.global.specified = None;
 
         let mut patterns = merged.global.preserve_patterns.clone();
         patterns.extend(other.global.preserve_patterns.iter().cloned());
@@ -1645,9 +1729,11 @@ comment_nodes = ["comment"]"#,
 
 impl ConfigManager {
     pub fn new<P: AsRef<Path>>(root_dir: P) -> Result<Self> {
-        let current_dir = std::env::current_dir().unwrap_or_default();
-        let root_dir = absolute_path(root_dir.as_ref(), &current_dir);
-        let ceiling = Self::search_ceiling(&root_dir);
+        let current_dir = std::env::current_dir().context("Failed to get current directory")?;
+        let root_dir = paths::absolute_normalized(&current_dir, root_dir.as_ref());
+        // Bounding the upward search at the git root keeps configuration outside the
+        // repository from applying.
+        let ceiling = paths::find_repo_root(&root_dir).unwrap_or_else(|| root_dir.clone());
 
         // Only the ancestor chain can ever apply to `root_dir` itself, and it is
         // bounded by path depth rather than by tree size. Everything below the root
@@ -1656,7 +1742,7 @@ impl ConfigManager {
         let mut dir_configs = AHashMap::new();
         let mut dir = Some(root_dir.as_path());
         while let Some(current) = dir {
-            let loaded = Self::load_dir_config(current);
+            let loaded = Self::load_dir_config(current)?;
             if let Some(loaded) = &loaded {
                 ancestor_configs.push(loaded.clone());
             }
@@ -1678,12 +1764,13 @@ impl ConfigManager {
             ceiling,
             current_dir,
             lazy_language_warning: Once::new(),
+            deferred_error: RwLock::new(None),
         })
     }
 
     pub fn from_single_config<P: AsRef<Path>>(root_dir: P, config: Config) -> Result<Self> {
-        let current_dir = std::env::current_dir().unwrap_or_default();
-        let root_dir = absolute_path(root_dir.as_ref(), &current_dir);
+        let current_dir = std::env::current_dir().context("Failed to get current directory")?;
+        let root_dir = paths::absolute_normalized(&current_dir, root_dir.as_ref());
         let loaded = Arc::new(LoadedConfig::new(root_dir.clone(), config)?);
 
         Ok(Self {
@@ -1695,21 +1782,8 @@ impl ConfigManager {
             ceiling: root_dir,
             current_dir,
             lazy_language_warning: Once::new(),
+            deferred_error: RwLock::new(None),
         })
-    }
-
-    /// The nearest enclosing git root, or `root_dir` when there is none. Bounding the
-    /// upward search here keeps configuration outside the repository from applying.
-    fn search_ceiling(root_dir: &Path) -> PathBuf {
-        let mut dir = Some(root_dir);
-        while let Some(current) = dir {
-            // In worktrees and submodules `.git` is a file, not a directory.
-            if current.join(".git").exists() {
-                return current.to_path_buf();
-            }
-            dir = current.parent();
-        }
-        root_dir.to_path_buf()
     }
 
     fn global_config_path() -> Option<PathBuf> {
@@ -1732,20 +1806,47 @@ impl ConfigManager {
         }
     }
 
-    fn load_dir_config(dir: &Path) -> Option<Arc<LoadedConfig>> {
-        for file_name in CONFIG_FILE_NAMES {
-            let path = dir.join(file_name);
-            if !path.is_file() {
-                continue;
-            }
+    /// The config governing `dir`, or `None` when the directory has none.
+    ///
+    /// A config file that exists but cannot be loaded is an error. uncomment rewrites
+    /// files in place, so a config it cannot understand must stop the run instead of
+    /// degrading to built-in defaults — which would empty `preserve_patterns`.
+    fn load_dir_config(dir: &Path) -> Result<Option<Arc<LoadedConfig>>> {
+        // The first name that *exists* wins whether or not it parses; otherwise a typo in
+        // `.uncommentrc.toml` would silently promote `uncomment.toml` to authoritative.
+        let Some(path) = CONFIG_FILE_NAMES
+            .iter()
+            .map(|file_name| dir.join(file_name))
+            .find(|path| path.is_file())
+        else {
+            return Ok(None);
+        };
 
-            match Config::from_file(&path).and_then(|config| LoadedConfig::new(dir.to_path_buf(), config)) {
-                Ok(loaded) => return Some(Arc::new(loaded)),
-                Err(e) => eprintln!("Warning: Failed to load config file {}: {e}", path.display()),
-            }
+        let config = Config::from_file(&path)?;
+        let loaded = LoadedConfig::new(dir.to_path_buf(), config)
+            .with_context(|| format!("Invalid configuration in: {}", path.display()))?;
+
+        Ok(Some(Arc::new(loaded)))
+    }
+
+    /// The first failure from a lazily discovered config, once resolution has run.
+    ///
+    /// `get_config_for_file` is called per file from the parallel processing pass and
+    /// cannot return an error, so a caller that rewrites files must check this before
+    /// reporting success. Configs on the ancestor chain fail `ConfigManager::new`
+    /// outright and never land here.
+    pub fn deferred_config_error(&self) -> Option<String> {
+        self.deferred_error.read().ok().and_then(|slot| slot.clone())
+    }
+
+    fn record_deferred_error(&self, error: anyhow::Error) {
+        let message = format!("{error:#}");
+        if let Ok(mut slot) = self.deferred_error.write()
+            && slot.is_none()
+        {
+            eprintln!("error: {message}");
+            *slot = Some(message);
         }
-
-        None
     }
 
     fn dir_config(&self, dir: &Path) -> Option<Arc<LoadedConfig>> {
@@ -1755,10 +1856,17 @@ impl ConfigManager {
             return entry.clone();
         }
 
-        let loaded = Self::load_dir_config(dir);
+        let loaded = match Self::load_dir_config(dir) {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                self.record_deferred_error(error);
+                None
+            }
+        };
 
         if let Some(loaded) = &loaded
             && !loaded.config.languages.is_empty()
+            && !self.is_ancestor_config(&loaded.dir)
         {
             let path = loaded.dir.display().to_string();
             self.lazy_language_warning.call_once(|| {
@@ -1776,7 +1884,14 @@ impl ConfigManager {
         loaded
     }
 
-    /// The config files that apply to `dir`, outermost first.
+    /// Whether `dir` already contributed to the eagerly loaded ancestor chain.
+    fn is_ancestor_config(&self, dir: &Path) -> bool {
+        self.ancestor_configs.iter().any(|loaded| loaded.dir == dir)
+    }
+
+    /// The config files that apply to `dir`, outermost first. `dir` must already be
+    /// normalized: the walk below is lexical and a stray `..` would climb past the
+    /// ceiling.
     fn config_chain(&self, dir: &Path) -> Vec<Arc<LoadedConfig>> {
         if let Some(forced) = &self.forced_config {
             return vec![forced.clone()];
@@ -1785,7 +1900,7 @@ impl ConfigManager {
         let mut chain = Vec::new();
         let mut current = Some(dir);
         while let Some(candidate) = current {
-            if !candidate.starts_with(&self.ceiling) {
+            if !paths::is_ancestor_of(&self.ceiling, candidate) {
                 break;
             }
             if let Some(loaded) = self.dir_config(candidate) {
@@ -1804,13 +1919,17 @@ impl ConfigManager {
     /// `.uncommentrc.toml`/`uncomment.toml` from the search ceiling down to the
     /// file's own directory.
     ///
-    /// `[patterns."<glob>"]` sections are applied last. Each glob is matched against
-    /// the file path **relative to the directory holding the config file that
-    /// declared it**, so a nested config's globs are anchored at that nested
-    /// directory rather than at the invocation root. Within one config file the globs
-    /// are applied in a fixed order — fewer path components first, ties broken by the
-    /// glob text — and the last match wins, which keeps the result independent of
-    /// `HashMap` iteration order.
+    /// `[patterns."<glob>"]` sections are applied last. For a **discovered** config each
+    /// glob is matched against the file path relative to the directory holding that
+    /// config file, so a nested config's globs are anchored at that nested directory
+    /// rather than at the invocation root. A config forced with `--config` is anchored at
+    /// the **invocation directory** instead of at wherever the file itself lives, so
+    /// `--config ../shared/uncomment.toml` with a `src/**` glob means `src/**` under the
+    /// current directory.
+    ///
+    /// Within one config file the globs are applied in a fixed order — fewer path
+    /// components first, ties broken by the glob text — and the last match wins, which
+    /// keeps the result independent of `HashMap` iteration order.
     fn resolve_config_for_file(&self, file_path: &Path) -> ResolvedConfig {
         let dir = file_path.parent().unwrap_or(file_path);
         let chain = self.config_chain(dir);
@@ -1842,23 +1961,19 @@ impl ConfigManager {
     }
 
     pub fn get_config_for_file<P: AsRef<Path>>(&self, file_path: P) -> ResolvedConfig {
-        let file_path = file_path.as_ref();
-
-        let absolute_file_path = if file_path.is_absolute() {
-            Cow::Borrowed(file_path)
-        } else {
-            Cow::Owned(self.current_dir.join(file_path))
-        };
+        // Normalizing up front makes the cache key canonical and, more importantly, keeps
+        // a `..` in the path from reaching a directory the walk must not see.
+        let file_path = paths::absolute_normalized(&self.current_dir, file_path.as_ref());
 
         if let Ok(cache) = self.file_configs.read()
-            && let Some(cached) = cache.get(absolute_file_path.as_ref())
+            && let Some(cached) = cache.get(&file_path)
         {
             return cached.clone();
         }
 
-        let resolved = self.resolve_config_for_file(absolute_file_path.as_ref());
+        let resolved = self.resolve_config_for_file(&file_path);
         if let Ok(mut cache) = self.file_configs.write() {
-            cache.insert(absolute_file_path.into_owned(), resolved.clone());
+            cache.insert(file_path, resolved.clone());
         }
 
         resolved
@@ -1935,14 +2050,6 @@ impl ConfigManager {
     }
 }
 
-fn absolute_path(path: &Path, current_dir: &Path) -> PathBuf {
-    if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        current_dir.join(path)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2002,5 +2109,42 @@ mod tests {
         let merged = base.merge_with(&override_config);
         assert!(merged.global.remove_todos);
         assert_eq!(merged.global.preserve_patterns, vec!["FIXME", "TODO"]);
+    }
+
+    /// A config built in code has no record of a file, so every flag on it is deliberate.
+    #[test]
+    fn a_programmatic_config_still_overrides_every_global() {
+        let base = Config::default();
+        let mut explicit = Config::default();
+        explicit.global.use_default_ignores = false;
+        explicit.global.respect_gitignore = false;
+
+        let merged = base.merge_with(&explicit);
+        assert!(!merged.global.use_default_ignores);
+        assert!(!merged.global.respect_gitignore);
+    }
+
+    #[test]
+    fn merging_a_parsed_config_without_a_global_section_keeps_the_outer_values() {
+        let base = Config {
+            global: GlobalConfig {
+                remove_docs: true,
+                respect_gitignore: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let patterns_only: Config = toml::from_str("[patterns.\"*.py\"]\nremove_todos = true\n").unwrap();
+        let partial_global: Config = toml::from_str("[global]\nremove_todos = true\n").unwrap();
+
+        for (label, layer) in [("patterns only", patterns_only), ("partial [global]", partial_global)] {
+            let merged = base.merge_with(&layer);
+            assert!(merged.global.remove_docs, "{label} must not reset remove_docs");
+            assert!(
+                !merged.global.respect_gitignore,
+                "{label} must not reset respect_gitignore"
+            );
+        }
     }
 }

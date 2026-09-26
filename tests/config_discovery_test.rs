@@ -1,5 +1,6 @@
 use std::fs;
-use std::time::{Duration, Instant};
+use std::path::Path;
+use std::process::Command;
 use tempfile::TempDir;
 use uncomment::config::ConfigManager;
 
@@ -12,9 +13,20 @@ fn write(path: &std::path::Path, contents: &str) {
     fs::write(path, contents).unwrap();
 }
 
+/// Run the real binary so exit status and stderr are observable.
+fn run_uncomment(dir: &Path, args: &[&str]) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_uncomment"))
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .unwrap()
+}
+
 /// A subtree the root config cannot possibly be affected by must never be walked.
 /// The decoy config registers a custom language, which is observable through
-/// `get_all_languages()` if — and only if — the subtree was descended into.
+/// `get_all_languages()` if — and only if — the subtree was descended into; it also
+/// carries an unknown key, which is fatal when read, so a successful construction is
+/// proof the file was never opened.
 #[test]
 fn construction_does_not_descend_below_the_root_directory() {
     let temp = TempDir::new().unwrap();
@@ -38,6 +50,9 @@ remove_todos = false
     write(
         &decoy_root.join("branch0").join("leaf0").join(".uncommentrc.toml"),
         r#"
+[global]
+remove_todoz = true
+
 [languages.decoylang]
 name = "DecoyLang"
 extensions = [".decoy"]
@@ -45,18 +60,11 @@ comment_nodes = ["comment"]
 "#,
     );
 
-    let start = Instant::now();
-    let manager = ConfigManager::new(root).unwrap();
-    let elapsed = start.elapsed();
-    println!("ConfigManager::new over a {DECOY_DIR_COUNT}-directory decoy tree took {elapsed:?}");
+    let manager = ConfigManager::new(root).expect("a config below the root must not be read at construction time");
 
     assert!(
         !manager.get_all_languages().contains_key("decoylang"),
         "a config below the root must not be discovered at construction time"
-    );
-    assert!(
-        elapsed < Duration::from_millis(200),
-        "construction should not scale with tree size, took {elapsed:?}"
     );
 }
 
@@ -183,4 +191,327 @@ comment_nodes = ["comment"]
         "a lazily discovered config must not add a language after the fact"
     );
     assert!(manager.get_language_config("latelang").is_none());
+}
+
+/// A nested config that says nothing about `[global]` must not reset the globals the
+/// outer config set: `bool` + a serde default cannot tell "absent" from "false".
+#[test]
+fn nested_config_without_a_global_section_inherits_the_outer_globals() {
+    let temp = TempDir::new().unwrap();
+    let repo = temp.path().join("repo");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+
+    write(
+        &repo.join(".uncommentrc.toml"),
+        r#"
+[global]
+remove_docs = true
+respect_gitignore = false
+"#,
+    );
+    write(
+        &repo.join("sub").join(".uncommentrc.toml"),
+        r#"
+[patterns."*.py"]
+remove_todos = true
+"#,
+    );
+
+    let file = repo.join("sub").join("x.py");
+    write(&file, "# TODO: tracked work\n");
+
+    let manager = ConfigManager::new(repo.join("sub")).unwrap();
+    let resolved = manager.get_config_for_file(&file);
+
+    assert!(resolved.remove_docs, "the outer config's remove_docs must survive");
+    assert!(
+        !resolved.respect_gitignore,
+        "the outer config's respect_gitignore must survive"
+    );
+    assert!(resolved.remove_todos, "the nested pattern section must still apply");
+}
+
+/// `.uncommentrc.toml` is the preferred name, so it wins over `uncomment.toml` in the
+/// same directory regardless of which one the filesystem hands back first.
+#[test]
+fn dotfile_config_beats_uncomment_toml_in_the_same_directory() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(
+        &root.join(".uncommentrc.toml"),
+        r#"
+[global]
+remove_todos = true
+"#,
+    );
+    write(
+        &root.join("uncomment.toml"),
+        r#"
+[global]
+remove_todos = false
+remove_fixme = true
+"#,
+    );
+
+    let file = root.join("thing.py");
+    write(&file, "# TODO: tracked work\n");
+
+    let resolved = ConfigManager::new(root).unwrap().get_config_for_file(&file);
+    assert!(resolved.remove_todos, ".uncommentrc.toml must win");
+    assert!(
+        !resolved.remove_fixme,
+        "uncomment.toml must be ignored entirely when the dotfile exists"
+    );
+}
+
+/// `cd repo/sub && uncomment ../other` must not hand `other/` the config that governs
+/// `sub/`: `Path::starts_with` is lexical, so an unnormalized `..` slips past it.
+#[test]
+fn a_parent_component_does_not_apply_a_sibling_directorys_config() {
+    let temp = TempDir::new().unwrap();
+    let repo = temp.path().join("repo");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+
+    write(
+        &repo.join("sub").join(".uncommentrc.toml"),
+        r#"
+[global]
+remove_fixme = true
+
+[patterns."**/*.py"]
+remove_todos = true
+"#,
+    );
+
+    let sibling_file = repo.join("other").join("x.py");
+    write(&sibling_file, "# FIXME: tracked work\n");
+
+    let manager = ConfigManager::new(repo.join("sub")).unwrap();
+    let resolved = manager.get_config_for_file(repo.join("sub").join("..").join("other").join("x.py"));
+
+    assert!(
+        !resolved.remove_fixme,
+        "sub/'s globals must not reach a sibling directory"
+    );
+    assert!(
+        !resolved.remove_todos,
+        "sub/'s pattern globs must not match a path outside sub/"
+    );
+}
+
+/// The same arithmetic with a shallower target reaches above the git root, where the
+/// upward walk is not allowed to look at all.
+#[test]
+fn a_parent_component_cannot_escape_the_git_root() {
+    let temp = TempDir::new().unwrap();
+    let repo = temp.path().join("repo");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+
+    write(
+        &temp.path().join(".uncommentrc.toml"),
+        r#"
+[global]
+remove_fixme = true
+"#,
+    );
+
+    let outside_file = temp.path().join("x.py");
+    write(&outside_file, "# FIXME: tracked work\n");
+
+    let manager = ConfigManager::new(&repo).unwrap();
+    let resolved = manager.get_config_for_file(repo.join("..").join("x.py"));
+
+    assert!(
+        !resolved.remove_fixme,
+        "a config above the git root must stay out of reach even via `..`"
+    );
+}
+
+/// `uncomment ./src` produces file paths carrying a `.` component; they must resolve
+/// exactly as the clean spelling does.
+#[test]
+fn a_dot_component_resolves_to_the_same_config() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(
+        &root.join(".uncommentrc.toml"),
+        r#"
+[global]
+remove_fixme = true
+
+[patterns."src/*.py"]
+remove_todos = true
+"#,
+    );
+
+    let clean = root.join("src").join("x.py");
+    write(&clean, "# TODO: tracked work\n");
+    let dotted = root.join(".").join("src").join("x.py");
+
+    let manager = ConfigManager::new(root).unwrap();
+    let clean_resolved = manager.get_config_for_file(&clean);
+    let dotted_resolved = manager.get_config_for_file(&dotted);
+
+    assert!(clean_resolved.remove_fixme && clean_resolved.remove_todos);
+    assert_eq!(
+        (dotted_resolved.remove_fixme, dotted_resolved.remove_todos),
+        (clean_resolved.remove_fixme, clean_resolved.remove_todos),
+        "a `.` component must not change the outcome"
+    );
+}
+
+/// `uncomment ../other` makes the file's directory `repo/sub/../other`, whose lexical
+/// parent is `repo/sub/..` — a cache miss against the ancestor config registered under
+/// `repo`, which used to re-load that same file and then claim its `[languages]` were
+/// ignored. Every `init` template has a `[languages]` section, so this was the common
+/// case. (`./src` does not trigger it: `Path::parent` already elides `.`.)
+#[test]
+fn a_parent_component_argument_does_not_warn_that_languages_are_ignored() {
+    let temp = TempDir::new().unwrap();
+    let repo = temp.path().join("repo");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+    fs::create_dir_all(repo.join("sub")).unwrap();
+
+    write(
+        &repo.join(".uncommentrc.toml"),
+        r#"
+[global]
+remove_todos = false
+
+[languages.python]
+name = "Python"
+extensions = [".py"]
+comment_nodes = ["comment"]
+"#,
+    );
+    write(&repo.join("other").join("x.py"), "# a comment\nx = 1\n");
+
+    let output = run_uncomment(&repo.join("sub"), &["../other", "--dry-run"]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !stderr.contains("is ignored"),
+        "the repository config's languages are registered, so nothing should warn: {stderr}"
+    );
+}
+
+/// The lazy path cannot return an error — `get_config_for_file` is infallible by
+/// signature — so a config discovered below the root records one for the caller instead.
+#[test]
+fn a_broken_config_below_the_root_is_recorded_as_a_deferred_error() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(&root.join(".uncommentrc.toml"), "[global]\nremove_todos = false\n");
+    write(
+        &root.join("sub").join(".uncommentrc.toml"),
+        "[global]\nremove_todoz = true\n",
+    );
+    let file = root.join("sub").join("x.py");
+    write(&file, "# NOTE: keep me\nx = 1\n");
+
+    let manager = ConfigManager::new(root).unwrap();
+    assert!(
+        manager.deferred_config_error().is_none(),
+        "nothing has been resolved yet"
+    );
+
+    let _ = manager.get_config_for_file(&file);
+
+    let error = manager
+        .deferred_config_error()
+        .expect("a config that fails to load must be recorded, not swallowed");
+    assert!(
+        error.contains(".uncommentrc.toml") && error.contains("remove_todoz"),
+        "the recorded error must name the file and the key, got: {error}"
+    );
+}
+
+/// This tool rewrites files in place. A discovered config it cannot parse must stop the
+/// run, not silently fall back to built-in defaults and keep deleting comments.
+#[test]
+fn discovered_config_with_an_unknown_key_fails_the_run() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(
+        &root.join(".uncommentrc.toml"),
+        r#"
+[global]
+remove_todos = false
+remove_todoz = true
+"#,
+    );
+    let file = root.join("x.py");
+    write(&file, "# NOTE: keep me\nx = 1\n");
+
+    let output = run_uncomment(root, &["."]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !output.status.success(),
+        "an unparsable discovered config must fail the run, stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(".uncommentrc.toml"),
+        "the error must name the offending file, got: {stderr}"
+    );
+    assert_eq!(
+        fs::read_to_string(&file).unwrap(),
+        "# NOTE: keep me\nx = 1\n",
+        "no file may be rewritten when the config was rejected"
+    );
+}
+
+/// Which file name wins must not depend on whether the preferred one parses.
+#[test]
+fn broken_dotfile_config_does_not_promote_uncomment_toml() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(&root.join(".uncommentrc.toml"), "[global]\nremove_todoz = true\n");
+    write(&root.join("uncomment.toml"), "[global]\nremove_todos = true\n");
+    write(&root.join("x.py"), "# TODO: tracked work\nx = 1\n");
+
+    let output = run_uncomment(root, &["."]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !output.status.success(),
+        "a broken .uncommentrc.toml must fail rather than promote uncomment.toml, stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(".uncommentrc.toml"),
+        "the error must name the file that failed, got: {stderr}"
+    );
+}
+
+/// The eager ancestor walk is the one resolution path that can still return an error.
+#[test]
+fn construction_fails_when_an_ancestor_config_is_invalid() {
+    let temp = TempDir::new().unwrap();
+    let repo = temp.path().join("repo");
+    fs::create_dir_all(repo.join(".git")).unwrap();
+    write(&repo.join(".uncommentrc.toml"), "[global]\nremove_todoz = true\n");
+    fs::create_dir_all(repo.join("sub")).unwrap();
+
+    let error = ConfigManager::new(repo.join("sub")).expect_err("an invalid ancestor config must be fatal");
+    let rendered = format!("{error:#}");
+    assert!(
+        rendered.contains(".uncommentrc.toml") && rendered.contains("remove_todoz"),
+        "the error must name the file and the offending key, got: {rendered}"
+    );
+}
+
+/// An absent config is not an error.
+#[test]
+fn a_directory_without_any_config_is_not_an_error() {
+    let temp = TempDir::new().unwrap();
+    let file = temp.path().join("sub").join("x.py");
+    write(&file, "x = 1\n");
+
+    let manager = ConfigManager::new(temp.path()).expect("no config is a valid state");
+    assert!(!manager.get_config_for_file(&file).remove_todos);
 }
