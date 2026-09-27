@@ -28,22 +28,39 @@ fn integration_test_uncomment_on_real_repos() {
     let mut total_files = 0;
     let mut failed_files = Vec::new();
     let mut skipped_files = Vec::new();
+    let mut unavailable_repos = Vec::new();
+    let mut processed_repos = 0;
 
     for repo in repos.repos {
         println!("\n=== Processing repo: {} ===", repo.url);
         let repo_name = repo.url.rsplit('/').next().unwrap_or(&repo.url).replace(".git", "");
         let repo_path = work_dir.join(&repo_name);
 
-        if !repo_path.exists() {
+        if repo_path.exists() {
+            println!("Repo already cloned: {repo_name}");
+            // `run_uncomment` rewrites the cached clone in place, so without this a second run
+            // would only be checking that already-stripped files still parse.
+            assert!(
+                reset_repo(&repo_path),
+                "Failed to reset the cached clone of {repo_name}"
+            );
+        } else {
             println!("Cloning {}...", repo.url);
-            assert!(clone_repo(&repo.url, &repo_path), "Failed to clone {}", repo.url);
+            if !clone_repo(&repo.url, &repo_path) {
+                // A corpus entry is a third-party repository that can be renamed, made private or
+                // deleted without notice, which says nothing about this crate. Skip it and carry
+                // on; the run fails only if no repo at all could be reached.
+                eprintln!("  [SKIP] Could not clone {} — skipping this repo", repo.url);
+                unavailable_repos.push(repo.url.clone());
+                let _ = fs::remove_dir_all(&repo_path);
+                continue;
+            }
             assert!(
                 wait_for_files_to_stabilize(&repo_path, 10),
                 "Repo files did not stabilize after clone"
             );
-        } else {
-            println!("Repo already cloned: {}", repo_name);
         }
+        processed_repos += 1;
 
         let files = find_source_files(&repo_path);
         println!("Found {} source files", files.len());
@@ -84,6 +101,13 @@ fn integration_test_uncomment_on_real_repos() {
         }
     }
 
+    if !unavailable_repos.is_empty() {
+        eprintln!("\nThe following corpus repos could not be cloned and were not tested:");
+        for url in &unavailable_repos {
+            eprintln!("  - {url}");
+        }
+    }
+
     if !skipped_files.is_empty() {
         eprintln!("\nThe following files were skipped (could not parse before uncomment):");
         for f in &skipped_files {
@@ -108,6 +132,10 @@ fn integration_test_uncomment_on_real_repos() {
         failed_files.is_empty(),
         "{} files failed AST parsing after uncomment",
         failed_files.len()
+    );
+    assert!(
+        processed_repos > 0,
+        "No corpus repo could be cloned, so nothing was tested — check network access"
     );
     assert!(total_files > 0, "No source files were tested");
 }
@@ -139,6 +167,15 @@ fn read_repos_yaml<P: AsRef<Path>>(path: P) -> anyhow::Result<RepoList> {
 fn clone_repo(repo_url: &str, dest: &Path) -> bool {
     Command::new("git")
         .args(["clone", "--depth=1", repo_url, dest.to_str().unwrap()])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Discard the in-place rewrites a previous run made, so each run starts from the pristine clone.
+fn reset_repo(dest: &Path) -> bool {
+    Command::new("git")
+        .args(["-C", dest.to_str().unwrap_or_default(), "checkout", "--", "."])
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
