@@ -40,6 +40,7 @@ impl LanguageRegistry {
             LanguageConfig::typescript(),
             LanguageConfig::tsx(),
             LanguageConfig::go(),
+            LanguageConfig::gotmpl(),
             LanguageConfig::ruby(),
             LanguageConfig::php(),
             LanguageConfig::elixir(),
