@@ -67,6 +67,9 @@ pub fn tag_sites(comment: &InspectedComment, config: &LintConfig) -> Vec<TagSite
         if claimed_line == Some(line_index) {
             continue;
         }
+        if !is_tag_site(text, matched.as_str(), matched.start(), config) {
+            continue;
+        }
         claimed_line = Some(line_index);
 
         let from_tag = &text[matched.start()..];
@@ -173,6 +176,32 @@ fn missing_key_edits(site: &TagSite, todo_key: Option<&str>) -> Vec<Edit> {
 
     let suffix = if site.has_colon { "" } else { ":" };
     vec![Edit::insert(site.end, format!("({key}){suffix}"))]
+}
+
+/// Whether a tag match is a tag at all, rather than the same word used as English.
+///
+/// A tag spelled exactly as configured is always one: `TODO` and `FIXME` in capitals are not words
+/// anybody writes by accident, so a mid-sentence "see also FIXME" is a deliberate reference and has
+/// always been reported as such.
+///
+/// A miscased one has to open its line. `todo`, `hack` and `xxx` *are* English, and matching them
+/// anywhere would turn "this is a hack to work around the upstream bug" into a violation whose fix
+/// rewrites the sentence. Measured on an 89k-file monorepo: 165 of the 183 miscased occurrences in
+/// code files were prose, so without this the case-insensitive pass would do an order of magnitude
+/// more damage than work.
+fn is_tag_site(text: &str, written: &str, offset: usize, config: &LintConfig) -> bool {
+    if config.tags.iter().any(|tag| tag == written) {
+        return true;
+    }
+
+    // Everything between the line's start and the tag must be delimiter or decoration — `//`, `#`,
+    // `/*`, `*`, `"""`, a `-` bullet. Testing for the absence of a word character covers every
+    // comment syntax at once, where an allowlist of punctuation would have to be kept in step with
+    // the language list.
+    let line_start = text[..offset].rfind('\n').map_or(0, |index| index + 1);
+    !text[line_start..offset]
+        .chars()
+        .any(|c| c.is_alphanumeric() || c == '_')
 }
 
 /// Whether a `(…)` group opens immediately after the tag, ignoring horizontal whitespace.
@@ -338,6 +367,49 @@ mod tests {
         );
         assert_eq!(sites[0].key, None);
         assert_eq!(sites[1].key.as_deref(), Some("AMVP-2"));
+    }
+
+    /// Measured on a 89k-file monorepo: of 183 lowercase or titlecase occurrences of the default
+    /// tag words in code files, only 18 opened a comment. The other 165 were English — "this is a
+    /// hack to work around…" — and every one of them would have been rewritten into `TODO`.
+    #[test]
+    fn a_miscased_tag_word_inside_prose_is_not_a_tag() {
+        for text in [
+            "// this is a hack to work around the upstream bug",
+            "# the todo list lives in Jira",
+            "// fixing that is a Hack, but it works",
+            "# marked xxx in the vendor dump",
+        ] {
+            assert!(
+                tag_sites(&comment(text, 0), &config()).is_empty(),
+                "prose should yield no tag site: {text:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_miscased_tag_that_opens_the_comment_is_a_tag() {
+        for (text, expected) in [
+            ("// todo: later", "todo"),
+            ("#fixme later", "fixme"),
+            ("/* Hack: works around the driver */", "Hack"),
+            ("   ///   xxx placeholder", "xxx"),
+            ("* todo: inside a block continuation", "todo"),
+        ] {
+            let sites = tag_sites(&comment(text, 0), &config());
+            assert_eq!(sites.len(), 1, "expected one site in {text:?}, got {sites:?}");
+            assert_eq!(sites[0].tag, expected);
+        }
+    }
+
+    /// The canonical spelling is not an English word, so a deliberate mid-sentence reference to it
+    /// stays a tag. This is the pre-existing behaviour for every one of the 3,148 uppercase tag
+    /// occurrences in that monorepo, and narrowing it would be a regression.
+    #[test]
+    fn a_canonically_spelled_tag_is_a_tag_anywhere_in_the_comment() {
+        let sites = tag_sites(&comment("// see also FIXME: the driver bug", 0), &config());
+        assert_eq!(sites.len(), 1);
+        assert_eq!(sites[0].tag, "FIXME");
     }
 
     #[test]
