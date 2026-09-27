@@ -16,7 +16,7 @@ use uncomment::rules::preservation::PreservationRule;
 /// Languages whose only comment form is a block pair, so a marker line cannot be
 /// written with a line token. Adding a language here is a deliberate statement
 /// that the language has no line-comment form at all.
-const NO_LINE_COMMENT: &[&str] = &["css", "html", "json", "ocaml", "svelte", "vue", "xml"];
+const NO_LINE_COMMENT: &[&str] = &["css", "html", "json", "markdown", "ocaml", "svelte", "vue", "xml"];
 
 /// Languages with no comment syntax whatsoever.
 const NO_COMMENT_SYNTAX: &[&str] = &["json"];

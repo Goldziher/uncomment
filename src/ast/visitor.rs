@@ -1,3 +1,4 @@
+use crate::languages::handlers::CommentNodeVerdict;
 use crate::languages::{LanguageHandler, get_handler};
 use crate::rules::preservation::PreservationRule;
 use tree_sitter::Node;
@@ -36,6 +37,33 @@ impl CommentInfo {
     #[must_use]
     pub const fn with_preservation(mut self, should_preserve: bool) -> Self {
         self.should_preserve = should_preserve;
+        self
+    }
+
+    /// Narrow this comment to `start_byte..end_byte`, a range inside the node it was built from,
+    /// recomputing the rows so a caller reporting line numbers still sees the truth.
+    ///
+    /// Used where a grammar's comment node carries more than the comment — markdown's `html_block`
+    /// holds the comment's indentation and its trailing newline — so that removal expands from the
+    /// comment's own bounds rather than the node's.
+    ///
+    /// A range that is not a valid slice of `source` — reversed, out of bounds, or landing inside a
+    /// multi-byte character — is ignored rather than allowed to panic the visit, leaving the comment
+    /// on the node's own span. [`LanguageHandler`] is a public extension point, so a handler that
+    /// miscalculates must not be able to bring down a run over unrelated files.
+    #[must_use]
+    fn narrowed(mut self, start_byte: usize, end_byte: usize, source: &str) -> Self {
+        let (Some(skipped), Some(kept)) = (
+            source.get(self.start_byte..start_byte),
+            source.get(start_byte..end_byte),
+        ) else {
+            return self;
+        };
+        let newlines = |range: &str| range.bytes().filter(|&byte| byte == b'\n').count();
+        self.start_row += newlines(skipped);
+        self.end_row = self.start_row + newlines(kept);
+        self.start_byte = start_byte;
+        self.end_byte = end_byte;
         self
     }
 
@@ -102,8 +130,11 @@ impl<'a> CommentVisitor<'a> {
     }
 
     fn visit_node_recursive(&mut self, node: Node, parent: Option<Node>) {
-        if self.is_comment_node(&node, parent) {
+        if let Some((start_byte, end_byte)) = self.comment_span(&node, parent) {
             let mut comment_info = CommentInfo::new(node);
+            if (start_byte, end_byte) != (node.start_byte(), node.end_byte()) {
+                comment_info = comment_info.narrowed(start_byte, end_byte, self.source);
+            }
 
             if let Some(is_doc) = self
                 .language_handler
@@ -164,24 +195,34 @@ impl<'a> CommentVisitor<'a> {
         self.extended.contains(&index)
     }
 
-    fn is_comment_node(&self, node: &Node, parent: Option<Node>) -> bool {
+    /// The byte range `node` contributes as a comment, or `None` when it is not one.
+    ///
+    /// The configured node kinds decide first, as they do for every grammar. A language handler may
+    /// then reject the node or narrow the range — the escape hatch for a grammar whose comment kind
+    /// is ambiguous, markdown's `html_block` being the case it exists for. A handler with no opinion
+    /// leaves the node's own span, so this is a no-op for every other language.
+    fn comment_span(&self, node: &Node, parent: Option<Node>) -> Option<(usize, usize)> {
         let kind = node.kind();
+        let is_comment_kind = self.comment_node_types.iter().any(|node_type| node_type == kind);
+        let is_doc_kind = self.doc_comment_node_types.iter().any(|node_type| node_type == kind);
 
-        if self.comment_node_types.iter().any(|node_type| node_type == kind) {
-            return true;
+        if !is_comment_kind && !is_doc_kind {
+            return None;
         }
 
-        if self.doc_comment_node_types.iter().any(|node_type| node_type == kind) {
-            if let Some(is_doc) = self
+        if !is_comment_kind
+            && let Some(false) = self
                 .language_handler
                 .is_documentation_comment(node, parent, self.source)
-            {
-                return is_doc;
-            }
-            return true;
+        {
+            return None;
         }
 
-        false
+        match self.language_handler.classify_comment_node(node, parent, self.source) {
+            Some(CommentNodeVerdict::Rejected) => None,
+            Some(CommentNodeVerdict::Accepted { start_byte, end_byte }) => Some((start_byte, end_byte)),
+            None => Some((node.start_byte(), node.end_byte())),
+        }
     }
 
     /// The first configured rule whose test `content` passes, or `None` when no rule
