@@ -109,6 +109,9 @@ uncomment --remove-todo --remove-fixme file.py
 # Add custom patterns to preserve
 uncomment --ignore "HACK" --ignore "WARNING" file.py
 
+# Skip paths entirely, whatever the comments in them
+uncomment . --exclude "playground/**" --exclude "thirdparty/**"
+
 # Process an entire tree with all CPU cores
 uncomment . -j 0
 ```
@@ -155,13 +158,13 @@ cargo run --release --features bench-tools --bin profile -- /path/to/repo
 
 ## Supported Languages
 
-uncomment ships with 51 built-in language configurations and can process any of the **306 languages**
+uncomment ships with 53 built-in language configurations and can process any of the **306 languages**
 in [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — every
 grammar is compiled into the binary, so nothing is downloaded, built or cached at runtime, and any
 language can be added via configuration.
 
 <details>
-<summary><b>51 built-in languages</b></summary>
+<summary><b>53 built-in languages</b></summary>
 
 Python (`.py`, `.pyw`, `.pyi`, `.pyx`, `.pxd`) · JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) ·
 TypeScript (`.ts`, `.mts`, `.cts`, `.d.ts`, `.d.mts`, `.d.cts`) · TSX (`.tsx`) · Rust (`.rs`) ·
@@ -169,11 +172,13 @@ Go (`.go`) · Java (`.java`) ·
 C (`.c`, `.h`) · C++ (`.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`) · C# (`.cs`) ·
 Ruby (`.rb`, `.rake`, `.gemspec`) · PHP (`.php`, `.phtml`) · Elixir (`.ex`, `.exs`) · TOML (`.toml`) ·
 JSON (`.json`) · JSON with Comments (`.jsonc`) · YAML (`.yml`, `.yaml`) ·
-HCL/Terraform (`.hcl`, `.tf`, `.tfvars`) · Makefile (`Makefile`, `.mk`) ·
-Shell/Bash (`.sh`, `.bash`, `.zsh`) · Haskell (`.hs`, `.lhs`) · HTML (`.html`, `.htm`, `.xhtml`) ·
+HCL/Terraform (`.hcl`, `.tf`, `.tfvars`) · Makefile (`Makefile`, `makefile`, `GNUmakefile`, `.mk`) ·
+Shell/Bash (`.sh`, `.bash`, `.zsh`, `.bashrc`, `.zshrc`, `.zshenv`) · Haskell (`.hs`, `.lhs`) · HTML (`.html`, `.htm`, `.xhtml`) ·
 CSS (`.css`) · XML (`.xml`, `.xsd`, `.xsl`, `.xslt`, `.svg`) · SQL (`.sql`) · Kotlin (`.kt`, `.kts`) ·
 Objective-C (`.m`) · Swift (`.swift`) · Lua (`.lua`) · Nix (`.nix`) · PowerShell (`.ps1`, `.psm1`, `.psd1`) ·
-Protobuf (`.proto`) · INI-like configs (`.ini`, `.cfg`, `.conf`) · Dockerfile (`Dockerfile`) ·
+Protobuf (`.proto`) · INI-like configs (`.ini`, `.cfg`, `.conf`) · Dockerfile (`Dockerfile`, `Dockerfile.*`) ·
+Starlark/Bazel (`BUILD`, `BUILD.bazel`, `WORKSPACE`, `WORKSPACE.bazel`, `WORKSPACE.bzlmod`, `MODULE.bazel`, `.bzl`, `.bazel`, `.star`) ·
+Java properties (`.properties`) ·
 Scala (`.scala`, `.sc`) · Dart (`.dart`) · R (`.r`, `.R`) · Julia (`.jl`) · Zig (`.zig`) ·
 Clojure (`.clj`, `.cljs`, `.cljc`, `.edn`) · Elm (`.elm`) · Erlang (`.erl`, `.hrl`) · Vue (`.vue`) ·
 Svelte (`.svelte`) · SCSS (`.scss`) · LaTeX (`.tex`, `.sty`, `.cls`) · Fish (`.fish`) ·
@@ -332,7 +337,9 @@ uncomment lint src/ --baseline .lint-baseline.json
 2. `todo-missing-key` — the tag must carry an issue key matching `key_pattern`
 3. `todo-self-reference` — the key must not be the issue the current branch is for (that issue closes when the branch merges, leaving the TODO pointing at a dead ticket)
 
-**Casing:** tags are matched regardless of casing, so `fixme`, `Todo` and `xXx` are tags and each is a `tag-not-canonical` violation. The key is not: `todo(AMVP-1)` counts as keyed, while `TODO(amvp-1)` and `todo(amvp-1)` do not, because `key_pattern` still requires the key exactly as written. Set `case_sensitive_tags = true` to go back to matching only the literal casing in `tags`, where `todo:` is not a tag at all.
+**Casing:** tags are matched regardless of casing, so `fixme`, `Todo` and `xXx` are tags and each is a `tag-not-canonical` violation whose `--fix` normalises it to `canonical_tag`. The key is not: `todo(AMVP-1)` counts as keyed, while `TODO(amvp-1)` and `todo(amvp-1)` do not, because `key_pattern` still requires the key exactly as written. Set `case_sensitive_tags = true` to go back to matching only the literal casing in `tags`, where `todo:` is not a tag at all.
+
+A miscased tag has to open its comment, though — everything between the start of its line and the tag must be delimiter or decoration (`//`, `#`, `/*`, a `*` block continuation, a `-` bullet). `# todo: fix` and `* Hack: works around the driver` are tags; *this is a hack to work around the upstream bug* is a sentence, and rewriting `hack` in it to `TODO` would wreck it. A tag spelled exactly as configured needs no such position, because `TODO` in capitals is not a word anyone writes by accident: `// see also FIXME: the driver bug` stays a tag, as it always has been. Measured on an 89k-file monorepo, 165 of the 183 miscased tag words in code files were prose.
 
 A sigil is a separate question from casing and always has been: `\b` sits between `@` and the tag, so `# @TODO: x` is a tag today and `# @todo: x` becomes one now. `--fix` rewrites the tag token alone and leaves the sigil, giving `# @TODO: x`. If `@todo` is prose you do not want linted, `case_sensitive_tags = true` is not the lever — drop `TODO` from `tags` or baseline the occurrences.
 
@@ -395,6 +402,8 @@ A directory's config file is named `.uncomment.toml`. Two earlier names are stil
 
 CLI flags are one-directional: `--remove-doc` sets `remove_docs = true` but an unset flag never clobbers a config-file value back to false.
 
+`exclude` does not layer like the rest either — it is a union. A file matching any `exclude` glob in force is not collected by any subcommand, and a nested config can add an exclusion but never withdraw one. Repeating `--exclude GLOB` adds to the configured list rather than replacing it, and naming an excluded path on the command line does not override it: the setting says which paths the project never wants read, not which ones this invocation skips. Globs use the same dialect as `[patterns."<glob>"]` keys — `*` does not cross a `/`, `**` does — and are anchored the same way, relative to the directory holding the config file that declared them (relative to the invocation directory for `--exclude`, and for a `--config FILE` config). `exclude = ["vendor/**"]` also keeps the directory walk out of `vendor` rather than descending it and discarding the results. Like `[languages.*]`, `exclude` has to be known before collection, so it is read from the same set of configs: the invocation directory and its ancestors plus every config found under the paths being processed.
+
 Every table rejects unknown keys, and a project config that does not parse stops the run instead of degrading to built-in defaults — so a typo such as `enable` for `enabled` in `[lint]` fails every subcommand, not just `lint`.
 
 ```toml
@@ -403,6 +412,7 @@ remove_todos = false
 remove_fixme = false
 remove_docs = false
 preserve_patterns = ["IMPORTANT", "NOTE", "WARNING"]
+exclude = ["playground/**", "thirdparty/**"]
 use_default_ignores = true
 respect_gitignore = true
 
@@ -436,6 +446,26 @@ extensions = ["ha"]
 comment_nodes = ["comment"]
 preserve_patterns = ["TODO", "FIXME"]
 ```
+
+A language can claim whole filenames instead of, or as well as, extensions — the only way to reach a
+file that has no extension at all:
+
+```toml
+[languages.starlark]
+name = "Starlark"
+extensions = ["bzl", "bazel", "star"]
+filenames = ["BUILD", "BUILD.bazel", "WORKSPACE", "MODULE.bazel", "Tiltfile"]
+comment_nodes = ["comment"]
+```
+
+`filenames` is matched case-sensitively and consulted **before** any extension rule, so a claim on
+`BUILD.bazel` decides that file regardless of what else claims `.bazel`. Case matters because
+`BUILD` and `build` are different files to Bazel, and folding the key would hand a `build` shell
+script to a Starlark parser. An entry ending in `.*` claims every name starting with the part before
+the `*` — `filenames = ["Dockerfile.*"]` reaches `Dockerfile.prod` — and where two such prefixes
+overlap the longer one wins, never whichever was registered first. A `[languages.*]` section needs at
+least one `extensions` or `filenames` entry; with neither it claims no file at all and is rejected
+rather than silently doing nothing.
 
 </details>
 
