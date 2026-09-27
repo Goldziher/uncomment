@@ -141,6 +141,12 @@ pub struct LanguageConfig {
 
     pub extensions: Vec<String>,
 
+    /// Whole filenames this language claims, which is the only way to reach an extensionless file
+    /// such as `BUILD`. An entry ending in `.*` claims every name starting with the part before the
+    /// `*`. Matched case-sensitively, and before any extension rule.
+    #[serde(default)]
+    pub filenames: Vec<String>,
+
     pub comment_nodes: Vec<String>,
 
     #[serde(default)]
@@ -331,8 +337,13 @@ impl Config {
                 return Err(anyhow::anyhow!("Language '{}' has empty name", lang_name));
             }
 
-            if lang_config.extensions.is_empty() {
-                return Err(anyhow::anyhow!("Language '{}' has no file extensions", lang_name));
+            // Either list makes the declaration reachable; a language with neither claims no file at
+            // all, so the whole section would be inert.
+            if lang_config.extensions.is_empty() && lang_config.filenames.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "Language '{}' has no file extensions or filenames",
+                    lang_name
+                ));
             }
 
             if lang_config.comment_nodes.is_empty() {
@@ -432,6 +443,7 @@ mod tests {
             LanguageConfig {
                 name: "".to_string(),
                 extensions: vec![".test".to_string()],
+                filenames: vec![],
                 comment_nodes: vec!["comment".to_string()],
                 doc_comment_nodes: vec![],
                 preserve_patterns: vec![],

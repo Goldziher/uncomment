@@ -4,9 +4,19 @@ use ahash::AHashMap;
 use std::path::Path;
 use std::sync::Arc;
 
+/// Suffix that turns a `filenames` entry into a prefix rule: `Dockerfile.*` claims
+/// `Dockerfile.prod` without naming dockerfile anywhere in detection code.
+const FILENAME_WILDCARD_SUFFIX: &str = ".*";
+
 pub struct LanguageRegistry {
     languages: AHashMap<String, Arc<LanguageConfig>>,
     extension_map: AHashMap<String, String>,
+    /// Whole filenames a language claims, matched case-sensitively — `BUILD` and `build` are
+    /// different files to Bazel, so folding the key would hand a `build` script to a Starlark parser.
+    filename_map: AHashMap<String, String>,
+    /// The `Dockerfile.*`-style entries as `(prefix including the dot, language)`, kept sorted
+    /// longest-first so registration order never decides which of two overlapping prefixes wins.
+    filename_prefixes: Vec<(String, String)>,
 }
 
 impl LanguageRegistry {
@@ -14,6 +24,8 @@ impl LanguageRegistry {
         let mut registry = Self {
             languages: AHashMap::new(),
             extension_map: AHashMap::new(),
+            filename_map: AHashMap::new(),
+            filename_prefixes: Vec::new(),
         };
 
         registry.register_default_languages();
@@ -73,6 +85,8 @@ impl LanguageRegistry {
             LanguageConfig::groovy(),
             LanguageConfig::ocaml(),
             LanguageConfig::fortran(),
+            LanguageConfig::starlark(),
+            LanguageConfig::properties(),
         ];
 
         for config in configs {
@@ -88,6 +102,21 @@ impl LanguageRegistry {
             let normalized_ext = extension.trim_start_matches('.').to_lowercase();
             self.extension_map.insert(normalized_ext, name_lower.clone());
         }
+
+        for filename in &config.filenames {
+            match filename.strip_suffix(FILENAME_WILDCARD_SUFFIX) {
+                Some(prefix) => {
+                    let prefix = format!("{prefix}.");
+                    self.filename_prefixes.retain(|(existing, _)| *existing != prefix);
+                    self.filename_prefixes.push((prefix, name_lower.clone()));
+                }
+                None => {
+                    self.filename_map.insert(filename.clone(), name_lower.clone());
+                }
+            }
+        }
+        self.filename_prefixes
+            .sort_by(|left, right| right.0.len().cmp(&left.0.len()).then_with(|| left.0.cmp(&right.0)));
 
         self.languages.insert(name_lower, config);
     }
@@ -112,28 +141,26 @@ impl LanguageRegistry {
         self.languages.get(language_name).cloned()
     }
 
+    /// A language that claims the whole filename is consulted before any extension rule, so
+    /// `BUILD.bazel` is Starlark because Starlark claims that name — not because something happens to
+    /// claim `.bazel`. Extensionless names like `BUILD` have no other way in at all.
     fn detect_language_name(&self, file_path: &Path) -> Option<&str> {
         let file_name = file_path.file_name()?.to_str()?;
 
-        match file_name {
-            "Makefile" | "makefile" | "GNUmakefile" => return Some("make"),
-            "Dockerfile" | "dockerfile" => return Some("dockerfile"),
-            _ => {}
+        if let Some(name) = self.filename_map.get(file_name) {
+            return Some(name);
         }
 
-        if file_name.starts_with("Dockerfile.") || file_name.starts_with("dockerfile.") {
-            return Some("dockerfile");
+        if let Some((_, name)) = self
+            .filename_prefixes
+            .iter()
+            .find(|(prefix, _)| file_name.starts_with(prefix.as_str()))
+        {
+            return Some(name);
         }
 
         if file_name.ends_with(".d.ts") || file_name.ends_with(".d.mts") || file_name.ends_with(".d.cts") {
             return Some("typescript");
-        }
-
-        match file_name {
-            "bashrc" | ".bashrc" | "zshrc" | ".zshrc" | "zshenv" | ".zshenv" => {
-                return Some("shell");
-            }
-            _ => {}
         }
 
         let extension = file_path.extension()?.to_str()?.to_lowercase();
@@ -181,8 +208,9 @@ impl LanguageRegistry {
     /// A declaration is only usable if a grammar can be found for it, either because the name is a
     /// built-in language or because `tree-sitter-language-pack` ships one under that name. The rest
     /// are returned, sorted, rather than dropped in silence: the section would otherwise have no
-    /// effect whatsoever — no extension registered, so not even a file collected — and nothing
-    /// would say why. See [`warn_languages_without_a_grammar`] for the caller-side report.
+    /// effect whatsoever — neither its extensions nor its filenames registered, so not even a file
+    /// collected — and nothing would say why. See [`warn_languages_without_a_grammar`] for the
+    /// caller-side report.
     pub fn register_configured_languages(
         &mut self,
         config_languages: &std::collections::HashMap<String, crate::config::LanguageConfig>,
@@ -204,6 +232,7 @@ impl LanguageRegistry {
             let language_config = LanguageConfig {
                 name: config.name.clone(),
                 extensions: config.extensions.clone(),
+                filenames: config.filenames.clone(),
                 comment_types: config.comment_nodes.clone(),
                 doc_comment_types: config.doc_comment_nodes.clone(),
                 tslp_name,
@@ -392,6 +421,31 @@ mod tests {
         assert!(registry.is_supported_language("custom"));
         assert!(registry.is_supported_extension("cst"));
         assert_eq!(registry.language_for_extension("cst"), Some("custom".to_string()));
+    }
+
+    /// The `.*` form is part of the data, not a rule about dockerfile: any language can use it, and
+    /// the longer of two overlapping prefixes wins regardless of the order they were registered in.
+    #[test]
+    fn a_wildcard_filename_entry_claims_names_by_prefix() {
+        let mut registry = LanguageRegistry::new();
+        registry.register_language(
+            LanguageConfig::new("envfile", vec![], vec!["comment"], vec![], "bash").with_filenames(vec!["env.*"]),
+        );
+        registry.register_language(
+            LanguageConfig::new("envfile-local", vec![], vec!["comment"], vec![], "bash")
+                .with_filenames(vec!["env.local.*"]),
+        );
+
+        assert_eq!(
+            registry.detect_language_name(&PathBuf::from("env.staging")),
+            Some("envfile")
+        );
+        assert_eq!(
+            registry.detect_language_name(&PathBuf::from("env.local.staging")),
+            Some("envfile-local")
+        );
+        // A bare `env` is not `env.`-prefixed, so nothing claims it.
+        assert_eq!(registry.detect_language_name(&PathBuf::from("env")), None);
     }
 
     #[test]

@@ -72,6 +72,7 @@ fn test_config_validation_edge_cases() {
     let invalid_language = LanguageConfig {
         name: "".to_string(),
         extensions: vec!["test".to_string()],
+        filenames: vec![],
         comment_nodes: vec!["comment".to_string()],
         doc_comment_nodes: vec![],
         preserve_patterns: vec![],
@@ -90,6 +91,7 @@ fn test_config_validation_edge_cases() {
     let no_comments_language = LanguageConfig {
         name: "test".to_string(),
         extensions: vec!["test".to_string()],
+        filenames: vec![],
         comment_nodes: vec![],
         doc_comment_nodes: vec![],
         preserve_patterns: vec![],
