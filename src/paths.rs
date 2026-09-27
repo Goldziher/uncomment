@@ -10,9 +10,11 @@ use std::path::{Component, Path, PathBuf};
 /// Resolve `.` and `..` textually, without touching the filesystem.
 ///
 /// A leading `..` on a relative path is kept (there is nothing to pop), and `..` directly below a
-/// root is dropped, matching the kernel's treatment of `/..` as `/`. Unlike `canonicalize` this
-/// never fails and never follows symlinks, so `a/symlink/../b` normalizes to `a/b` even when that
-/// is not where the kernel would land — acceptable for containment checks, not for opening files.
+/// root is dropped, matching the kernel's treatment of `/..` as `/`. A relative path that names the
+/// current directory — `.`, the empty path, or `a/..` — normalizes to the empty path. Unlike
+/// `canonicalize` this never fails and never follows symlinks, so `a/symlink/../b` normalizes to
+/// `a/b` even when that is not where the kernel would land — acceptable for containment checks, not
+/// for opening files.
 pub fn normalize_lexical(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
 
@@ -45,7 +47,9 @@ pub fn absolute_normalized(base: &Path, path: &Path) -> PathBuf {
 
 /// Whether `candidate` is `ancestor` or sits underneath it.
 ///
-/// Both sides are normalized first. If the lexical answer is `false` the check is retried against
+/// Both sides are normalized first, and both should be absolute: an absolute candidate cannot be
+/// placed against a relative ancestor without resolving one of them against the working directory,
+/// so that pairing answers `false`. If the lexical answer is `false` the check is retried against
 /// canonicalized forms, because a user-supplied `/tmp/x` and a `current_dir()` of `/private/tmp/x`
 /// name the same directory on macOS and must not be treated as unrelated. The retry is best-effort:
 /// if either side cannot be canonicalized the lexical answer stands.
@@ -53,7 +57,7 @@ pub fn is_ancestor_of(ancestor: &Path, candidate: &Path) -> bool {
     let ancestor_norm = normalize_lexical(ancestor);
     let candidate_norm = normalize_lexical(candidate);
 
-    if candidate_norm.starts_with(&ancestor_norm) {
+    if lexically_contains(&ancestor_norm, &candidate_norm) {
         return true;
     }
 
@@ -61,6 +65,25 @@ pub fn is_ancestor_of(ancestor: &Path, candidate: &Path) -> bool {
         (Ok(a), Ok(c)) => c.starts_with(a),
         _ => false,
     }
+}
+
+/// Whether `candidate` is `ancestor` or below it, both sides already normalized.
+///
+/// `Path::starts_with` alone is not enough, because it treats the empty path as a prefix of every
+/// path and an `ancestor` naming the current directory normalizes to exactly that. Asked directly it
+/// therefore reports an absolute path — or a relative one that climbs out with `..` — as contained
+/// by the current directory, which is the confusion this module exists to prevent.
+fn lexically_contains(ancestor: &Path, candidate: &Path) -> bool {
+    if !candidate.starts_with(ancestor) {
+        return false;
+    }
+    if !ancestor.as_os_str().is_empty() {
+        return true;
+    }
+
+    // The ancestor is the current directory, and nothing absolute can be placed relative to it
+    // without resolving one side against the working directory, which this module does not do.
+    candidate.is_relative() && candidate.components().next() != Some(Component::ParentDir)
 }
 
 /// Nearest ancestor of `start` (inclusive) containing a `.git` entry.
@@ -76,9 +99,16 @@ pub fn find_repo_root(start: &Path) -> Option<PathBuf> {
 }
 
 /// `path` expressed relative to `root`, or `None` when it lies outside.
+///
+/// Containment is decided by the same rule as [`is_ancestor_of`]'s lexical half, so a `root` that
+/// normalizes away to the current directory does not hand an absolute `path` straight back as
+/// though it were already relative.
 pub fn repo_relative(root: &Path, path: &Path) -> Option<PathBuf> {
     let root = normalize_lexical(root);
     let path = normalize_lexical(path);
+    if !lexically_contains(&root, &path) {
+        return None;
+    }
     path.strip_prefix(&root).ok().map(Path::to_path_buf)
 }
 
@@ -137,6 +167,41 @@ mod tests {
         assert!(is_ancestor_of(Path::new("/repo"), Path::new("/repo/sub/../other/x.py")));
         assert!(is_ancestor_of(Path::new("/repo"), Path::new("/repo")));
         assert!(!is_ancestor_of(Path::new("/repo"), Path::new("/repository/x")));
+    }
+
+    #[test]
+    fn a_root_that_normalizes_away_contains_only_relative_paths_below_it() {
+        // `.`, `` and `a/..` all name the current directory and all normalize to the empty path,
+        // which `Path::starts_with` calls a prefix of everything. Taken at face value that makes an
+        // absolute path, or a relative one that climbs out with `..`, look contained.
+        assert!(normalize_lexical(Path::new(".")).as_os_str().is_empty());
+
+        for root in [".", "", "a/.."] {
+            assert!(
+                !is_ancestor_of(Path::new(root), Path::new("/etc/passwd")),
+                "root {root:?} must not contain an absolute path"
+            );
+            assert!(
+                !is_ancestor_of(Path::new(root), Path::new("../sibling/x.py")),
+                "root {root:?} must not contain a path above it"
+            );
+            assert!(
+                is_ancestor_of(Path::new(root), Path::new("sub/x.py")),
+                "root {root:?} must contain a path below it"
+            );
+        }
+    }
+
+    #[test]
+    fn repo_relative_rejects_what_is_not_below_the_root() {
+        // Returning the absolute path verbatim would label it repo-relative, and the comment ids
+        // `scan` and `keep` derive from that string would then differ between checkouts.
+        assert_eq!(repo_relative(Path::new("."), Path::new("/elsewhere/x.py")), None);
+        assert_eq!(repo_relative(Path::new("."), Path::new("../x.py")), None);
+        assert_eq!(
+            repo_relative(Path::new("."), Path::new("./src/x.py")),
+            Some(PathBuf::from("src/x.py"))
+        );
     }
 
     #[test]
