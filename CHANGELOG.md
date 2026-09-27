@@ -48,6 +48,29 @@ This changelog is generated from git tags and commit history.
   whose kind is configured as a comment or narrow the span that counts as one. It defaults to "no
   opinion", so every other language is unaffected.
 
+- Go templates are a built-in language, covering `.tpl` — the Helm convention — plus Go's own `.tmpl`
+  and `.gotmpl` and the HTML flavour `.gohtml`. A comment is only a comment inside an action, so
+  `{{/* … */}}` is the whole syntax and a bare `/* … */` is literal output text; `keep` therefore
+  writes `{{/* ~keep */}}`.
+
+  Unlike `if_action`, `range_action` and `define_action`, which all span their own `{{`/`}}`, a comment
+  action has no node covering it: the comment sits between two *bare sibling* delimiter tokens.
+  Removing just the comment leaves `{{}}`, which the grammar rejects and Helm refuses to render
+  (`missing value for command`). So the removal widens to the whole action whenever the comment's
+  immediate siblings are the delimiters with nothing but whitespace between — a comment sharing its
+  action keeps its own span, and the grammar places such a comment under an `ERROR` node where it has
+  no delimiter siblings at all. Reported upstream as ngalaiko/tree-sitter-go-template#56.
+
+  Two caveats. `{{ /* spaced */ }}` and `{{-/* x */-}}` produce no comment node, so they are left
+  alone — a missed removal, never a corruption. And an inline comment keeps the whitespace around it
+  (`hello {{/* x */}} world` → `hello  world`), because in a template that whitespace is rendered
+  output and collapsing it would change what Helm emits.
+
+  Widening needed `CommentInfo::widened`, the mirror of the narrowing `classify_comment_node`
+  performs, and a `LanguageHandler::removal_span` hook that defaults to "the comment's own span" —
+  so every other language is unaffected. Verified against 85 real Helm `.tpl` files: 48 modified, 256
+  comments removed, zero empty actions, and a second pass is a no-op.
+
 ### Changed
 
 - Word tags are matched without regard to case. `# todo`, `# Todo` and `# TODO` are now all
