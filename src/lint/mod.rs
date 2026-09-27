@@ -244,9 +244,11 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
         ));
     }
 
+    let config_manager = build_config_manager(&base, args.process.config.as_deref())?;
+
     // Resolving `[lint]` up front means a bad pattern is reported before a single file is inspected,
     // and certainly before `--fix` has rewritten anything.
-    let mut resolver = config::Resolver::new(&base, args.process.config.as_deref())?;
+    let mut resolver = config::Resolver::new(&base, &config_manager);
     let mut targets: Vec<(PathBuf, Arc<LintConfig>)> = Vec::with_capacity(files.len());
     let mut disabled = 0usize;
     for file in files {
@@ -256,6 +258,13 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
         } else {
             disabled += 1;
         }
+    }
+
+    // A config file below the invocation directory is discovered during that pre-pass, from a call
+    // that cannot return an error, so a rejected one is recorded instead. `--fix` rewrites files, so
+    // refuse the run rather than lint under defaults the user never asked for.
+    if let Some(error) = config_manager.deferred_config_error() {
+        bail!("{error}");
     }
 
     let mut summary = Summary {
@@ -285,7 +294,6 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
         _ => HashSet::new(),
     };
 
-    let config_manager = build_config_manager(&base, args.process.config.as_deref())?;
     let context = FileContext {
         repo_root: repo_root.clone(),
         base: base.clone(),
@@ -586,27 +594,18 @@ fn line_and_column(content: &str, offset: usize) -> (usize, usize) {
     (line, column)
 }
 
-/// The language configuration `inspect` needs, read from the same file the `[lint]` table came from.
+/// The configuration every part of a lint run reads: the `[lint]` table itself, and the `[languages]`
+/// entries `inspect` needs in order to find comments at all.
 ///
 /// Lint cares only about which comments exist, never which to remove, so the removal policy in
-/// `[global]` is irrelevant here — but a custom `[languages]` entry decides whether a file's comments
-/// are found at all, so the user's config has to be honoured.
-///
-/// Loaded through [`config::config_without_lint`] rather than [`ConfigManager::new`] because a config
-/// file carrying `[lint]` is a hard parse error for `Config` today; see that function. The cost is
-/// that per-directory layering below `base` is not applied, which is one more reason to fold the
-/// `[lint]` table into `Config` (reported as a follow-up).
+/// `[global]` is irrelevant here — but it travels in the same file, and since `[lint]` is a field on
+/// [`crate::config::Config`] one load serves both. Per-directory layering below `base` comes with it.
 fn build_config_manager(base: &Path, forced: Option<&Path>) -> Result<ConfigManager> {
-    let path = match forced {
-        Some(path) => Some(absolute_normalized(base, path)),
-        None => config::nearest_config_file(base),
-    };
-
-    match path {
+    match forced {
         Some(path) => {
-            let config = config::config_without_lint(&path)
-                .with_context(|| format!("failed to load config file: {}", path.display()))?;
-            ConfigManager::from_single_config(base, config)
+            let path = absolute_normalized(base, path);
+            ConfigManager::from_config_file(base, &path)
+                .with_context(|| format!("failed to load config file: {}", path.display()))
         }
         None => ConfigManager::new(base).context("failed to initialize configuration manager"),
     }

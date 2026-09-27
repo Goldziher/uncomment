@@ -454,6 +454,139 @@ fn an_invalid_pattern_is_refused_before_fix_rewrites_anything() {
     assert_eq!(fixture.read("src/a.rs"), source);
 }
 
+// --- nested `[lint]` tables ---------------------------------------------------------------------
+
+/// Violations as `(path, rule, severity)`, with the path slash-separated so the assertions read the
+/// same on every platform.
+fn located(outcome: &Outcome) -> Vec<(String, &'static str, &'static str)> {
+    outcome
+        .violations
+        .iter()
+        .map(|v| (slash(&v.path), v.rule.as_str(), v.severity.as_str()))
+        .collect()
+}
+
+fn slash(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+#[test]
+fn a_nested_lint_table_applies_to_that_directory_and_not_above_it() {
+    let fixture = Fixture::enabled("feat/nested");
+    fixture.write(
+        "src/nested/.uncommentrc.toml",
+        "[lint]\ntags = [\"NOTE\"]\ncanonical_tag = \"NOTE\"\n",
+    );
+    fixture.write(
+        "src/a.rs",
+        "// NOTE: not a tag up here\n// TODO: no key\nfn main() {}\n",
+    );
+    fixture.write(
+        "src/nested/b.rs",
+        "// NOTE: no key\n// TODO: not a tag down here\nfn main() {}\n",
+    );
+
+    // Named file by file: a `.uncommentrc.toml` is itself a TOML file a directory walk would lint.
+    let outcome = fixture.lint(&["src/a.rs", "src/nested/b.rs"]);
+    assert_eq!(
+        outcome.summary.files_linted, 2,
+        "the nested table names no `enabled`, so it inherits the one above: {:?}",
+        outcome.notes
+    );
+    assert_eq!(
+        located(&outcome),
+        vec![
+            ("src/a.rs".to_string(), "todo-missing-key", "error"),
+            ("src/nested/b.rs".to_string(), "todo-missing-key", "error"),
+        ]
+    );
+    // The tag each was reported for is what shows the tables did not leak into one another.
+    assert_eq!(outcome.violations[0].tag, "TODO");
+    assert_eq!(outcome.violations[0].line, 2);
+    assert_eq!(outcome.violations[1].tag, "NOTE");
+    assert_eq!(outcome.violations[1].line, 1);
+}
+
+#[test]
+fn a_nested_lint_table_overrides_only_the_keys_it_names() {
+    let fixture = Fixture::new(
+        "feat/nested",
+        "[lint]\nenabled = true\n\n[lint.rules]\ntag-not-canonical = \"warn\"\n",
+    );
+    fixture.write(
+        "src/nested/.uncommentrc.toml",
+        "[lint.rules]\ntodo-missing-key = \"off\"\n",
+    );
+    fixture.write("src/a.rs", "// FIXME: no key\nfn main() {}\n");
+    fixture.write("src/nested/b.rs", "// FIXME: no key\nfn main() {}\n");
+
+    let outcome = fixture.lint(&["src/a.rs", "src/nested/b.rs"]);
+    assert_eq!(outcome.summary.files_linted, 2, "{:?}", outcome.notes);
+    assert_eq!(
+        located(&outcome),
+        vec![
+            // Above: the root's `warn`, and the default `error` for the missing key.
+            ("src/a.rs".to_string(), "tag-not-canonical", "warn"),
+            ("src/a.rs".to_string(), "todo-missing-key", "error"),
+            // Below: `todo-missing-key` silenced, `tag-not-canonical` still the root's `warn` and
+            // `enabled` still the root's `true` — the nested table named neither.
+            ("src/nested/b.rs".to_string(), "tag-not-canonical", "warn"),
+        ]
+    );
+    assert_eq!(outcome.exit_code(), 1, "only the violation above is an error");
+}
+
+#[test]
+fn a_broken_regex_in_a_nested_lint_table_is_an_error_naming_that_file() {
+    let fixture = Fixture::enabled("feat/nested");
+    fixture.write("src/nested/.uncommentrc.toml", "[lint]\nkey_pattern = '([unclosed'\n");
+    fixture.write("src/nested/b.rs", "// TODO: whatever\nfn main() {}\n");
+
+    let error = lint(fixture.root(), &args(&["src"])).expect_err("a bad nested pattern must fail the load");
+    let message = format!("{error:#}");
+    assert!(message.contains("lint.key_pattern"), "{message}");
+    assert!(message.contains("([unclosed"), "{message}");
+    assert!(
+        message.contains("nested") && message.contains(".uncommentrc.toml"),
+        "the file carrying the broken pattern must be the one named: {message}"
+    );
+}
+
+#[test]
+fn a_nested_config_that_cannot_be_loaded_fails_the_lint_run() {
+    // Reading the table through `ConfigManager` means lint sees the same rejection every other
+    // command sees, including from a directory below the one it was invoked in.
+    let fixture = Fixture::enabled("feat/nested");
+    fixture.write(
+        "src/nested/.uncommentrc.toml",
+        "[global]\nremove_todos = 'not a bool'\n",
+    );
+    fixture.write("src/nested/b.rs", "// TODO: whatever\nfn main() {}\n");
+
+    let error = lint(fixture.root(), &args(&["src"])).expect_err("a rejected config must stop the run");
+    let message = format!("{error:#}");
+    assert!(
+        message.contains("nested") && message.contains(".uncommentrc.toml"),
+        "{message}"
+    );
+}
+
+#[test]
+fn one_config_file_serves_both_the_lint_table_and_the_removal_settings() {
+    // `Config` carries `deny_unknown_fields`, so before `[lint]` became a field on it this very
+    // file was `unknown field `lint`` for every command except `lint` itself.
+    let fixture = Fixture::new(
+        "feat/one-file",
+        "[global]\nremove_todos = true\n\n[lint]\nenabled = true\n",
+    );
+    fixture.write("src/a.rs", "// TODO: no key\nfn main() {}\n");
+
+    let config = uncomment::config::Config::from_file(fixture.root().join(".uncommentrc.toml"))
+        .expect("one file must serve both readers");
+    assert!(config.global.remove_todos);
+    assert_eq!(rules(&fixture.lint(&["src"])), vec!["todo-missing-key"]);
+}
+
 // --- baselines ----------------------------------------------------------------------------------
 
 #[test]
