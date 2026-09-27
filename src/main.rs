@@ -153,6 +153,18 @@ fn main() -> Result<()> {
 
     progress.finish_and_clear();
 
+    // A config below the invocation directory is only read during the per-file pass, from a
+    // call that cannot return an error, so it is recorded instead. It has already been printed;
+    // what is left is to not act on results computed under built-in defaults the user never
+    // asked for. Checked before the write loop so nothing is rewritten.
+    if config_manager.deferred_config_error().is_some() {
+        anstream::eprintln!(
+            "{} configuration was rejected, so no file was modified.",
+            ui::danger("error:")
+        );
+        std::process::exit(1);
+    }
+
     let mut modified_files = 0usize;
     let mut comments_removed_total = 0usize;
     let mut important_removal_count = 0usize;
