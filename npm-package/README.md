@@ -11,7 +11,7 @@ A blazing fast Rust-based command-line tool that removes comments from your sour
 - 🎯 **100% Accurate** - Never accidentally removes code that looks like comments
 - 🛡️ **Safe by Default** - Preview changes before applying them
 - 🌍 **Multi-language** - 49 built-in languages, 306 available via [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack)
-- 🔧 **Zero Dependencies** - Downloads a self-contained binary
+- 🔧 **Self-contained** - Installs a single static Rust binary, checksum-verified against the GitHub release
 
 ## Installation
 
@@ -19,7 +19,27 @@ A blazing fast Rust-based command-line tool that removes comments from your sour
 npm install -g uncomment-cli
 ```
 
-The installer will automatically download the appropriate pre-compiled Rust binary for your platform (Windows, macOS, or Linux).
+The postinstall step downloads the pre-compiled binary for your platform and verifies
+it against the release checksum manifest. Prebuilt archives exist for:
+
+| Platform | Architectures |
+| --- | --- |
+| Linux (glibc) | `x86_64`, `aarch64` |
+| macOS | `x86_64`, `aarch64` |
+| Windows | `x86_64` |
+
+Anything else — musl/Alpine Linux, 32-bit, other architectures — has no prebuilt
+archive; install with `cargo install uncomment` instead.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `uncomment <paths>` | Remove comments (the default, with no subcommand) |
+| `uncomment init` | Write a template `.uncomment.toml` |
+| `uncomment scan` | Report every comment and the verdict a run would reach; writes no files |
+| `uncomment keep` | Write `~keep` markers into the comments a decision selected |
+| `uncomment lint` | Check tag comments (TODO, FIXME, HACK, XXX) against the `[lint]` convention |
 
 ## Quick Start
 
