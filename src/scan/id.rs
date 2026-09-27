@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn normalization_lowercases_non_ascii_deterministically() {
-        assert_eq!(normalize_comment_text("// CAFÉ ist Offen"), "café ist offen");
+        assert_eq!(normalize_comment_text("// CAFÉ Is Closed"), "café is closed");
     }
 
     #[test]
