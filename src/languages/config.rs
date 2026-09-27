@@ -80,7 +80,7 @@ impl CommentSyntax {
             "bash" | "dockerfile" | "elixir" | "fish" | "make" | "perl" | "properties" | "python" | "r"
             | "starlark" | "toml" | "yaml" => Self::HASH,
             "hcl" | "nix" => Self::HASH_C_BLOCK,
-            "html" | "svelte" | "vue" | "xml" => Self::MARKUP,
+            "html" | "markdown" | "svelte" | "vue" | "xml" => Self::MARKUP,
             "elm" | "haskell" => Self::DASH_BRACE,
             "css" => Self::C_BLOCK,
             "zig" => Self::SLASH,
@@ -591,6 +591,27 @@ impl LanguageConfig {
     pub fn ocaml() -> Self {
         Self::new("ocaml", vec!["ml", "mli"], vec!["comment"], vec![], "ocaml")
             .with_comment_syntax(CommentSyntax::block_only("(*", "*)"))
+    }
+
+    /// CommonMark. The grammar emits no `comment` node whatsoever — an HTML comment is raw HTML to
+    /// CommonMark, so `<!-- … -->` arrives as an `html_block`, the same kind that carries a
+    /// `<div align="center">` badge row or a `<details>` block.
+    ///
+    /// `html_block` is therefore declared here *only* because
+    /// [`crate::languages::handlers::MarkdownHandler`] can tell the two apart from the block's text.
+    /// Declaring it for a runtime-registered language, which gets no handler, would delete embedded
+    /// HTML.
+    ///
+    /// `doc_comment_types` is empty: markdown has no documentation-comment form.
+    pub fn markdown() -> Self {
+        Self::new(
+            "markdown",
+            vec!["md", "markdown", "mdown", "mkd"],
+            vec!["html_block"],
+            vec![],
+            "markdown",
+        )
+        .with_comment_syntax(CommentSyntax::MARKUP)
     }
 
     pub fn fortran() -> Self {

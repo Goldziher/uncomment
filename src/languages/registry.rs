@@ -87,6 +87,7 @@ impl LanguageRegistry {
             LanguageConfig::fortran(),
             LanguageConfig::starlark(),
             LanguageConfig::properties(),
+            LanguageConfig::markdown(),
         ];
 
         for config in configs {

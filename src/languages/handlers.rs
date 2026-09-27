@@ -1,9 +1,38 @@
 use tree_sitter::Node;
 
+/// A handler's verdict on a node whose *kind* is configured as a comment.
+///
+/// Node kind alone is enough for almost every grammar: a `comment` node is a comment. It is not
+/// enough where one kind covers both comments and non-comments — markdown's `html_block` spans an
+/// HTML comment and an embedded `<div>` alike — so a handler may look at the text and either reject
+/// the node or narrow the span that counts as the comment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommentNodeVerdict {
+    /// Not a comment after all. The node is skipped, and so is nothing else: its children are still
+    /// visited, exactly as for any node that is not a comment.
+    Rejected,
+    /// A comment occupying this byte range, which must lie within the node.
+    ///
+    /// Narrowing exists because a node can carry more than the comment: markdown's `html_block`
+    /// swallows its own trailing newline, and a span taken verbatim from the node would, after the
+    /// usual whole-line expansion, delete the blank line after the comment too — merging the blocks
+    /// around it.
+    Accepted { start_byte: usize, end_byte: usize },
+}
+
 pub trait LanguageHandler {
     fn is_documentation_comment(&self, node: &Node, parent: Option<Node>, source: &str) -> Option<bool>;
 
     fn should_preserve_comment(&self, node: &Node, parent: Option<Node>, source: &str) -> Option<bool>;
+
+    /// Whether a node whose kind is configured as a comment really is one, and over which bytes.
+    ///
+    /// `None` — the default — means "no opinion": the node is a comment because its kind says so,
+    /// spanning the whole node. Only a grammar whose comment kind is ambiguous needs to override
+    /// this.
+    fn classify_comment_node(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<CommentNodeVerdict> {
+        None
+    }
 }
 
 pub struct DefaultHandler;
@@ -200,7 +229,80 @@ pub fn get_handler(language_name: &str) -> Box<dyn LanguageHandler> {
         "go" => Box::new(GoHandler),
         "ruby" => Box::new(RubyHandler),
         "c" | "cpp" | "objc" => Box::new(CFamilyHandler),
+        "markdown" => Box::new(MarkdownHandler),
         _ => Box::new(DefaultHandler),
+    }
+}
+
+/// Markdown, whose grammar emits no `comment` node at all.
+///
+/// An HTML comment is raw HTML as far as CommonMark is concerned, so `<!-- … -->` surfaces as an
+/// `html_block` — the same node kind as a `<div align="center">` badge row or a `<details>` block.
+/// Declaring `html_block` as a comment kind without this classifier would delete embedded HTML, so
+/// the kind is only half the test: the block's text has to be *nothing but* an HTML comment.
+pub struct MarkdownHandler;
+
+impl LanguageHandler for MarkdownHandler {
+    fn is_documentation_comment(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<bool> {
+        None
+    }
+
+    fn should_preserve_comment(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<bool> {
+        None
+    }
+
+    fn classify_comment_node(&self, node: &Node, _parent: Option<Node>, source: &str) -> Option<CommentNodeVerdict> {
+        if node.kind() != "html_block" {
+            return None;
+        }
+
+        let Ok(text) = node.utf8_text(source.as_bytes()) else {
+            return Some(CommentNodeVerdict::Rejected);
+        };
+
+        Some(match Self::comment_bounds(text) {
+            Some((start, end)) => CommentNodeVerdict::Accepted {
+                start_byte: node.start_byte() + start,
+                end_byte: node.start_byte() + end,
+            },
+            None => CommentNodeVerdict::Rejected,
+        })
+    }
+}
+
+impl MarkdownHandler {
+    /// The offsets within an `html_block`'s text of the HTML comment that is the whole of it, or
+    /// `None` when the block is not purely a comment.
+    ///
+    /// Three shapes have to be turned away, and each would cost real content if it were not:
+    ///
+    /// - **Anything but a comment first.** `<div>…</div>` is embedded HTML; so is a `<!DOCTYPE>`.
+    /// - **An unterminated `<!--`.** CommonMark runs such a block to the end of the document, so its
+    ///   node spans every line that follows. Deleting it would delete the rest of the file.
+    /// - **Anything after the closing `-->`.** CommonMark ends the block at the *line* carrying
+    ///   `-->`, so `<!-- x --><div>kept</div>` and `<!-- x --> trailing text` are each one node
+    ///   holding a comment and something else. A second comment on the same line lands here too, so
+    ///   `<!-- a --> <!-- b -->` is left alone rather than half-deleted.
+    ///
+    /// Surrounding whitespace is trimmed off the accepted span: an `html_block` carries both the
+    /// comment's leading indentation and its trailing newline, and keeping the newline would make
+    /// the removal eat the blank line after the comment as well.
+    fn comment_bounds(text: &str) -> Option<(usize, usize)> {
+        const OPEN: &str = "<!--";
+        const CLOSE: &str = "-->";
+
+        let start = text.len() - text.trim_start().len();
+        let body = &text[start..];
+        if !body.starts_with(OPEN) {
+            return None;
+        }
+
+        let close = body.find(CLOSE)? + CLOSE.len();
+        if !body[close..].trim().is_empty() {
+            return None;
+        }
+
+        Some((start, start + close))
     }
 }
 
@@ -339,5 +441,39 @@ mod tests {
         let _python_handler = get_handler("python");
         let _go_handler = get_handler("go");
         let _default_handler = get_handler("unknown");
+    }
+
+    /// The `html_block` predicate, stated as a table. Every rejected case is an `html_block` whose
+    /// text would cost real content if the node were deleted.
+    #[test]
+    fn markdown_comment_bounds_accepts_only_a_whole_comment() {
+        // (block text, the comment within it, or None to reject the block)
+        let cases: &[(&str, Option<&str>)] = &[
+            ("<!-- an aside -->\n", Some("<!-- an aside -->")),
+            ("   <!-- indented -->\n", Some("<!-- indented -->")),
+            ("<!-- c -->\r\n", Some("<!-- c -->")),
+            ("<!-- last -->", Some("<!-- last -->")),
+            ("<!--\nmulti\nline\n-->\n", Some("<!--\nmulti\nline\n-->")),
+            ("<!-- <div>hi</div> -->\n", Some("<!-- <div>hi</div> -->")),
+            ("<!-- a -- b -->\n", Some("<!-- a -- b -->")),
+            // Embedded HTML, never a comment.
+            ("<div align=\"center\">\n</div>\n\n", None),
+            ("<details>\n<summary>x</summary>\n\n", None),
+            ("<!DOCTYPE html>\n", None),
+            ("<div>\n<!-- inner -->\n</div>\n", None),
+            ("<div>\n</div>\n<!-- after -->\n", None),
+            // Unterminated: the block runs to the end of the document.
+            ("<!-- never closed\n\nreal content\n", None),
+            // A comment sharing its block with something else.
+            ("<!-- c --><div>kept</div>\n", None),
+            ("<!-- c --> trailing text\n", None),
+            ("<!-- a --> <!-- b -->\n", None),
+        ];
+
+        for (text, expected) in cases {
+            let bounds = MarkdownHandler::comment_bounds(text);
+            let found = bounds.map(|(start, end)| &text[start..end]);
+            assert_eq!(found, *expected, "comment_bounds({text:?})");
+        }
     }
 }
