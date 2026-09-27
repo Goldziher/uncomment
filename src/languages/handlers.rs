@@ -33,6 +33,19 @@ pub trait LanguageHandler {
     fn classify_comment_node(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<CommentNodeVerdict> {
         None
     }
+
+    /// The span that has to go for `node` to be removed cleanly, when the comment's own span is not
+    /// it. `None` — the default, and the answer for nearly every language — means the comment node
+    /// spans exactly what an edit should delete.
+    ///
+    /// The mirror image of [`Self::classify_comment_node`]'s narrowing: this exists for grammars that
+    /// model a comment's own delimiters as *siblings* of the comment rather than as part of it, so
+    /// deleting the comment node alone leaves a fragment of syntax behind. Returning a wider span is
+    /// only ever correct when that span contains nothing but the comment and its delimiters; a
+    /// handler that cannot prove that must return `None`.
+    fn removal_span(&self, _node: &Node, _source: &str) -> Option<(usize, usize)> {
+        None
+    }
 }
 
 pub struct DefaultHandler;
@@ -223,10 +236,76 @@ impl GoHandler {
     }
 }
 
+/// Go templates, where a comment is only a comment inside an action.
+///
+/// Every other action type in this grammar spans its own `{{`/`}}` — `if_action`, `range_action` and
+/// `define_action` all include their delimiters — but a comment action has no node covering it at
+/// all. The comment sits between two *bare sibling* delimiter tokens, so removing just the comment
+/// leaves `{{}}`, which the grammar rejects and Helm refuses to render (`missing value for
+/// command`). Reported upstream as ngalaiko/tree-sitter-go-template#56.
+pub struct GoTemplateHandler;
+
+impl LanguageHandler for GoTemplateHandler {
+    fn is_documentation_comment(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<bool> {
+        None
+    }
+
+    fn should_preserve_comment(&self, _node: &Node, _parent: Option<Node>, _source: &str) -> Option<bool> {
+        None
+    }
+
+    /// Widen a comment that has an action to itself so the whole action goes, `{{` through `}}`.
+    ///
+    /// The test is entirely structural: the comment's immediate siblings must be an opening and a
+    /// closing delimiter, with nothing but whitespace between them and the comment. A comment
+    /// sharing its action with anything else fails that test and keeps its own span — the grammar
+    /// puts such a comment under an `ERROR` node, where it has no delimiter siblings at all.
+    fn removal_span(&self, node: &Node, source: &str) -> Option<(usize, usize)> {
+        if node.kind() != "comment" {
+            return None;
+        }
+
+        let open = node.prev_sibling()?;
+        let close = node.next_sibling()?;
+        if !Self::opens_an_action(open.kind()) || !Self::closes_an_action(close.kind()) {
+            return None;
+        }
+
+        // Only whitespace may stand between the comment and either delimiter. `{{- ` absorbs the
+        // space that must follow it, but `-}}` does not absorb the one before it, so the trailing
+        // gap is real and has to be allowed rather than required to be empty.
+        if !Self::is_blank(source.get(open.end_byte()..node.start_byte())?)
+            || !Self::is_blank(source.get(node.end_byte()..close.start_byte())?)
+        {
+            return None;
+        }
+
+        Some((open.start_byte(), close.end_byte()))
+    }
+}
+
+impl GoTemplateHandler {
+    /// `{{` and its whitespace-trimming form `{{-`, matched on the token's own kind so a further
+    /// variant needs no new entry here.
+    fn opens_an_action(kind: &str) -> bool {
+        kind.starts_with("{{")
+    }
+
+    /// `}}` and its whitespace-trimming form `-}}`.
+    fn closes_an_action(kind: &str) -> bool {
+        kind.ends_with("}}")
+    }
+
+    fn is_blank(text: &str) -> bool {
+        text.bytes().all(|byte| byte.is_ascii_whitespace())
+    }
+}
+
 pub fn get_handler(language_name: &str) -> Box<dyn LanguageHandler> {
     match language_name.to_lowercase().as_str() {
         "python" => Box::new(PythonHandler),
         "go" => Box::new(GoHandler),
+        "gotmpl" => Box::new(GoTemplateHandler),
         "ruby" => Box::new(RubyHandler),
         "c" | "cpp" | "objc" => Box::new(CFamilyHandler),
         "markdown" => Box::new(MarkdownHandler),

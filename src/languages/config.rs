@@ -95,6 +95,9 @@ impl CommentSyntax {
             "powershell" => Self::both("#", "<#", "#>"),
             "julia" => Self::both("#", "#=", "=#"),
             "ocaml" => Self::block_only("(*", "*)"),
+            // A Go template comment is only a comment inside an action, so the delimiters are part
+            // of the pair: a bare `/* … */` in a template is literal output text, not a comment.
+            "gotmpl" => Self::block_only("{{/*", "*/}}"),
             _ => return None,
         };
         Some(syntax)
@@ -271,6 +274,23 @@ impl LanguageConfig {
 
     pub fn go() -> Self {
         Self::new("go", vec!["go"], vec!["comment"], vec!["comment"], "go").with_comment_syntax(CommentSyntax::C_STYLE)
+    }
+
+    /// Go's `text/template` and `html/template` syntax, which is what a Helm chart's `.tpl` helper
+    /// files are written in.
+    ///
+    /// `.tpl` is the Helm convention and the reason this exists; `.tmpl` and `.gotmpl` are Go's own,
+    /// and `.gohtml` is the HTML flavour. There is no documentation-comment convention in templates,
+    /// so `doc_comment_types` is deliberately empty — `{{/** … */}}` is an ordinary comment.
+    pub fn gotmpl() -> Self {
+        Self::new(
+            "gotmpl",
+            vec!["tpl", "tmpl", "gotmpl", "gohtml"],
+            vec!["comment"],
+            vec![],
+            "gotmpl",
+        )
+        .with_comment_syntax(CommentSyntax::block_only("{{/*", "*/}}"))
     }
 
     pub fn ruby() -> Self {

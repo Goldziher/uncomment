@@ -67,6 +67,33 @@ impl CommentInfo {
         self
     }
 
+    /// Grow this comment's span to `start..end`, which must contain the span it currently holds.
+    ///
+    /// The mirror image of [`Self::narrowed`], and rows are corrected the same way: by counting line
+    /// breaks across the two added stretches only, which are a delimiter wide, so this stays cheap
+    /// where re-deriving a row from the file start would not. The widened text becomes the comment's
+    /// [`Self::content`], which is what the whole preservation path reads: a `~keep` inside the
+    /// comment still reads as one, and a delimiter that is now part of the text lets
+    /// [`crate::processor::CommentKind`] name the shape correctly.
+    ///
+    /// A range that is not a valid slice of `source` is ignored rather than allowed to panic the
+    /// visit, on the same reasoning as [`Self::narrowed`]: [`crate::languages::handlers::LanguageHandler`]
+    /// is a public extension point, so a handler that miscalculates must not bring down a run.
+    #[must_use]
+    fn widened(mut self, start: usize, end: usize, source: &str) -> Self {
+        let newlines = |range: &str| range.bytes().filter(|&byte| byte == b'\n').count();
+
+        if let Some(prefix) = source.get(start..self.start_byte) {
+            self.start_row = self.start_row.saturating_sub(newlines(prefix));
+            self.start_byte = start;
+        }
+        if let Some(suffix) = source.get(self.end_byte..end) {
+            self.end_row += newlines(suffix);
+            self.end_byte = end;
+        }
+        self
+    }
+
     /// Extract comment content from source by byte range.
     #[inline]
     pub fn content<'a>(&self, source: &'a str) -> &'a str {
@@ -134,6 +161,13 @@ impl<'a> CommentVisitor<'a> {
             let mut comment_info = CommentInfo::new(node);
             if (start_byte, end_byte) != (node.start_byte(), node.end_byte()) {
                 comment_info = comment_info.narrowed(start_byte, end_byte, self.source);
+            }
+
+            // A grammar may model a comment's own delimiters as siblings rather than as part of the
+            // comment, in which case deleting the comment node alone leaves a syntax fragment
+            // behind. The handler reports the span that actually has to go.
+            if let Some((start, end)) = self.language_handler.removal_span(&node, self.source) {
+                comment_info = comment_info.widened(start, end, self.source);
             }
 
             if let Some(is_doc) = self
