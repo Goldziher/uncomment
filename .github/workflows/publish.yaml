@@ -41,7 +41,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Extract version from tag
         id: version
@@ -497,14 +497,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      # Tokenless OIDC trusted publishing needs npm >= 11.5.1. Node 22 bundles
-      # npm 10, and npm@latest pulls npm 12 (requires Node >= 22.22, EBADENGINE
-      # here), so pin npm@11 — the newest line that runs on Node 22.
+      # Tokenless OIDC trusted publishing needs npm >= 11.5.1. Node 24 bundles
+      # npm 11, which is new enough, but the bundled patch level is whatever the
+      # runner image happens to carry — so take the newest npm explicitly.
       - name: Update npm for trusted publishing
-        run: npm install -g npm@11
+        run: npm install -g npm@latest
 
       - name: Publish to npm
         env:
@@ -537,7 +537,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.8"
+          python-version: "3.14"
 
       - name: Build Python package
         run: |
