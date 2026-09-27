@@ -8,6 +8,7 @@ const AFTER_LONG_HELP: &str = "Examples:
   uncomment main.rs --remove-doc     Also strip doc comments and docstrings
   uncomment . -j 0                   Process the whole tree using all CPU cores
   uncomment init                     Generate a .uncommentrc.toml for this project
+  uncomment scan src/ --only removable  Inventory the comments a run would remove
   uncomment keep src/ --all-removable  Mark every removable comment with ~keep
   uncomment lint src/                  Check TODO/FIXME tags, removing nothing
 
@@ -56,6 +57,18 @@ pub enum Commands {
         #[arg(short, long, help = "Interactive mode to select languages and options")]
         interactive: bool,
     },
+
+    /// Inventory every comment and the verdict a real run would reach
+    #[command(
+        about = "Report every comment with the verdict a run would reach",
+        long_about = "Reports every comment a run would see — removed and preserved alike, with the \
+                      reason each one is preserved — as JSONL, JSON or text, and writes no source \
+                      file. Each record carries an id that survives edits elsewhere in the file, so \
+                      the report can be filtered and handed to `uncomment keep`. \
+                      `--group-identical` collapses repeated comments into one record per distinct \
+                      text, which is what makes a large repository decidable."
+    )]
+    Scan(crate::scan::command::ScanArgs),
 
     /// Write `~keep` markers into the comments a decision selected
     #[command(

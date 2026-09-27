@@ -27,6 +27,20 @@ This changelog is generated from git tags and commit history.
   appending a marker changes a comment's bytes and therefore its id, so each comment
   answers to both its current id and the id it had before being marked.
 
+- `uncomment scan` reports every comment a run would see — removed and preserved alike, each
+  with the reason it is preserved — as JSONL (one record per line), JSON or text, and writes
+  no source file. It honours the same selection flags as a real run, so `--only removable`
+  reproduces exactly what that run would delete. Each record carries an id derived from the
+  file path, the comment's own bytes and its occurrence index, deliberately excluding line and
+  byte offsets, so editing code elsewhere in the file does not invalidate it; `uncomment keep
+  --from` reads those ids back. Ids are truncated, so a collision is possible rather than
+  impossible: colliding ids are widened to the full digest and reported, and every id in a
+  report is unique.
+
+  `--group-identical` collapses comments whose normalized text is identical into one record
+  with a site list, which is what makes a large repository decidable — one judgement instead
+  of hundreds. Output is byte-identical regardless of `-j`.
+
 - `uncomment lint` checks tag comments — TODO, FIXME, HACK, XXX — and removes nothing, so
   it can run as its own pre-commit hook or CI step. Three rules, each `error`, `warn` or
   `off`: the tag is the canonical one (`FIXME` → `TODO`), it carries a tracking key

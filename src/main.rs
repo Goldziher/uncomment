@@ -37,6 +37,7 @@ fn main() -> Result<()> {
                 comprehensive,
                 interactive,
             } => Cli::handle_init_command(output, *force, *comprehensive, *interactive),
+            Commands::Scan(args) => uncomment::scan::command::run(args),
             Commands::Keep(args) => uncomment::keep::run(args),
             // `lint` reports its verdict through the exit code, so a pre-commit hook or a CI step can
             // gate on it. Exiting only on failure keeps the success path running every `Drop`.
