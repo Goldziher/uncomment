@@ -158,17 +158,17 @@ cargo run --release --features bench-tools --bin profile -- /path/to/repo
 
 ## Supported Languages
 
-uncomment ships with 54 built-in language configurations and can process any of the **306 languages**
+uncomment ships with 55 built-in language configurations and can process any of the **306 languages**
 in [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — every
 grammar is compiled into the binary, so nothing is downloaded, built or cached at runtime, and any
 language can be added via configuration.
 
 <details>
-<summary><b>54 built-in languages</b></summary>
+<summary><b>55 built-in languages</b></summary>
 
 Python (`.py`, `.pyw`, `.pyi`, `.pyx`, `.pxd`) · JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) ·
 TypeScript (`.ts`, `.mts`, `.cts`, `.d.ts`, `.d.mts`, `.d.cts`) · TSX (`.tsx`) · Rust (`.rs`) ·
-Go (`.go`) · Java (`.java`) ·
+Go (`.go`) · Go templates (`.tpl`, `.tmpl`, `.gotmpl`, `.gohtml`) · Java (`.java`) ·
 C (`.c`, `.h`) · C++ (`.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`) · C# (`.cs`) ·
 Ruby (`.rb`, `.rake`, `.gemspec`) · PHP (`.php`, `.phtml`) · Elixir (`.ex`, `.exs`) · TOML (`.toml`) ·
 JSON (`.json`) · JSON with Comments (`.jsonc`) · YAML (`.yml`, `.yaml`) ·
@@ -199,6 +199,13 @@ comment only when it is *nothing but* one comment, so embedded HTML, a `<!DOCTYP
 `<!--` (which runs to the end of the document) and `<!-- x --><div>kept</div>` are all left alone. A
 comment inside a paragraph or a table cell is inline content rather than an `html_block`, so it is
 out of reach; `.mdx` is not supported at all, because no grammar in the pack parses `{/* … */}`.
+
+In a Go template a comment is only a comment inside an action, so a bare `/* … */` is literal output
+text and `{{/* … */}}` is the only form. The grammar models the `{{` and `}}` as *siblings* of the
+comment rather than as part of it, so the whole action is removed — deleting only the comment would
+leave `{{}}`, which Helm refuses to render. One spacing caveat: `{{ /* spaced */ }}` and `{{-/* x */-}}`
+produce no comment node at all and are left alone. An inline comment keeps the spaces around it
+(`hello {{/* x */}} world` → `hello  world`), because in a template that whitespace is rendered output.
 
 ## Preservation Rules
 
