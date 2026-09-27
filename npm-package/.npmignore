@@ -1,4 +1,7 @@
-bin/
+# package.json "files" is the authoritative whitelist and cannot be overridden from
+# here; these entries only keep downloaded artifacts out of a locally packed tarball.
+bin/uncomment-bin
+bin/uncomment.exe
 *.tar.gz
 *.zip
 test_*.js
