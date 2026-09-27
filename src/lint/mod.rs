@@ -25,7 +25,7 @@ use rayon::prelude::*;
 
 use crate::config::ConfigManager;
 use crate::edit::{Edit, apply_edits};
-use crate::languages::registry::LanguageRegistry;
+use crate::languages::registry::{LanguageRegistry, warn_languages_without_a_grammar};
 use crate::paths::{absolute_normalized, find_repo_root, repo_relative, to_slash};
 use crate::processor::Processor;
 use crate::scan::id::{assign_occurrence_indices, comment_id};
@@ -224,8 +224,17 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
         bail!("no input paths specified: pass one or more files or directories to lint");
     }
 
-    let registry = LanguageRegistry::new();
-    let mut files = collect_files(&base, &args.process.paths, !args.process.no_gitignore, &registry)?;
+    // Configuration has to be loaded before collection, not after: a `[languages]` section can
+    // declare the extension a file is recognised by, and a registry that has not seen it drops the
+    // file before `[lint]` is ever consulted.
+    let respect_gitignore = !args.process.no_gitignore;
+    let mut config_manager = build_config_manager(&base, args.process.config.as_deref())?;
+    config_manager.discover_language_sources(&args.process.paths, respect_gitignore);
+
+    let mut registry = LanguageRegistry::new();
+    warn_languages_without_a_grammar(&registry.register_configured_languages(&config_manager.get_all_languages()));
+
+    let mut files = collect_files(&base, &args.process.paths, respect_gitignore, &registry)?;
 
     if args.changed_only {
         let root = repo_root
@@ -243,8 +252,6 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
             files.len()
         ));
     }
-
-    let config_manager = build_config_manager(&base, args.process.config.as_deref())?;
 
     // Resolving `[lint]` up front means a bad pattern is reported before a single file is inspected,
     // and certainly before `--fix` has rewritten anything.

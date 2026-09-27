@@ -362,6 +362,29 @@ fn a_broken_config_below_the_invocation_directory_marks_nothing() {
     assert_eq!(read(dir.path(), "src/a.rs"), source, "no marker may be written");
 }
 
+/// A `[languages.*]` section naming a language no grammar exists for registers nothing — not the
+/// extensions either, so the files it was written for are not even collected. `keep` has to say so,
+/// as the default run, `scan` and `lint` all do: silence here reads as "there was nothing to mark".
+#[test]
+fn a_language_section_without_a_grammar_is_reported() {
+    let dir = fixture(&[
+        ("src/a.zz", "// one\nfn a() {}\n"),
+        (
+            ".uncommentrc.toml",
+            "[languages.nosuchlang]\nname = \"NoSuchLang\"\nextensions = [\"zz\"]\ncomment_nodes = [\"comment\"]\n",
+        ),
+    ]);
+
+    let run = run_keep(dir.path(), &["--all-removable", "."]);
+
+    assert!(run.ok, "{}", run.message);
+    assert!(
+        run.message.contains("NoSuchLang"),
+        "the report must name the language, got: {}",
+        run.message
+    );
+}
+
 /// The acceptance test for the feature: mark everything a default run would strip, then prove a
 /// default run strips nothing, that the markers survive it, and that the only change to the tree is
 /// added markers.

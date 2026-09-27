@@ -311,9 +311,12 @@ pub struct ConfigManager {
     global_config: Option<Arc<LoadedConfig>>,
 
     /// The root directory and its ancestors up to the git root, outermost first.
-    /// Only these may register custom languages, so the language registry stays
-    /// the same no matter which files are processed.
     ancestor_configs: Vec<Arc<LoadedConfig>>,
+
+    /// Configs below the root that may also declare custom languages, deepest first.
+    /// Empty until [`ConfigManager::discover_language_sources`] is called, because
+    /// finding them costs a walk and nothing else about resolution needs one.
+    descendant_language_configs: Vec<Arc<LoadedConfig>>,
 
     /// An explicit `--config` file, which replaces directory discovery entirely.
     forced_config: Option<Arc<LoadedConfig>>,
@@ -326,6 +329,10 @@ pub struct ConfigManager {
 
     /// The highest directory the upward search may reach.
     ceiling: PathBuf,
+
+    /// The directory the requested paths are resolved against, and the floor of the
+    /// eagerly loaded ancestor chain.
+    root_dir: PathBuf,
 
     current_dir: PathBuf,
 
@@ -1785,10 +1792,12 @@ impl ConfigManager {
         Ok(Self {
             global_config: Self::load_global_config(),
             ancestor_configs,
+            descendant_language_configs: Vec::new(),
             forced_config: None,
             dir_configs: RwLock::new(dir_configs),
             file_configs: RwLock::new(AHashMap::new()),
             ceiling,
+            root_dir,
             current_dir,
             lazy_language_warning: Once::new(),
             deferred_error: RwLock::new(None),
@@ -1815,10 +1824,12 @@ impl ConfigManager {
         Ok(Self {
             global_config: None,
             ancestor_configs: vec![loaded.clone()],
+            descendant_language_configs: Vec::new(),
             forced_config: Some(loaded),
             dir_configs: RwLock::new(AHashMap::new()),
             file_configs: RwLock::new(AHashMap::new()),
-            ceiling: root_dir,
+            ceiling: root_dir.clone(),
+            root_dir,
             current_dir,
             lazy_language_warning: Once::new(),
             deferred_error: RwLock::new(None),
@@ -1905,13 +1916,13 @@ impl ConfigManager {
 
         if let Some(loaded) = &loaded
             && !loaded.config.languages.is_empty()
-            && !self.is_ancestor_config(&loaded.dir)
+            && !self.is_language_source(&loaded.dir)
         {
             let path = loaded.dir.display().to_string();
             self.lazy_language_warning.call_once(|| {
                 eprintln!(
-                    "Warning: [languages] in the config under {path} is ignored; custom languages are only \
-                     registered from the invocation directory and its ancestors."
+                    "Warning: [languages] in the config under {path} is ignored; the language registry was \
+                     already built when that config was reached."
                 );
             });
         }
@@ -1923,9 +1934,9 @@ impl ConfigManager {
         loaded
     }
 
-    /// Whether `dir` already contributed to the eagerly loaded ancestor chain.
-    fn is_ancestor_config(&self, dir: &Path) -> bool {
-        self.ancestor_configs.iter().any(|loaded| loaded.dir == dir)
+    /// Whether `dir`'s config already contributed its `[languages]` to the registry.
+    fn is_language_source(&self, dir: &Path) -> bool {
+        self.language_sources().any(|loaded| loaded.dir == dir)
     }
 
     /// The config files that apply to `dir`, outermost first. `dir` must already be
@@ -2084,11 +2095,158 @@ impl ConfigManager {
         config
     }
 
+    /// Extend the set of configs that may declare custom languages to cover `paths`.
+    ///
+    /// A custom language has to be known *before* file collection. Collection keeps only the files
+    /// whose extension some registry recognises, so a file named solely by a `[languages]` section
+    /// is discarded before anything reads that section, and the declaration does nothing at all.
+    /// The ancestor chain is loaded eagerly and so is available in time; a config below the
+    /// invocation directory is otherwise reached only per file, long after collection.
+    ///
+    /// This is what separates the two halves of a config file. Language *declarations* are gathered
+    /// here, up front, because one registry serves the whole run; every behavioural setting —
+    /// `remove_todos`, `preserve_patterns`, `[patterns]`, `[lint]` — stays lazily resolved per
+    /// file. That keeps the cost bounded by the number of config files rather than by the number of
+    /// directories: the sweep never descends further than collection itself will, prunes `.git`,
+    /// honours the same ignore rules, and opens only files named like a config.
+    ///
+    /// The result is that the configs contributing languages are exactly the ones per-file
+    /// resolution could return for the requested paths. Within that set the deepest declaration
+    /// wins, and because there is a single registry for the run a language declared in a
+    /// subdirectory is recognised for the whole of it.
+    ///
+    /// A config that cannot be parsed is skipped rather than reported here: it is reported, against
+    /// its own path, when resolution reaches it — see [`Self::deferred_config_error`]. Sweeping is
+    /// speculative, and a broken config in a subtree the run never touches must not fail the run.
+    ///
+    /// `--config` replaces discovery entirely, so this does nothing for a manager built from one.
+    pub fn discover_language_sources(&mut self, paths: &[String], respect_gitignore: bool) {
+        if self.forced_config.is_some() {
+            return;
+        }
+
+        let mut seen: AHashSet<PathBuf> = self.ancestor_configs.iter().map(|loaded| loaded.dir.clone()).collect();
+        let mut found: Vec<Arc<LoadedConfig>> = Vec::new();
+
+        for root in Self::language_scan_roots(&self.root_dir, paths) {
+            // A requested path may sit below the root directory, so the configs between the two are
+            // not on the eagerly loaded chain either. This walk is bounded by path depth.
+            let mut current = Some(root.as_path());
+            while let Some(dir) = current {
+                if !paths::is_ancestor_of(&self.ceiling, dir) {
+                    break;
+                }
+                self.take_language_source(dir, &mut seen, &mut found);
+                current = dir.parent();
+            }
+
+            let walker = ignore::WalkBuilder::new(&root)
+                .hidden(false)
+                .git_ignore(respect_gitignore)
+                .git_global(respect_gitignore)
+                .git_exclude(respect_gitignore)
+                .parents(respect_gitignore)
+                .require_git(false)
+                .filter_entry(|entry| entry.file_name() != std::ffi::OsStr::new(".git"))
+                .build();
+
+            for entry in walker.flatten() {
+                let is_config_name = entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|name| CONFIG_FILE_NAMES.contains(&name));
+                if !is_config_name || !entry.file_type().is_some_and(|kind| kind.is_file()) {
+                    continue;
+                }
+
+                let Some(dir) = entry.path().parent() else {
+                    continue;
+                };
+                if paths::is_ancestor_of(&self.ceiling, dir) {
+                    self.take_language_source(dir, &mut seen, &mut found);
+                }
+            }
+        }
+
+        // Deepest first, so that `language_sources` stays innermost-first and the closest
+        // declaration still wins. Ties are broken by path so the order is not filesystem-dependent.
+        found.sort_by(|left, right| {
+            right
+                .dir
+                .components()
+                .count()
+                .cmp(&left.dir.components().count())
+                .then_with(|| left.dir.cmp(&right.dir))
+        });
+
+        self.descendant_language_configs = found;
+    }
+
+    /// Load `dir`'s config into `found` unless the directory has already been accounted for.
+    fn take_language_source(&self, dir: &Path, seen: &mut AHashSet<PathBuf>, found: &mut Vec<Arc<LoadedConfig>>) {
+        if !seen.insert(dir.to_path_buf()) {
+            return;
+        }
+        if let Ok(Some(loaded)) = Self::load_dir_config(dir) {
+            found.push(loaded);
+        }
+    }
+
+    /// The directory subtrees the requested paths can reach.
+    ///
+    /// A path is taken down to its literal prefix — everything before the first component holding a
+    /// glob metacharacter — because the rest only filters what the walk finds. A file's own
+    /// directory stands in for it. Roots contained by another root are dropped so no subtree is
+    /// walked twice.
+    fn language_scan_roots(root_dir: &Path, paths: &[String]) -> Vec<PathBuf> {
+        let mut roots: Vec<PathBuf> = Vec::with_capacity(paths.len());
+        for pattern in paths {
+            // Taken apart with `Path::components` rather than by splitting on `/`: `"/a/b"` split on
+            // `/` yields a leading empty segment that collects back into the *relative* `a/b`, which
+            // would then be joined onto the root directory and sweep the wrong subtree entirely.
+            let literal: PathBuf = Path::new(pattern)
+                .components()
+                .take_while(|part| {
+                    !part
+                        .as_os_str()
+                        .to_string_lossy()
+                        .contains(['*', '?', '[', ']', '{', '}'])
+                })
+                .collect();
+            let mut root = paths::absolute_normalized(root_dir, &literal);
+            if root.is_file()
+                && let Some(parent) = root.parent()
+            {
+                root = parent.to_path_buf();
+            }
+            roots.push(root);
+        }
+
+        // Sorted, an enclosing directory always precedes the ones it contains.
+        roots.sort();
+        roots.dedup();
+
+        let mut minimal: Vec<PathBuf> = Vec::with_capacity(roots.len());
+        for root in roots {
+            if !minimal.iter().any(|kept| paths::is_ancestor_of(kept, &root)) {
+                minimal.push(root);
+            }
+        }
+
+        minimal
+    }
+
     /// The configs allowed to declare custom languages, innermost first so the
-    /// closest one wins. Lazily discovered configs are deliberately excluded: the
-    /// language registry is built once, before any file is looked at.
+    /// closest one wins. A config below the root is included only once
+    /// [`Self::discover_language_sources`] has been told the run will visit it; one
+    /// merely stumbled upon during per-file resolution is still excluded, because by
+    /// then the registry has been built and the file has already been collected or
+    /// dropped.
     fn language_sources(&self) -> impl DoubleEndedIterator<Item = &Arc<LoadedConfig>> {
-        self.ancestor_configs.iter().rev().chain(self.global_config.iter())
+        self.descendant_language_configs
+            .iter()
+            .chain(self.ancestor_configs.iter().rev())
+            .chain(self.global_config.iter())
     }
 
     pub fn get_language_config(&self, language_name: &str) -> Option<LanguageConfig> {
@@ -2125,6 +2283,37 @@ impl ConfigManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An absolute input path must name itself as the subtree to sweep for `[languages]`, not a
+    /// directory of the same name under the invocation directory. Splitting on `/` loses the root
+    /// component, and the relative remainder would then be joined onto the root directory — so the
+    /// sweep would look in a place that almost never exists and find no config at all.
+    #[test]
+    fn a_scan_root_from_an_absolute_path_stays_absolute() {
+        let roots = ConfigManager::language_scan_roots(Path::new("/repo"), &["/elsewhere/pkg".to_string()]);
+        assert_eq!(roots, vec![PathBuf::from("/elsewhere/pkg")]);
+    }
+
+    #[test]
+    fn a_scan_root_stops_at_the_first_glob_component_and_drops_nested_roots() {
+        let roots = ConfigManager::language_scan_roots(
+            Path::new("/repo"),
+            &[
+                "src/**/*.rs".to_string(),
+                "src/nested".to_string(),
+                "other".to_string(),
+                ".".to_string(),
+            ],
+        );
+        // `.` normalizes to the root itself, which contains every other root.
+        assert_eq!(roots, vec![PathBuf::from("/repo")]);
+
+        let roots = ConfigManager::language_scan_roots(
+            Path::new("/repo"),
+            &["src/**/*.rs".to_string(), "src/nested".to_string(), "other".to_string()],
+        );
+        assert_eq!(roots, vec![PathBuf::from("/repo/other"), PathBuf::from("/repo/src")]);
+    }
 
     #[test]
     fn test_config_template() {
