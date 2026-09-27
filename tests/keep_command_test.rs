@@ -38,13 +38,50 @@ fn cwd_lock() -> &'static Mutex<()> {
 /// `--help` succeeds either way — an unwired name is parsed as a path and prints the top-level help —
 /// so the usage line is what actually says whether the subcommand exists.
 fn subcommand_is_wired(name: &str) -> bool {
-    Command::new(BINARY)
+    let output = Command::new(BINARY)
         .args([name, "--help"])
-        .output()
-        .is_ok_and(|output| {
-            output.status.success()
-                && String::from_utf8_lossy(&output.stdout).contains(&format!("Usage: uncomment {name}"))
-        })
+        // Clap styles the usage line per span, so on a platform that keeps colour on a pipe the
+        // plain-text `Usage: uncomment <name>` test below would miss it. Match the unstyled text.
+        .env("NO_COLOR", "1")
+        .output();
+    let Ok(output) = output else {
+        eprintln!("probe: `uncomment {name} --help` could not be run");
+        return false;
+    };
+    let stdout = strip_ansi(&String::from_utf8_lossy(&output.stdout));
+    // The invoked binary may be shown as `uncomment` or `uncomment.exe`, so match the subcommand
+    // as a word on the `Usage:` line rather than the whole `Usage: uncomment <name>` run. An
+    // unwired name never reaches the usage line — it is parsed as a path and prints top-level help.
+    let wired = output.status.success()
+        && stdout
+            .lines()
+            .any(|line| line.trim_start().starts_with("Usage:") && line.split_whitespace().any(|word| word == name));
+    if !wired {
+        eprintln!(
+            "probe: `uncomment {name} --help` exited with {:?}; stdout was {stdout:?}",
+            output.status.code()
+        );
+    }
+    wired
+}
+
+/// Drop ANSI escape sequences so a styled usage line still matches its plain text.
+fn strip_ansi(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' && chars.peek() == Some(&'[') {
+            chars.next();
+            for c in chars.by_ref() {
+                if ('\u{40}'..='\u{7e}').contains(&c) {
+                    break;
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 fn keep_subcommand_is_wired() -> bool {
