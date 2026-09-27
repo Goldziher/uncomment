@@ -4,7 +4,10 @@
 //! The file shapes being layered here are `super::file`.
 
 use super::file::LoadedConfig;
-use super::{CONFIG_FILE_NAME, CONFIG_FILE_NAMES, Config, LEGACY_NAME_NOTICE, LanguageConfig, ResolvedConfig};
+use super::{
+    CONFIG_FILE_NAME, CONFIG_FILE_NAMES, Config, ExcludeSet, LEGACY_NAME_NOTICE, LanguageConfig, ResolvedConfig,
+    exclude,
+};
 use crate::lint::config::LintTable;
 use crate::paths;
 use ahash::{AHashMap, AHashSet};
@@ -410,6 +413,29 @@ impl ConfigManager {
         }
 
         config
+    }
+
+    /// The path exclusions in force for this run: every `[global] exclude` glob from the configs
+    /// already loaded, plus `extra` — the `--exclude` flags — anchored at the invocation directory.
+    ///
+    /// Only a config loaded before collection can contribute: the user-level config, the ancestor
+    /// chain, a `--config` file, and whatever [`Self::discover_language_sources`] reached. A config
+    /// first seen during per-file resolution is too late by construction — the file it would have
+    /// excluded has already been collected — so, as with `[languages]`, the sweep is what makes a
+    /// config below the invocation directory count.
+    pub fn exclude_set(&self, extra: &[String]) -> Result<ExcludeSet> {
+        let mut excludes = ExcludeSet::new(&self.current_dir);
+        for loaded in self
+            .global_config
+            .iter()
+            .chain(&self.ancestor_configs)
+            .chain(&self.descendant_language_configs)
+        {
+            excludes.add(&loaded.dir, &loaded.config.global.exclude, exclude::CONFIG_KEY)?;
+        }
+        excludes.add(&self.current_dir, extra, "--exclude")?;
+
+        Ok(excludes)
     }
 
     /// Extend the set of configs that may declare custom languages to cover `paths`.

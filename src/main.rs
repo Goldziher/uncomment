@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uncomment::cli::{Cli, Commands};
-use uncomment::config::{self, ConfigManager};
+use uncomment::config::{self, ConfigManager, ExcludeSet};
 use uncomment::languages::LanguageRegistry;
 use uncomment::languages::registry::warn_languages_without_a_grammar;
 use uncomment::processor::{self, OutputWriter};
@@ -75,8 +75,10 @@ fn main() -> Result<()> {
     let mut registry = LanguageRegistry::new();
     warn_languages_without_a_grammar(&registry.register_configured_languages(&config_manager.get_all_languages()));
 
+    let excludes = config_manager.exclude_set(&cli.args.exclude)?;
+
     let mut unsupported_report = UnsupportedFilesReport::default();
-    let files = collect_files(&cli.args.paths, &options, &registry, &mut unsupported_report)?;
+    let files = collect_files(&cli.args.paths, &options, &registry, &excludes, &mut unsupported_report)?;
 
     print_unsupported_files_report(&unsupported_report, cli.args.verbose);
 
@@ -246,6 +248,7 @@ fn collect_files(
     paths: &[String],
     options: &processor::ProcessingOptions,
     registry: &LanguageRegistry,
+    excludes: &ExcludeSet,
     unsupported: &mut UnsupportedFilesReport,
 ) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
@@ -254,16 +257,24 @@ fn collect_files(
         let path = Path::new(path_pattern);
 
         if path.is_file() {
+            // Before the extension check: an excluded file is not a file the run declined to
+            // support, and reporting it as unsupported would ask the user to act on it.
+            if excludes.is_excluded(path) {
+                continue;
+            }
             if has_supported_extension(path, registry) {
                 files.push(path.to_path_buf());
             } else {
                 record_unsupported_file(path, unsupported);
             }
         } else if path.is_dir() {
+            if excludes.prunes_dir(path) {
+                continue;
+            }
             let pattern = format!("{}/**/*", path.display());
-            collect_from_pattern(&pattern, &mut files, options, registry, unsupported)?
+            collect_from_pattern(&pattern, &mut files, options, registry, excludes, unsupported)?
         } else {
-            collect_from_pattern(path_pattern, &mut files, options, registry, unsupported)?
+            collect_from_pattern(path_pattern, &mut files, options, registry, excludes, unsupported)?
         }
     }
 
@@ -278,6 +289,7 @@ fn collect_from_pattern(
     files: &mut Vec<PathBuf>,
     options: &processor::ProcessingOptions,
     registry: &LanguageRegistry,
+    excludes: &ExcludeSet,
     unsupported: &mut UnsupportedFilesReport,
 ) -> Result<()> {
     if options.respect_gitignore {
@@ -326,6 +338,7 @@ fn collect_from_pattern(
             .git_exclude(true)
             .parents(true)
             .require_git(false)
+            .filter_entry(excludes.walk_filter())
             .build();
 
         for entry in walker {
@@ -336,6 +349,10 @@ fn collect_from_pattern(
                     if let Some(ref prefix) = filter_prefix
                         && !path.starts_with(prefix)
                     {
+                        continue;
+                    }
+
+                    if excludes.is_excluded(path) {
                         continue;
                     }
 
@@ -354,6 +371,9 @@ fn collect_from_pattern(
         for entry in glob(pattern).context("Failed to parse glob pattern")? {
             match entry {
                 Ok(path) => {
+                    if excludes.is_excluded(&path) {
+                        continue;
+                    }
                     if path.is_file() {
                         if has_supported_extension(&path, registry) {
                             files.push(path);

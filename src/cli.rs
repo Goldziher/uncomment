@@ -180,6 +180,15 @@ pub struct ProcessArgs {
     )]
     pub quiet: bool,
 
+    /// Paths never collected, as globs, on top of `[global] exclude`
+    #[arg(
+        long = "exclude",
+        value_name = "GLOB",
+        help = "Skip paths matching GLOB (can be used multiple times)",
+        help_heading = "File selection"
+    )]
+    pub exclude: Vec<String>,
+
     /// Ignore .gitignore rules when finding files
     #[arg(
         long = "no-gitignore",
