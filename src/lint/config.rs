@@ -9,25 +9,21 @@
 //! is a configuration error naming the key it came from rather than a panic partway through a run
 //! that has already rewritten files.
 //!
-//! This loader duplicates the config discovery in [`crate::config`] — same file names, same
-//! nearest-wins layering, same git-root ceiling — because `Config` carries
-//! `#[serde(deny_unknown_fields)]` and has no `lint` field yet. Only the `[lint]` table is
-//! deserialized here and every other key in the document is ignored, which is what keeps this
-//! loader from re-implementing the rest of the schema.
+//! [`LintTable`] is the `lint` field of [`crate::config::Config`], so one config file serves both
+//! readers and discovery happens once, in [`crate::config::ConfigManager`]. What is left here is the
+//! table's own schema, its layering rule, and turning a resolved table into a validated
+//! [`LintConfig`].
 
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::paths::{absolute_normalized, find_repo_root};
-
-/// Searched in this order within one directory, matching [`crate::config`].
-const CONFIG_FILE_NAMES: [&str; 2] = [".uncommentrc.toml", "uncomment.toml"];
+use crate::config::ConfigManager;
+use crate::paths::absolute_normalized;
 
 pub const DEFAULT_TAGS: [&str; 4] = ["TODO", "FIXME", "HACK", "XXX"];
 pub const DEFAULT_CANONICAL_TAG: &str = "TODO";
@@ -40,7 +36,7 @@ pub const DEFAULT_KEY_PATTERN: &str = r"^\s*(?:TODO|FIXME|HACK|XXX)\((?<key>[A-Z
 /// `naaman.hirschfeld.AMVP-160815.description`, so the key sits in the middle.
 pub const DEFAULT_BRANCH_PATTERN: &str = r"([A-Z][A-Z0-9]+-\d+)";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     /// Counts towards a non-zero exit status.
@@ -93,41 +89,101 @@ impl Rule {
 
 /// `[lint.rules]` as written. Absent means "use the default severity", which lets a table that only
 /// silences one rule leave the others alone.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RuleTable {
-    #[serde(rename = "tag-not-canonical")]
+    #[serde(rename = "tag-not-canonical", skip_serializing_if = "Option::is_none")]
     pub tag_not_canonical: Option<Severity>,
 
-    #[serde(rename = "todo-missing-key")]
+    #[serde(rename = "todo-missing-key", skip_serializing_if = "Option::is_none")]
     pub todo_missing_key: Option<Severity>,
 
-    #[serde(rename = "todo-self-reference")]
+    #[serde(rename = "todo-self-reference", skip_serializing_if = "Option::is_none")]
     pub todo_self_reference: Option<Severity>,
+}
+
+impl RuleTable {
+    /// `self` layered on top of `base`: a severity `self` names wins, one it omits is inherited.
+    fn layer_over(&self, base: &RuleTable) -> RuleTable {
+        RuleTable {
+            tag_not_canonical: self.tag_not_canonical.or(base.tag_not_canonical),
+            todo_missing_key: self.todo_missing_key.or(base.todo_missing_key),
+            todo_self_reference: self.todo_self_reference.or(base.todo_self_reference),
+        }
+    }
 }
 
 /// The `[lint]` table exactly as written, before any defaulting or regex compilation.
 ///
-/// `deny_unknown_fields` applies to this table alone: a typo inside `[lint]` is a clear error, while
-/// every key outside it stays none of this loader's business.
-#[derive(Debug, Clone, Default, Deserialize)]
+/// Every key is optional so that layering can tell "absent" from "set to the default", which is what
+/// lets a nested `[lint]` override one key and inherit the rest.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LintTable {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub canonical_tag: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub key_pattern: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub current_issue_from_branch: Option<String>,
 
     #[serde(default)]
     pub rules: RuleTable,
 }
 
-/// Only the `[lint]` table; every other section of the document is discarded unread.
-#[derive(Debug, Default, Deserialize)]
-struct Document {
-    #[serde(default)]
-    lint: Option<LintTable>,
+impl LintTable {
+    /// `self` layered on top of `base`: every key `self` names wins, every key it omits — including
+    /// each severity inside `[lint.rules]` — is inherited.
+    ///
+    /// Merging rather than replacing is what makes a nested `[lint]` a local amendment instead of a
+    /// second, unrelated policy: a directory that only silences one rule keeps `enabled` and the tag
+    /// vocabulary of the config above it.
+    pub fn layer_over(&self, base: &LintTable) -> LintTable {
+        LintTable {
+            enabled: self.enabled.or(base.enabled),
+            tags: self.tags.clone().or_else(|| base.tags.clone()),
+            canonical_tag: self.canonical_tag.clone().or_else(|| base.canonical_tag.clone()),
+            key_pattern: self.key_pattern.clone().or_else(|| base.key_pattern.clone()),
+            current_issue_from_branch: self
+                .current_issue_from_branch
+                .clone()
+                .or_else(|| base.current_issue_from_branch.clone()),
+            rules: self.rules.layer_over(&base.rules),
+        }
+    }
+
+    /// Reject what is wrong with this table on its own, before it is layered with any other.
+    ///
+    /// Only the keys this table actually names are judged, so [`crate::config::Config::validate`] can
+    /// call it per file and report the file that carries the mistake. Cross-key rules that depend on
+    /// the layered result — a canonical tag outside `tags` — are checked in
+    /// [`LintConfig::from_table`] instead.
+    pub fn validate(&self) -> Result<()> {
+        if let Some(tags) = &self.tags {
+            if tags.is_empty() {
+                bail!("lint.tags is empty: there is nothing to lint for");
+            }
+            if let Some(blank) = tags.iter().find(|tag| tag.trim().is_empty()) {
+                bail!("lint.tags contains a blank tag {blank:?}");
+            }
+        }
+        if let Some(pattern) = &self.key_pattern {
+            compile(pattern, "lint.key_pattern", "")?;
+        }
+        if let Some(pattern) = &self.current_issue_from_branch {
+            compile(pattern, "lint.current_issue_from_branch", "")?;
+        }
+
+        Ok(())
+    }
 }
 
 /// A validated `[lint]` table with its regexes compiled.
@@ -253,134 +309,41 @@ fn compile(pattern: &str, key: &str, where_from: &str) -> Result<Regex> {
     Regex::new(pattern).with_context(|| format!("invalid regex for {key}{where_from}: {pattern}"))
 }
 
-/// Nearest-config-wins resolution of the `[lint]` table, memoized per directory.
+/// Per-directory resolution of the `[lint]` table, memoized.
 ///
-/// Resolution is a sequential pre-pass over the directories holding the files to lint, so the
-/// per-file lookup that follows is an immutable map read and a bad pattern is reported before
-/// anything is inspected — let alone rewritten.
+/// Discovery and layering belong to [`ConfigManager`], which reads each config file once for every
+/// reader; this adds only the compiled, validated form and the memo. Resolution runs as a sequential
+/// pre-pass over the files to lint, so the per-file lookup that follows is a map read and a bad
+/// pattern is reported before anything is inspected — let alone rewritten.
 #[derive(Debug)]
-pub struct Resolver {
-    forced: Option<Arc<LintConfig>>,
-    cache: HashMap<PathBuf, Arc<LintConfig>>,
+pub struct Resolver<'manager> {
+    manager: &'manager ConfigManager,
+    /// Relative paths resolve against this, so the cache key is canonical.
     base: PathBuf,
+    cache: HashMap<PathBuf, Arc<LintConfig>>,
 }
 
-impl Resolver {
-    /// `forced` is `--config`: one file, used for every path, discovery skipped.
-    pub fn new(base: &Path, forced: Option<&Path>) -> Result<Self> {
-        let forced = match forced {
-            Some(path) => Some(Arc::new(load_file(path)?.unwrap_or(LintConfig::defaults()?))),
-            None => None,
-        };
-
-        Ok(Self {
-            forced,
-            cache: HashMap::new(),
+impl<'manager> Resolver<'manager> {
+    pub fn new(base: &Path, manager: &'manager ConfigManager) -> Self {
+        Self {
+            manager,
             base: base.to_path_buf(),
-        })
+            cache: HashMap::new(),
+        }
     }
 
     /// The table in force for `file`, which need not exist yet.
     pub fn for_file(&mut self, file: &Path) -> Result<Arc<LintConfig>> {
-        if let Some(forced) = &self.forced {
-            return Ok(Arc::clone(forced));
-        }
-
         let absolute = absolute_normalized(&self.base, file);
         let dir = absolute.parent().unwrap_or(&absolute).to_path_buf();
         if let Some(cached) = self.cache.get(&dir) {
             return Ok(Arc::clone(cached));
         }
 
-        let resolved = Arc::new(self.discover(&dir)?);
+        let (table, source) = self.manager.lint_table_for_file(&absolute);
+        let resolved = Arc::new(LintConfig::from_table(&table.unwrap_or_default(), source)?);
         self.cache.insert(dir, Arc::clone(&resolved));
         Ok(resolved)
-    }
-
-    /// Walk from `dir` up to the enclosing git root; the first `[lint]` table found wins outright.
-    ///
-    /// Tables are not merged across levels. A nested `[lint]` is a deliberate local policy, and
-    /// half-inheriting one would make "which rules are on here" impossible to read off one file.
-    fn discover(&self, dir: &Path) -> Result<LintConfig> {
-        let ceiling = find_repo_root(dir).unwrap_or_else(|| dir.to_path_buf());
-
-        let mut current = Some(dir);
-        while let Some(candidate) = current {
-            for name in CONFIG_FILE_NAMES {
-                let path = candidate.join(name);
-                if path.is_file()
-                    && let Some(config) = load_file(&path)?
-                {
-                    return Ok(config);
-                }
-            }
-
-            if candidate == ceiling {
-                break;
-            }
-            current = candidate.parent();
-        }
-
-        LintConfig::defaults()
-    }
-}
-
-/// The nearest config file at or above `dir`, bounded by the enclosing git root.
-///
-/// Whether it carries a `[lint]` table is not considered: this answers "which file configures
-/// `uncomment` here", which is what the language configuration has to be read from.
-pub fn nearest_config_file(dir: &Path) -> Option<PathBuf> {
-    let ceiling = find_repo_root(dir).unwrap_or_else(|| dir.to_path_buf());
-
-    let mut current = Some(dir);
-    while let Some(candidate) = current {
-        for name in CONFIG_FILE_NAMES {
-            let path = candidate.join(name);
-            if path.is_file() {
-                return Some(path);
-            }
-        }
-
-        if candidate == ceiling {
-            break;
-        }
-        current = candidate.parent();
-    }
-
-    None
-}
-
-/// The removal command's [`crate::config::Config`] from `path`, with the `[lint]` table removed.
-///
-/// `Config` carries `deny_unknown_fields` and has no `lint` field, so a config file holding a
-/// `[lint]` table fails to parse there — which would mean lint could never share a file with the
-/// language configuration it needs in order to find comments at all. Stripping the table lets one
-/// file serve both readers; the strip disappears once `Config` grows the field.
-pub fn config_without_lint(path: &Path) -> Result<crate::config::Config> {
-    let text = fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
-    let mut document: toml::Table =
-        toml::from_str(&text).with_context(|| format!("failed to parse config file: {}", path.display()))?;
-    document.remove("lint");
-
-    let config: crate::config::Config = document
-        .try_into()
-        .with_context(|| format!("failed to parse config file: {}", path.display()))?;
-    config
-        .validate()
-        .with_context(|| format!("invalid configuration in: {}", path.display()))?;
-
-    Ok(config)
-}
-
-/// `Ok(None)` when the file parses but carries no `[lint]` table, so discovery keeps walking up.
-fn load_file(path: &Path) -> Result<Option<LintConfig>> {
-    let text = fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
-    let document: Document =
-        toml::from_str(&text).with_context(|| format!("failed to parse [lint] from {}", path.display()))?;
-
-    match document.lint {
-        Some(table) => Ok(Some(LintConfig::from_table(&table, Some(path.to_path_buf()))?)),
-        None => Ok(None),
     }
 }
 
@@ -392,9 +355,24 @@ mod tests {
 
     use super::*;
 
+    use crate::config::Config;
+
+    /// The `[lint]` table of a whole config document, compiled.
     fn table(toml: &str) -> Result<LintConfig> {
-        let document: Document = toml::from_str(toml)?;
-        LintConfig::from_table(&document.lint.unwrap_or_default(), None)
+        let config: Config = toml::from_str(toml)?;
+        LintConfig::from_table(&config.lint.unwrap_or_default(), None)
+    }
+
+    /// The table in force for `file` under `root`, resolved the way a lint run resolves it.
+    fn resolve(root: &Path, file: &str) -> Result<Arc<LintConfig>> {
+        let manager = ConfigManager::new(root)?;
+        Resolver::new(root, &manager).for_file(&root.join(file))
+    }
+
+    fn repo() -> TempDir {
+        let temp = TempDir::new().unwrap();
+        fs::create_dir_all(temp.path().join(".git")).unwrap();
+        temp
     }
 
     #[test]
@@ -487,27 +465,26 @@ key_pattern = '^\s*(?:TODO)\[([A-Z]+-\d+)\]'
 
     #[test]
     fn a_typo_inside_the_lint_table_is_rejected() {
-        let err = toml::from_str::<Document>("[lint]\nenable = true\n").unwrap_err();
+        let err = toml::from_str::<Config>("[lint]\nenable = true\n").unwrap_err();
         assert!(err.to_string().contains("enable"), "{err}");
     }
 
     #[test]
-    fn keys_outside_the_lint_table_are_ignored_rather_than_rejected() {
-        // The whole document is not this loader's schema; only `[lint]` is.
-        let config = table(
+    fn one_document_carries_the_removal_settings_and_the_lint_table() {
+        // `Config` has `deny_unknown_fields`, so before `lint` became a field this document was
+        // `unknown field `lint`` for every reader but this one.
+        let config: Config = toml::from_str(
             r#"
 [global]
 remove_todos = true
-
-[languages.rust]
-name = "rust"
 
 [lint]
 enabled = true
 "#,
         )
         .unwrap();
-        assert!(config.enabled);
+        assert!(config.global.remove_todos);
+        assert!(LintConfig::from_table(&config.lint.unwrap(), None).unwrap().enabled);
     }
 
     #[test]
@@ -548,45 +525,47 @@ todo-self-reference = "off"
     }
 
     #[test]
-    fn the_nearest_config_with_a_lint_table_wins_outright() {
-        let temp = TempDir::new().unwrap();
+    fn a_nested_table_overrides_only_the_keys_it_names() {
+        let temp = repo();
         let root = temp.path();
-        fs::create_dir_all(root.join(".git")).unwrap();
         fs::create_dir_all(root.join("nested/deeper")).unwrap();
 
         fs::write(
             root.join(".uncommentrc.toml"),
-            "[lint]\nenabled = true\ntags = ['TODO']\n",
+            "[lint]\nenabled = true\ntags = ['TODO']\n\n[lint.rules]\ntag-not-canonical = 'warn'\n",
         )
         .unwrap();
         fs::write(
             root.join("nested/.uncommentrc.toml"),
-            "[lint]\nenabled = true\ntags = ['NOTE']\ncanonical_tag = 'NOTE'\n",
+            "[lint]\ntags = ['NOTE']\ncanonical_tag = 'NOTE'\n",
         )
         .unwrap();
 
-        let mut resolver = Resolver::new(root, None).unwrap();
-        assert_eq!(resolver.for_file(&root.join("a.rs")).unwrap().tags, vec!["TODO"]);
-        assert_eq!(resolver.for_file(&root.join("nested/b.rs")).unwrap().tags, vec!["NOTE"]);
-        // Inherited from `nested/`, not merged with the root table.
-        assert_eq!(
-            resolver.for_file(&root.join("nested/deeper/c.rs")).unwrap().tags,
-            vec!["NOTE"]
-        );
+        let above = resolve(root, "a.rs").unwrap();
+        assert_eq!(above.tags, vec!["TODO"]);
+        assert_eq!(above.canonical_tag, "TODO");
+
+        let below = resolve(root, "nested/b.rs").unwrap();
+        assert_eq!(below.tags, vec!["NOTE"]);
+        // Named by neither the nested table nor a default: inherited from the root.
+        assert!(below.enabled, "`enabled` must come from the config above");
+        assert_eq!(below.severity(Rule::TagNotCanonical), Severity::Warn);
+        assert_eq!(below.severity(Rule::TodoMissingKey), Severity::Error);
+
+        // And the nested table keeps applying further down, where no config of its own exists.
+        assert_eq!(resolve(root, "nested/deeper/c.rs").unwrap().tags, vec!["NOTE"]);
     }
 
     #[test]
-    fn a_config_without_a_lint_table_does_not_stop_the_upward_walk() {
-        let temp = TempDir::new().unwrap();
+    fn a_config_without_a_lint_table_leaves_the_one_above_it_in_force() {
+        let temp = repo();
         let root = temp.path();
-        fs::create_dir_all(root.join(".git")).unwrap();
         fs::create_dir_all(root.join("nested")).unwrap();
 
         fs::write(root.join(".uncommentrc.toml"), "[lint]\nenabled = true\n").unwrap();
         fs::write(root.join("nested/.uncommentrc.toml"), "[global]\nremove_todos = true\n").unwrap();
 
-        let mut resolver = Resolver::new(root, None).unwrap();
-        assert!(resolver.for_file(&root.join("nested/b.rs")).unwrap().enabled);
+        assert!(resolve(root, "nested/b.rs").unwrap().enabled);
     }
 
     #[test]
@@ -598,61 +577,19 @@ todo-self-reference = "off"
 
         fs::write(outside.join(".uncommentrc.toml"), "[lint]\nenabled = true\n").unwrap();
 
-        let mut resolver = Resolver::new(&repo, None).unwrap();
         assert!(
-            !resolver.for_file(&repo.join("a.rs")).unwrap().enabled,
+            !resolve(&repo, "a.rs").unwrap().enabled,
             "a config above the repository root must not apply"
         );
     }
 
     #[test]
-    fn the_nearest_config_file_is_found_regardless_of_a_lint_table() {
-        let temp = TempDir::new().unwrap();
-        let root = temp.path();
-        fs::create_dir_all(root.join(".git")).unwrap();
-        let nested = root.join("services/api");
-        fs::create_dir_all(&nested).unwrap();
-
-        assert_eq!(nearest_config_file(&nested), None);
-
-        fs::write(root.join("uncomment.toml"), "[global]\nremove_todos = false\n").unwrap();
-        assert_eq!(nearest_config_file(&nested), Some(root.join("uncomment.toml")));
-
-        fs::write(nested.join(".uncommentrc.toml"), "[lint]\nenabled = true\n").unwrap();
-        assert_eq!(nearest_config_file(&nested), Some(nested.join(".uncommentrc.toml")));
-    }
-
-    #[test]
-    fn stripping_the_lint_table_leaves_the_rest_of_the_document_loadable() {
-        let temp = TempDir::new().unwrap();
-        let path = temp.path().join(".uncommentrc.toml");
-        fs::write(
-            &path,
-            "[global]\nremove_todos = true\n\n[lint]\nenabled = true\ntags = ['NOTE']\n",
-        )
-        .unwrap();
-
-        // Without the strip this is `unknown field `lint``, and the language config is unreachable.
-        let config = config_without_lint(&path).expect("loads with the lint table removed");
-        assert!(config.global.remove_todos);
-    }
-
-    #[test]
-    fn a_broken_document_still_reports_its_own_path() {
-        let temp = TempDir::new().unwrap();
-        let path = temp.path().join(".uncommentrc.toml");
-        fs::write(&path, "[global]\nremove_todos = 'not a bool'\n").unwrap();
-
-        let error = config_without_lint(&path).expect_err("an invalid value must not be swallowed");
-        assert!(format!("{error:#}").contains(".uncommentrc.toml"), "{error:#}");
-    }
-
-    #[test]
     fn a_forced_config_file_skips_discovery_entirely() {
-        let temp = TempDir::new().unwrap();
+        let temp = repo();
         let root = temp.path();
-        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::create_dir_all(root.join("nested")).unwrap();
         fs::write(root.join(".uncommentrc.toml"), "[lint]\nenabled = false\n").unwrap();
+        fs::write(root.join("nested/.uncommentrc.toml"), "[lint]\ntags = ['XXX']\n").unwrap();
 
         let forced = root.join("forced.toml");
         fs::write(
@@ -661,28 +598,67 @@ todo-self-reference = "off"
         )
         .unwrap();
 
-        let mut resolver = Resolver::new(root, Some(&forced)).unwrap();
-        let config = resolver.for_file(&root.join("a.rs")).unwrap();
-        assert!(config.enabled);
-        assert_eq!(config.tags, vec!["NOTE"]);
+        let manager = ConfigManager::from_config_file(root, &forced).unwrap();
+        let mut resolver = Resolver::new(root, &manager);
+        for file in ["a.rs", "nested/b.rs"] {
+            let config = resolver.for_file(&root.join(file)).unwrap();
+            assert!(config.enabled, "{file}");
+            assert_eq!(config.tags, vec!["NOTE"], "{file}");
+        }
     }
 
     #[test]
     fn an_invalid_pattern_in_a_discovered_file_names_that_file() {
-        let temp = TempDir::new().unwrap();
+        let temp = repo();
         let root = temp.path();
-        fs::create_dir_all(root.join(".git")).unwrap();
         fs::write(
             root.join(".uncommentrc.toml"),
             "[lint]\nenabled = true\nkey_pattern = '([unclosed'\n",
         )
         .unwrap();
 
-        let mut resolver = Resolver::new(root, None).unwrap();
-        let err = resolver.for_file(&root.join("a.rs")).unwrap_err();
-        let message = format!("{err:#}");
+        // A config on the invocation directory's own chain is loaded eagerly, so this is refused
+        // before any resolution happens at all.
+        let error = ConfigManager::new(root).unwrap_err();
+        let message = format!("{error:#}");
         assert!(message.contains("lint.key_pattern"), "{message}");
         assert!(message.contains(".uncommentrc.toml"), "{message}");
+    }
+
+    #[test]
+    fn an_invalid_pattern_below_the_invocation_directory_names_that_file() {
+        let temp = repo();
+        let root = temp.path();
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::write(root.join(".uncommentrc.toml"), "[lint]\nenabled = true\n").unwrap();
+        fs::write(
+            root.join("nested/.uncommentrc.toml"),
+            "[lint]\nkey_pattern = '([unclosed'\n",
+        )
+        .unwrap();
+
+        // Below the invocation directory a config is discovered from a call that cannot fail, so the
+        // failure is recorded rather than returned — and the run has to check for it.
+        let manager = ConfigManager::new(root).unwrap();
+        Resolver::new(root, &manager)
+            .for_file(&root.join("nested/b.rs"))
+            .unwrap();
+        let recorded = manager.deferred_config_error().expect("the broken config was rejected");
+        assert!(recorded.contains("lint.key_pattern"), "{recorded}");
+        assert!(recorded.contains("nested"), "{recorded}");
+    }
+
+    #[test]
+    fn a_table_is_validated_on_its_own_before_it_is_layered() {
+        let broken: LintTable = toml::from_str("key_pattern = '([unclosed'\n").unwrap();
+        let message = format!("{:#}", broken.validate().unwrap_err());
+        assert!(message.contains("lint.key_pattern"), "{message}");
+
+        // Only the keys the table names are judged: a table that sets `tags` alone must not be
+        // rejected for the canonical tag it inherits.
+        let partial: LintTable = toml::from_str("tags = ['NOTE']\n").unwrap();
+        assert!(partial.validate().is_ok());
+        assert!(toml::from_str::<LintTable>("tags = []\n").unwrap().validate().is_err());
     }
 
     impl LintConfig {

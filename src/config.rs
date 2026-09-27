@@ -1,3 +1,4 @@
+use crate::lint::config::LintTable;
 use crate::paths;
 use ahash::{AHashMap, AHashSet};
 use anyhow::{Context, Result};
@@ -45,6 +46,11 @@ pub struct Config {
 
     #[serde(default)]
     pub patterns: HashMap<String, PatternConfig>,
+
+    /// `[lint]` as written, or `None` when the file had no such section. Layering has to tell those
+    /// apart, so the table keeps every key optional; see [`LintTable::layer_over`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lint: Option<LintTable>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -239,12 +245,14 @@ struct CompiledPattern {
 #[derive(Debug)]
 struct LoadedConfig {
     dir: PathBuf,
+    /// The file it was read from, for error messages. `None` for a config assembled in code.
+    path: Option<PathBuf>,
     config: Config,
     patterns: Vec<CompiledPattern>,
 }
 
 impl LoadedConfig {
-    fn new(dir: PathBuf, config: Config) -> Result<Self> {
+    fn new(dir: PathBuf, path: Option<PathBuf>, config: Config) -> Result<Self> {
         let mut patterns = Vec::with_capacity(config.patterns.len());
         for (pattern, pattern_config) in &config.patterns {
             patterns.push(CompiledPattern {
@@ -264,7 +272,12 @@ impl LoadedConfig {
                 .then_with(|| left.pattern.cmp(&right.pattern))
         });
 
-        Ok(Self { dir, config, patterns })
+        Ok(Self {
+            dir,
+            path,
+            config,
+            patterns,
+        })
     }
 
     fn apply_patterns(&self, file_path: &Path, resolved: &mut ResolvedConfig) {
@@ -372,6 +385,12 @@ impl Config {
         pattern_names.sort();
         for pattern in pattern_names {
             compile_pattern_glob(pattern)?;
+        }
+
+        // Each file's own `[lint]` table, judged on its own keys, so the caller's context names the
+        // file that carries a broken pattern rather than whichever file the layered result came from.
+        if let Some(lint) = &self.lint {
+            lint.validate()?;
         }
 
         Ok(())
@@ -1723,6 +1742,14 @@ comment_nodes = ["comment"]"#,
                 .map(|(pattern, config)| (pattern.clone(), config.clone())),
         );
 
+        // Key by key, like `[global]`: a nested `[lint]` amends the table above it instead of
+        // replacing it, so naming one rule does not silently reset `enabled` or the tag vocabulary.
+        merged.lint = match (&merged.lint, &other.lint) {
+            (base, None) => base.clone(),
+            (None, Some(over)) => Some(over.clone()),
+            (Some(base), Some(over)) => Some(over.layer_over(base)),
+        };
+
         merged
     }
 }
@@ -1769,9 +1796,21 @@ impl ConfigManager {
     }
 
     pub fn from_single_config<P: AsRef<Path>>(root_dir: P, config: Config) -> Result<Self> {
+        Self::forced(root_dir, None, config)
+    }
+
+    /// One explicit config file — `--config` — read here so that errors naming it stay available to
+    /// every reader of the resulting manager, `[lint]` included.
+    pub fn from_config_file<P: AsRef<Path>, Q: AsRef<Path>>(root_dir: P, path: Q) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        let config = Config::from_file(&path)?;
+        Self::forced(root_dir, Some(path), config)
+    }
+
+    fn forced<P: AsRef<Path>>(root_dir: P, path: Option<PathBuf>, config: Config) -> Result<Self> {
         let current_dir = std::env::current_dir().context("Failed to get current directory")?;
         let root_dir = paths::absolute_normalized(&current_dir, root_dir.as_ref());
-        let loaded = Arc::new(LoadedConfig::new(root_dir.clone(), config)?);
+        let loaded = Arc::new(LoadedConfig::new(root_dir.clone(), path, config)?);
 
         Ok(Self {
             global_config: None,
@@ -1797,7 +1836,7 @@ impl ConfigManager {
         }
 
         let dir = path.parent()?.to_path_buf();
-        match Config::from_file(&path).and_then(|config| LoadedConfig::new(dir, config)) {
+        match Config::from_file(&path).and_then(|config| LoadedConfig::new(dir, Some(path.clone()), config)) {
             Ok(loaded) => Some(Arc::new(loaded)),
             Err(e) => {
                 eprintln!("Warning: Failed to load global config: {e}");
@@ -1823,7 +1862,7 @@ impl ConfigManager {
         };
 
         let config = Config::from_file(&path)?;
-        let loaded = LoadedConfig::new(dir.to_path_buf(), config)
+        let loaded = LoadedConfig::new(dir.to_path_buf(), Some(path.clone()), config)
             .with_context(|| format!("Invalid configuration in: {}", path.display()))?;
 
         Ok(Some(Arc::new(loaded)))
@@ -1977,6 +2016,39 @@ impl ConfigManager {
         }
 
         resolved
+    }
+
+    /// The `[lint]` table in force for one file, layered exactly like the rest of the configuration:
+    /// the user-level config first, then every config file from the search ceiling down to the file's
+    /// own directory, each one amending the last key by key.
+    ///
+    /// The second element is the innermost config file that contributed a `[lint]` section, which is
+    /// what a table-level mistake is reported against. `None` there means no file did — the built-in
+    /// defaults — or that the config came from code rather than from a file.
+    ///
+    /// Infallible, like [`Self::get_config_for_file`]: a config file below the invocation directory is
+    /// discovered here, and a rejected one is recorded for [`Self::deferred_config_error`] rather than
+    /// returned. A caller that may rewrite files has to check that before acting on the result.
+    pub fn lint_table_for_file<P: AsRef<Path>>(&self, file_path: P) -> (Option<LintTable>, Option<PathBuf>) {
+        let file_path = paths::absolute_normalized(&self.current_dir, file_path.as_ref());
+        let dir = file_path.parent().unwrap_or(&file_path);
+
+        let mut table: Option<LintTable> = None;
+        let mut source: Option<PathBuf> = None;
+        for loaded in self.global_config.iter().chain(self.config_chain(dir).iter()) {
+            let Some(next) = &loaded.config.lint else {
+                continue;
+            };
+            table = Some(match &table {
+                Some(base) => next.layer_over(base),
+                None => next.clone(),
+            });
+            if let Some(path) = &loaded.path {
+                source = Some(path.clone());
+            }
+        }
+
+        (table, source)
     }
 
     pub fn get_config_for_file_with_language<P: AsRef<Path>>(
