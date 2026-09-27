@@ -1,13 +1,15 @@
 //! Layered TOML configuration.
 //!
-//! Split three ways: `file` is the serde shape of a config file and how one layer merges into the
-//! next, `manager` is [`ConfigManager`] — discovery, caching and per-file resolution — and
-//! `templates` is what `uncomment init` writes.
+//! Split four ways: `file` is the serde shape of a config file and how one layer merges into the
+//! next, `manager` is [`ConfigManager`] — discovery, caching and per-file resolution — `exclude` is
+//! the path filter every file collector applies, and `templates` is what `uncomment init` writes.
 
+mod exclude;
 mod file;
 mod manager;
 mod templates;
 
+pub use exclude::ExcludeSet;
 pub use file::{Config, GlobalConfig, LanguageConfig, PatternConfig, ResolvedConfig};
 pub use manager::ConfigManager;
 pub use templates::DetectionInfo;

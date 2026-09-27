@@ -20,7 +20,7 @@
 //! reported as unmarkable rather than written.
 
 use crate::ast::visitor::CommentInfo;
-use crate::config::{Config, ConfigManager, ResolvedConfig};
+use crate::config::{Config, ConfigManager, ExcludeSet, ResolvedConfig};
 use crate::edit::{Edit, apply_edits};
 use crate::languages::registry::{LanguageRegistry, warn_languages_without_a_grammar};
 use crate::paths::{absolute_normalized, find_repo_root, normalize_lexical, repo_relative, to_slash};
@@ -127,7 +127,8 @@ pub fn run(args: &KeepArgs) -> Result<()> {
     let mut registry = LanguageRegistry::new();
     warn_languages_without_a_grammar(&registry.register_configured_languages(&config_manager.get_all_languages()));
 
-    let files = collect_files(&paths, options.respect_gitignore, &registry)?;
+    let excludes = config_manager.exclude_set(&args.process.exclude)?;
+    let files = collect_files(&paths, options.respect_gitignore, &registry, &excludes)?;
 
     let mut processor = Processor::new_with_config(&config_manager);
     let mut inventory: Vec<FileWork> = Vec::new();
@@ -1017,14 +1018,24 @@ fn collect_ids(value: &serde_json::Value, out: &mut Vec<String>) {
 // File discovery and diff output
 // ---------------------------------------------------------------------------------------------
 
-fn collect_files(paths: &[String], respect_gitignore: bool, registry: &LanguageRegistry) -> Result<Vec<PathBuf>> {
+fn collect_files(
+    paths: &[String],
+    respect_gitignore: bool,
+    registry: &LanguageRegistry,
+    excludes: &ExcludeSet,
+) -> Result<Vec<PathBuf>> {
     let mut files: Vec<PathBuf> = Vec::new();
 
     for pattern in paths {
         let path = Path::new(pattern);
         if path.is_file() {
-            files.push(path.to_path_buf());
+            if !excludes.is_excluded(path) {
+                files.push(path.to_path_buf());
+            }
         } else if path.is_dir() {
+            if excludes.prunes_dir(path) {
+                continue;
+            }
             let walker = ignore::WalkBuilder::new(path)
                 .hidden(false)
                 .git_ignore(respect_gitignore)
@@ -1032,10 +1043,13 @@ fn collect_files(paths: &[String], respect_gitignore: bool, registry: &LanguageR
                 .git_exclude(respect_gitignore)
                 .parents(respect_gitignore)
                 .require_git(false)
+                .filter_entry(excludes.walk_filter())
                 .build();
             for entry in walker {
                 match entry {
-                    Ok(entry) if entry.path().is_file() => files.push(entry.path().to_path_buf()),
+                    Ok(entry) if entry.path().is_file() && !excludes.is_excluded(entry.path()) => {
+                        files.push(entry.path().to_path_buf());
+                    }
                     Ok(_) => {}
                     Err(error) => anstream::eprintln!("{} reading path: {error}", ui::danger("error")),
                 }
@@ -1043,7 +1057,7 @@ fn collect_files(paths: &[String], respect_gitignore: bool, registry: &LanguageR
         } else {
             for entry in glob::glob(pattern).context("Failed to parse glob pattern")? {
                 match entry {
-                    Ok(found) if found.is_file() => files.push(found),
+                    Ok(found) if found.is_file() && !excludes.is_excluded(&found) => files.push(found),
                     Ok(_) => {}
                     Err(error) => anstream::eprintln!("{} reading path: {error}", ui::danger("error")),
                 }
