@@ -438,8 +438,18 @@ jobs:
 
   publish_crates:
     name: Publish crates.io
-    needs: meta
-    if: needs.meta.outputs.crates_exists != 'true'
+    needs: [meta, build-macos, build-windows, build-linux]
+    # A crates.io publish is irreversible, so it must not land before the release
+    # archives exist: [package.metadata.binstall] resolves every version to those
+    # download URLs, so a crate published without them is permanently broken for
+    # cargo-binstall. `!= 'failure'` rather than `== 'success'` keeps the
+    # already-have-assets path (where the build jobs are skipped) publishable.
+    if: |
+      always() && needs.meta.result == 'success' &&
+      needs.meta.outputs.crates_exists != 'true' &&
+      needs.build-macos.result != 'failure' &&
+      needs.build-windows.result != 'failure' &&
+      needs.build-linux.result != 'failure'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

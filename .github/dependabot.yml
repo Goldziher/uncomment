@@ -52,9 +52,9 @@ updates:
       include: "scope"
     pull-request-branch-name:
       separator: "/"
-    ignore:
-      - dependency-name: "tar"
-        update-types: ["version-update:semver-major"]
+    # No ignore list here: every published fix for the node-tar advisories is in the
+    # 7.x line, so ignoring tar's major updates left all of them permanently
+    # unactionable while the alerts kept accumulating.
     groups:
       npm-dependencies:
         update-types:

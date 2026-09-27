@@ -1,0 +1,42 @@
+name: Integration (network)
+
+# tests/uncomment_integration.rs is #[ignore]d because it clones the repositories
+# listed in fixtures/repos/repos.yaml and re-parses every file before and after
+# processing. That makes it the only check that would catch a regression in the
+# removal machinery on real-world code, and `cargo test` in ci.yml never reaches
+# it, so run it on a schedule and on demand instead of not at all.
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  real-repos:
+    name: Uncomment real repositories
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Cache cloned repositories
+        uses: actions/cache@v6
+        with:
+          path: tests/integration_test/repos_cache
+          key: repos-${{ hashFiles('fixtures/repos/repos.yaml') }}
+
+      - name: Run the ignored integration test
+        run: cargo test --test uncomment_integration -- --ignored --nocapture

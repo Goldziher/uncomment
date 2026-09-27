@@ -12,7 +12,6 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,6 +19,9 @@ env:
 jobs:
   validate:
     uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1.22.1
+    permissions:
+      contents: read
+      id-token: write
     with:
       setup-rust: true
 
@@ -34,12 +36,58 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
       - uses: Swatinem/rust-cache@v2
+      # --all-targets --all-features so test code and the bench-tools-gated
+      # benchmark/profile bins are linted too; the default target set covers
+      # neither, so both can stop compiling without CI noticing.
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    env:
+      # Keep in step with package.rust-version in Cargo.toml.
+      MSRV: "1.90"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.MSRV }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv
+      - name: Check declared rust-version matches this job
+        run: |
+          set -euo pipefail
+          declared="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].rust_version')"
+          if [ "$declared" != "$MSRV" ]; then
+            echo "::error::Cargo.toml rust-version is $declared but this job pins $MSRV"
+            exit 1
+          fi
+      - name: Build on the MSRV toolchain
+        run: cargo check --all-targets
+
+  deny:
+    name: Licenses and advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # deny.toml has an allowlist and per-crate copyleft exceptions that nothing
+      # was enforcing, so license and advisory regressions could land unnoticed.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources
 
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cover every OS the release workflow ships a binary for. This tool
+        # rewrites files in place, so path and line-ending handling has to be
+        # exercised on Windows and macOS, not only Linux.
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -63,3 +111,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build
         run: cargo build --release
+      # The crate is published from this repo root, which also holds the npm and
+      # pip wrappers and the test corpus. Packaging here keeps package.include
+      # honest instead of discovering it at tag time.
+      - name: Verify the publishable crate
+        run: cargo package --locked

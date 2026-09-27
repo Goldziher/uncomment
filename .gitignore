@@ -39,7 +39,12 @@ perf.data.old
 vendor/
 npm-package/node_modules/
 npm-package/pnpm-lock.yaml
+npm-package/package-lock.json
 pip-package/uncomment/__pycache__/
+
+# Fetched by npm-package/install.js beside the launcher stub, never published from here.
+npm-package/bin/uncomment-bin
+npm-package/bin/uncomment.exe
 
 # Documentation
 doc/
@@ -69,4 +74,5 @@ GEMINI.md
 # BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
 .ai-rulez/.generated-manifest.json
 # END ai-rulez
+
 poly.local.toml
