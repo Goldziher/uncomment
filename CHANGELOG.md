@@ -6,7 +6,55 @@ This changelog is generated from git tags and commit history.
 
 ## [Unreleased]
 
+### Added
+
+- Paths can be excluded outright: `exclude` under `[global]` in `.uncomment.toml`, and a repeatable
+  `--exclude GLOB` on the command line that adds to it. A matching file is never collected, by any
+  subcommand — the default run, `scan`, `keep` and `lint` alike — so a monorepo can keep
+  `playground/`, generated trees and vendored dependencies out of every command without relying on
+  `.gitignore`.
+
+  Globs use the same dialect as `[patterns."<glob>"]` keys and are anchored the same way: relative to
+  the directory of the config file that declared them, or to the invocation directory for
+  `--exclude`. `exclude = ["vendor/**"]` also stops the walk descending into `vendor`, and a glob
+  that does not compile fails the run when the config is read.
+
+- Bazel and Java properties files are built-in languages. Starlark covers `BUILD`, `BUILD.bazel`,
+  `WORKSPACE`, `WORKSPACE.bazel`, `WORKSPACE.bzlmod`, `MODULE.bazel`, `.bzl`, `.bazel` and `.star`;
+  `properties` covers `.properties`, whose `#` and `!` comment forms the grammar reports alike.
+
+- A language can claim whole filenames: `filenames` on `[languages.*]`, and `with_filenames` on the
+  built-ins. It is the only way to reach a file with no extension, which is most of a Bazel
+  repository. Matched case-sensitively — `BUILD` and `build` are different files to Bazel — and
+  before any extension rule, so a claim on `BUILD.bazel` decides that file whatever else claims
+  `.bazel`. An entry ending in `.*` claims by prefix, longest prefix first.
+
+  This replaces the hardcoded `Makefile`/`Dockerfile`/`.bashrc` matching in language detection, which
+  no configuration could extend: `Makefile`, `Dockerfile.*` and the shell rc names are now data on
+  their own language, and a config-declared language gets the same reach. A section with neither
+  `extensions` nor `filenames` is now rejected instead of registering a language nothing can match.
+
+### Changed
+
+- Word tags are matched without regard to case. `# todo`, `# Todo` and `# TODO` are now all
+  preserved, as are `fixme`, `hack`, `xxx`, `bug`, `review`, `optimize`, `performance`,
+  `security`, `deprecated`, `copyright`, `license` and `nosonar`. Previously only the
+  all-uppercase spelling was, so a lowercase `// todo` was deleted — the spelling a tag is
+  most often written in by hand.
+
+  Pragmas stay case-sensitive, because the tools that read them are: `# noqa` is a directive
+  ruff acts on and `# NOQA` is prose. `NOTE` and `WARNING` stay case-sensitive too — lowercase
+  `note` and `warning` open ordinary prose sentences far more often than they label anything.
+
 ### Fixed
+
+- `lint --fix` no longer rewrites English prose. Matching tags case-insensitively made the ordinary
+  words `hack`, `todo` and `xxx` into tags wherever they appeared, so "this is a hack to work around
+  the upstream bug" became "this is a TODO to work around the upstream bug". A miscased tag now has
+  to open its comment — everything before it on the line must be delimiter or decoration — while a
+  tag spelled exactly as configured is still a tag anywhere, because `TODO` in capitals is not a word
+  anyone writes by accident. Measured on an 89k-file monorepo: 165 of 183 miscased tag words in code
+  files were prose, and 167 comments would have been rewritten.
 
 - bandit suppressions are no longer deleted. The comprehensive preservation set knew
   `bandit:` but not the `# nosec` form bandit actually reads, so a run silently
