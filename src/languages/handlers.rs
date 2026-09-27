@@ -303,7 +303,9 @@ impl GoTemplateHandler {
 
 pub fn get_handler(language_name: &str) -> Box<dyn LanguageHandler> {
     match language_name.to_lowercase().as_str() {
-        "python" => Box::new(PythonHandler),
+        // Starlark is Python's grammar in the part that matters here: a module or function documents
+        // itself with a leading string expression, nested exactly as Python's is.
+        "python" | "starlark" => Box::new(PythonHandler),
         "go" => Box::new(GoHandler),
         "gotmpl" => Box::new(GoTemplateHandler),
         "ruby" => Box::new(RubyHandler),

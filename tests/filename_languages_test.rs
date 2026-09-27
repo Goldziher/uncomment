@@ -152,15 +152,17 @@ fn the_new_languages_carry_a_hash_line_token() {
     }
 }
 
-/// Starlark has docstrings, not doc comments, and nothing classifies a starlark `string` node as
-/// documentation. Declaring `string` as a doc-comment type without that classifier would hand every
-/// string literal in a `BUILD` file to the doc-comment machinery.
+/// Starlark has docstrings, not doc comments, so `string` is its doc-comment type — the same pair
+/// Python declares. The kind is only safe because `PythonHandler` classifies it: a string outside
+/// docstring position is rejected rather than collected as a comment, which is what keeps every
+/// string literal in a `BUILD` file out of the doc-comment machinery. The two halves must stay
+/// together; see `tests/starlark_test.rs`.
 #[test]
-fn starlark_declares_no_doc_comment_types() {
+fn starlark_declares_string_as_its_doc_comment_type() {
     let registry = LanguageRegistry::new();
     let config = registry.get_language("starlark").expect("starlark is a built-in");
 
-    assert!(config.get_doc_comment_types().is_empty());
+    assert_eq!(config.get_doc_comment_types(), ["string"]);
 }
 
 /// The only thing that makes a `[languages]` section useful is that a file it claims is collected,
