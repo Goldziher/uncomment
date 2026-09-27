@@ -9,6 +9,11 @@ use ahash::AHashSet;
 /// those is preserved as documentation instead of being read as a marker — it does
 /// nothing, silently.
 ///
+/// `block` is likewise the plain pair — `("/*", "*/")`, never `("/**", "*/")` — and is
+/// only populated when the pair can be written at a comment's own indentation. A form
+/// anchored to column 0, such as Ruby's `=begin`/`=end` or Perl's POD, is left `None`:
+/// wrapping an indented marker in it would not parse as a comment.
+///
 /// Either form may be absent. CSS and OCaml have only a block pair, Python and YAML
 /// only a line token, and plain JSON has neither.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,7 +88,9 @@ impl CommentSyntax {
             "clojure" | "ini" => Self::line_only(";"),
             "erlang" | "latex" => Self::line_only("%"),
             "fortran" => Self::line_only("!"),
-            "ruby" => Self::both("#", "=begin", "=end"),
+            // Ruby's `=begin`/`=end` is recognised only at column 0, so it cannot wrap a
+            // marker at a comment's own indentation — `#` is the only usable form.
+            "ruby" => Self::HASH,
             "sql" => Self::both("--", "/*", "*/"),
             "lua" => Self::both("--", "--[[", "]]"),
             "powershell" => Self::both("#", "<#", "#>"),
@@ -157,6 +164,16 @@ impl LanguageConfig {
     pub fn line_comment_token(&self) -> Option<&'static str> {
         match self.resolve_comment_syntax() {
             CommentSyntaxResolution::Resolved(syntax) => syntax.line,
+            CommentSyntaxResolution::Unknown => None,
+        }
+    }
+
+    /// The plain block-comment delimiters to wrap a marker line in, for a language that has no line
+    /// form — CSS and HTML carry every comment they have this way.
+    #[must_use]
+    pub fn block_comment_delimiters(&self) -> Option<(&'static str, &'static str)> {
+        match self.resolve_comment_syntax() {
+            CommentSyntaxResolution::Resolved(syntax) => syntax.block,
             CommentSyntaxResolution::Unknown => None,
         }
     }
@@ -253,7 +270,7 @@ impl LanguageConfig {
             vec![],
             "ruby",
         )
-        .with_comment_syntax(CommentSyntax::both("#", "=begin", "=end"))
+        .with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn php() -> Self {
@@ -665,7 +682,6 @@ mod tests {
             CommentSyntax::HASH,
             CommentSyntax::HASH_C_BLOCK,
             CommentSyntax::DASH_BRACE,
-            CommentSyntax::both("#", "=begin", "=end"),
             CommentSyntax::both("--", "/*", "*/"),
             CommentSyntax::both("--", "--[[", "]]"),
             CommentSyntax::both("#", "<#", "#>"),

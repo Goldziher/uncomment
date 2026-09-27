@@ -21,6 +21,36 @@ const NO_LINE_COMMENT: &[&str] = &["css", "html", "json", "ocaml", "svelte", "vu
 /// Languages with no comment syntax whatsoever.
 const NO_COMMENT_SYNTAX: &[&str] = &["json"];
 
+/// Languages that declare no block-comment pair. Three reasons land a language here,
+/// and each is a deliberate statement rather than an omission:
+///
+/// * the language has no block form at all — `python` (a triple-quoted "block comment"
+///   is a string node, not a comment), `yaml`, `toml`, `make`, `shell`, `fish`, `r`,
+///   `zig`, `elixir`, `erlang`, `clojure`, `ini`, `dockerfile`, `latex`, `fortran`;
+/// * the only block form is anchored to column 0, so it cannot be written at a
+///   comment's indentation — `ruby` (`=begin`/`=end`) and `perl` (`=pod`/`=cut`);
+/// * the language has no comments at all — `json`.
+const NO_BLOCK_COMMENT: &[&str] = &[
+    "clojure",
+    "dockerfile",
+    "elixir",
+    "erlang",
+    "fish",
+    "fortran",
+    "ini",
+    "json",
+    "latex",
+    "make",
+    "perl",
+    "python",
+    "r",
+    "ruby",
+    "shell",
+    "toml",
+    "yaml",
+    "zig",
+];
+
 fn resolve(config: &LanguageConfig) -> CommentSyntax {
     match config.resolve_comment_syntax() {
         CommentSyntaxResolution::Resolved(syntax) => syntax,
@@ -130,6 +160,9 @@ fn no_block_open_delimiter_is_classified_as_documentation() {
             continue;
         };
 
+        assert!(!open.is_empty(), "language `{name}`: empty opening delimiter");
+        assert!(!close.is_empty(), "language `{name}`: empty closing delimiter");
+
         let marker = format!("{open} ~keep {close}");
         let (info, content) = comment("comment", &marker);
         assert!(
@@ -137,6 +170,82 @@ fn no_block_open_delimiter_is_classified_as_documentation() {
             "language `{name}`: block marker `{marker}` is classified as documentation"
         );
     }
+}
+
+#[test]
+fn languages_without_a_block_comment_are_exactly_the_documented_set() {
+    let registry = LanguageRegistry::new();
+
+    let observed: BTreeSet<String> = registry
+        .get_all_languages()
+        .filter(|(_, config)| resolve(config).block.is_none())
+        .map(|(name, _)| name.clone())
+        .collect();
+    let expected: BTreeSet<String> = NO_BLOCK_COMMENT.iter().map(|&name| name.to_string()).collect();
+
+    assert_eq!(
+        observed, expected,
+        "the set of languages with no block-comment pair drifted; a new language must either \
+         declare a pair or be added to NO_BLOCK_COMMENT with the reason"
+    );
+}
+
+#[test]
+fn column_anchored_block_forms_are_not_offered_as_delimiters() {
+    let registry = LanguageRegistry::new();
+
+    // Ruby's `=begin`/`=end` and Perl's POD `=pod`/`=cut` are only recognised at column
+    // 0, so they cannot wrap a marker at a comment's own indentation. Offering them
+    // would produce a marker that either fails to parse or changes the code's meaning.
+    assert_eq!(syntax_for_extension(&registry, "rb").block, None);
+    assert_eq!(syntax_for_extension(&registry, "pl").block, None);
+
+    // The grammar-family fallback must agree, or a configured Ruby dialect gets the pair
+    // the built-in refuses.
+    let ruby_family = CommentSyntax::for_tree_sitter_language("ruby");
+    assert_eq!(ruby_family, Some(CommentSyntax::HASH));
+}
+
+#[test]
+fn block_delimiters_across_language_families() {
+    let registry = LanguageRegistry::new();
+
+    for (extension, expected) in [
+        ("html", Some(("<!--", "-->"))),
+        ("css", Some(("/*", "*/"))),
+        ("c", Some(("/*", "*/"))),
+        ("rs", Some(("/*", "*/"))),
+        ("lua", Some(("--[[", "]]"))),
+        ("hs", Some(("{-", "-}"))),
+        ("sql", Some(("/*", "*/"))),
+        ("ml", Some(("(*", "*)"))),
+        ("jl", Some(("#=", "=#"))),
+        ("ps1", Some(("<#", "#>"))),
+        // No block form: a Python triple-quoted string is a string node, and neither
+        // POSIX shell nor YAML has a block comment at all.
+        ("py", None),
+        ("sh", None),
+        ("yml", None),
+    ] {
+        assert_eq!(
+            syntax_for_extension(&registry, extension).block,
+            expected,
+            "block delimiters for `.{extension}`"
+        );
+    }
+}
+
+#[test]
+fn block_delimiters_are_the_plain_form_not_the_documentation_form() {
+    let registry = LanguageRegistry::new();
+
+    let rust = syntax_for_extension(&registry, "rs");
+    assert_eq!(rust.block, Some(("/*", "*/")));
+    assert_ne!(rust.block, Some(("/**", "*/")));
+
+    let html = syntax_for_extension(&registry, "html");
+    assert_eq!(html.block, Some(("<!--", "-->")));
+    assert_ne!(html.block, Some(("<!--!", "-->")));
 }
 
 #[test]
