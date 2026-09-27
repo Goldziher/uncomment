@@ -61,6 +61,7 @@ use serde::Serialize;
 
 use crate::config::{Config, ConfigManager, ResolvedConfig};
 use crate::languages::LanguageRegistry;
+use crate::languages::registry::warn_languages_without_a_grammar;
 use crate::paths::{absolute_normalized, find_repo_root, repo_relative, to_slash};
 use crate::processor::{CommentKind, PreserveReason, ProcessingOptions, Processor, Verdict};
 use crate::ui;
@@ -153,15 +154,15 @@ pub fn run(args: &ScanArgs) -> Result<()> {
 
     let options = args.process.processing_options();
     let current_dir = std::env::current_dir().context("Failed to get current directory")?;
-    let config_manager = build_config_manager(args, &current_dir)?;
+    let mut config_manager = build_config_manager(args, &current_dir)?;
 
-    // Collection uses the built-in registry, matching how a real run decides which files it
-    // supports; inspection then uses the config-aware one, as a real run does.
-    let collection_registry = LanguageRegistry::new();
-    let mut inspect_registry = LanguageRegistry::new();
-    inspect_registry.register_configured_languages(&config_manager.get_all_languages());
+    // One config-aware registry for both collection and inspection, matching a real run: the
+    // extensions a `[languages]` section declares decide what is collected, not only how it is read.
+    config_manager.discover_language_sources(&args.process.paths, options.respect_gitignore);
+    let mut registry = LanguageRegistry::new();
+    warn_languages_without_a_grammar(&registry.register_configured_languages(&config_manager.get_all_languages()));
 
-    let files = collect_files(&args.process.paths, &options, &collection_registry)?;
+    let files = collect_files(&args.process.paths, &options, &registry)?;
 
     let num_threads = if args.process.threads == 0 {
         num_cpus::get()
@@ -176,7 +177,7 @@ pub fn run(args: &ScanArgs) -> Result<()> {
     let repo_root = find_repo_root(&current_dir);
     let context = ScanContext {
         config_manager: &config_manager,
-        registry: &inspect_registry,
+        registry: &registry,
         options: &options,
         current_dir: &current_dir,
         repo_root: repo_root.as_deref(),

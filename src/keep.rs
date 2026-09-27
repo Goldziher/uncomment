@@ -21,7 +21,7 @@
 use crate::ast::visitor::CommentInfo;
 use crate::config::{Config, ConfigManager, ResolvedConfig};
 use crate::edit::{Edit, apply_edits};
-use crate::languages::registry::LanguageRegistry;
+use crate::languages::registry::{LanguageRegistry, warn_languages_without_a_grammar};
 use crate::paths::{absolute_normalized, find_repo_root, normalize_lexical, repo_relative, to_slash};
 use crate::processor::{CommentKind, InspectedComment, PreserveReason, ProcessingOptions, Processor, Verdict};
 use crate::rules::preservation::PreservationRule;
@@ -103,7 +103,7 @@ pub fn run(args: &KeepArgs) -> Result<()> {
 
     let options = args.process.processing_options();
     let current_dir = std::env::current_dir().context("Failed to get current directory")?;
-    let config_manager = match &args.process.config {
+    let mut config_manager = match &args.process.config {
         Some(path) => {
             let config =
                 Config::from_file(path).with_context(|| format!("Failed to load config file: {}", path.display()))?;
@@ -112,14 +112,20 @@ pub fn run(args: &KeepArgs) -> Result<()> {
         None => ConfigManager::new(&current_dir).context("Failed to initialize configuration manager")?,
     };
 
-    let mut registry = LanguageRegistry::new();
-    registry.register_configured_languages(&config_manager.get_all_languages());
-
     let paths: Cow<'_, [String]> = if args.process.paths.is_empty() {
         Cow::Owned(vec![".".to_string()])
     } else {
         Cow::Borrowed(&args.process.paths)
     };
+
+    // A `[languages]` declaration in a config below the invocation directory has to reach the
+    // registry before it is built, or the extension it declares is filtered out during collection
+    // and the file it was written for is never even read.
+    config_manager.discover_language_sources(&paths, options.respect_gitignore);
+
+    let mut registry = LanguageRegistry::new();
+    warn_languages_without_a_grammar(&registry.register_configured_languages(&config_manager.get_all_languages()));
+
     let files = collect_files(&paths, options.respect_gitignore, &registry)?;
 
     let mut processor = Processor::new_with_config(&config_manager);

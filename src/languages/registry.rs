@@ -1,4 +1,5 @@
 use crate::languages::config::{CommentSyntax, LanguageConfig};
+use crate::ui;
 use ahash::AHashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -175,10 +176,19 @@ impl LanguageRegistry {
         self.languages.iter().map(|(name, config)| (name, config.as_ref()))
     }
 
+    /// Add every language a config file declared, and report back the ones that could not be added.
+    ///
+    /// A declaration is only usable if a grammar can be found for it, either because the name is a
+    /// built-in language or because `tree-sitter-language-pack` ships one under that name. The rest
+    /// are returned, sorted, rather than dropped in silence: the section would otherwise have no
+    /// effect whatsoever — no extension registered, so not even a file collected — and nothing
+    /// would say why. See [`warn_languages_without_a_grammar`] for the caller-side report.
     pub fn register_configured_languages(
         &mut self,
         config_languages: &std::collections::HashMap<String, crate::config::LanguageConfig>,
-    ) {
+    ) -> Vec<String> {
+        let mut without_a_grammar = Vec::new();
+
         for config in config_languages.values() {
             let name_lower = config.name.to_lowercase();
             let (tslp_name, comment_syntax) = if let Some(existing_config) = self.languages.get(&name_lower) {
@@ -187,6 +197,7 @@ impl LanguageRegistry {
                 let syntax = CommentSyntax::for_tree_sitter_language(&name_lower);
                 (name_lower.clone(), syntax)
             } else {
+                without_a_grammar.push(config.name.clone());
                 continue;
             };
 
@@ -200,6 +211,11 @@ impl LanguageRegistry {
             };
             self.register_language(language_config);
         }
+
+        // `config_languages` is a HashMap, so sort for a message that does not reorder per process.
+        without_a_grammar.sort();
+        without_a_grammar.dedup();
+        without_a_grammar
     }
 }
 
@@ -207,6 +223,23 @@ impl Default for LanguageRegistry {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Report the declared languages [`LanguageRegistry::register_configured_languages`] could not add.
+///
+/// Called once per run, from the entry point that builds the collection registry, because the
+/// per-file registries are built from the same declarations and would repeat it for every file.
+pub fn warn_languages_without_a_grammar(names: &[String]) {
+    if names.is_empty() {
+        return;
+    }
+
+    anstream::eprintln!(
+        "{} no tree-sitter grammar is known for the configured language(s) {}; their [languages] \
+         section is ignored, so files with those extensions are not processed.",
+        ui::warn("warning:"),
+        ui::accent(names.join(", "))
+    );
 }
 
 #[cfg(test)]

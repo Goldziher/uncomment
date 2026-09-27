@@ -1,16 +1,15 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use glob::glob;
-use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uncomment::cli::{Cli, Commands};
 use uncomment::config::{self, ConfigManager};
+use uncomment::languages::LanguageRegistry;
+use uncomment::languages::registry::warn_languages_without_a_grammar;
 use uncomment::processor::{self, OutputWriter};
-use uncomment::{languages, ui};
-
-static DEFAULT_LANGUAGE_REGISTRY: Lazy<languages::LanguageRegistry> = Lazy::new(languages::LanguageRegistry::new);
+use uncomment::ui;
 
 #[derive(Debug, Default)]
 struct UnsupportedFilesReport {
@@ -61,7 +60,7 @@ fn main() -> Result<()> {
 
     let current_dir = std::env::current_dir().context("Failed to get current directory")?;
 
-    let config_manager = if let Some(config_path) = &cli.args.config {
+    let mut config_manager = if let Some(config_path) = &cli.args.config {
         let config = config::Config::from_file(config_path)
             .with_context(|| format!("Failed to load config file: {}", config_path.display()))?;
 
@@ -70,8 +69,14 @@ fn main() -> Result<()> {
         ConfigManager::new(&current_dir).context("Failed to initialize configuration manager")?
     };
 
+    // Which files are collected at all depends on the custom languages in force, so the
+    // declarations have to be gathered before the walk rather than per file with everything else.
+    config_manager.discover_language_sources(&cli.args.paths, options.respect_gitignore);
+    let mut registry = LanguageRegistry::new();
+    warn_languages_without_a_grammar(&registry.register_configured_languages(&config_manager.get_all_languages()));
+
     let mut unsupported_report = UnsupportedFilesReport::default();
-    let files = collect_files(&cli.args.paths, &options, &mut unsupported_report)?;
+    let files = collect_files(&cli.args.paths, &options, &registry, &mut unsupported_report)?;
 
     print_unsupported_files_report(&unsupported_report, cli.args.verbose);
 
@@ -80,7 +85,7 @@ fn main() -> Result<()> {
             "{} No supported files found to process in the specified paths.",
             ui::warn("!")
         );
-        anstream::eprintln!("{}", ui::dim(supported_extensions_message()));
+        anstream::eprintln!("{}", ui::dim(supported_extensions_message(&registry)));
         if options.respect_gitignore {
             anstream::eprintln!(
                 "{}",
@@ -240,6 +245,7 @@ fn main() -> Result<()> {
 fn collect_files(
     paths: &[String],
     options: &processor::ProcessingOptions,
+    registry: &LanguageRegistry,
     unsupported: &mut UnsupportedFilesReport,
 ) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
@@ -248,16 +254,16 @@ fn collect_files(
         let path = Path::new(path_pattern);
 
         if path.is_file() {
-            if has_supported_extension(path) {
+            if has_supported_extension(path, registry) {
                 files.push(path.to_path_buf());
             } else {
                 record_unsupported_file(path, unsupported);
             }
         } else if path.is_dir() {
             let pattern = format!("{}/**/*", path.display());
-            collect_from_pattern(&pattern, &mut files, options, unsupported)?
+            collect_from_pattern(&pattern, &mut files, options, registry, unsupported)?
         } else {
-            collect_from_pattern(path_pattern, &mut files, options, unsupported)?
+            collect_from_pattern(path_pattern, &mut files, options, registry, unsupported)?
         }
     }
 
@@ -271,6 +277,7 @@ fn collect_from_pattern(
     pattern: &str,
     files: &mut Vec<PathBuf>,
     options: &processor::ProcessingOptions,
+    registry: &LanguageRegistry,
     unsupported: &mut UnsupportedFilesReport,
 ) -> Result<()> {
     if options.respect_gitignore {
@@ -333,7 +340,7 @@ fn collect_from_pattern(
                     }
 
                     if path.is_file() {
-                        if has_supported_extension(path) {
+                        if has_supported_extension(path, registry) {
                             files.push(path.to_path_buf());
                         } else {
                             record_unsupported_file(path, unsupported);
@@ -348,7 +355,7 @@ fn collect_from_pattern(
             match entry {
                 Ok(path) => {
                     if path.is_file() {
-                        if has_supported_extension(&path) {
+                        if has_supported_extension(&path, registry) {
                             files.push(path);
                         } else {
                             record_unsupported_file(&path, unsupported);
@@ -411,12 +418,12 @@ fn print_unsupported_files_report(report: &UnsupportedFilesReport, verbose: bool
     }
 }
 
-fn has_supported_extension(path: &Path) -> bool {
-    DEFAULT_LANGUAGE_REGISTRY.detect_language(path).is_some()
+fn has_supported_extension(path: &Path, registry: &LanguageRegistry) -> bool {
+    registry.detect_language(path).is_some()
 }
 
-fn supported_extensions_message() -> String {
-    let mut extensions: Vec<String> = DEFAULT_LANGUAGE_REGISTRY
+fn supported_extensions_message(registry: &LanguageRegistry) -> String {
+    let mut extensions: Vec<String> = registry
         .get_supported_extensions()
         .into_iter()
         .map(|ext| format!(".{ext}"))
