@@ -1,8 +1,7 @@
 {
   "name": "uncomment-cli",
-  "version": "3.7.0",
+  "version": "3.8.0",
   "description": "A fast Rust-based CLI tool for removing comments from source code",
-  "main": "index.js",
   "bin": {
     "uncomment": "bin/uncomment"
   },
@@ -31,15 +30,14 @@
     "url": "https://github.com/Goldziher/uncomment/issues"
   },
   "dependencies": {
-    "adm-zip": "^0.6.0",
-    "tar": "^6.0.0"
+    "adm-zip": "^0.6.1",
+    "tar": "^7.5.22"
   },
   "files": [
-    "index.js",
     "install.js",
-    "bin/"
+    "bin/uncomment"
   ],
   "engines": {
-    "node": ">=14"
+    "node": ">=22"
   }
 }
