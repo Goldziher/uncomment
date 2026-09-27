@@ -259,10 +259,7 @@ fn scanned_paths(dir: &Path, args: &[&str]) -> Vec<String> {
 
 #[test]
 fn a_custom_extension_from_the_root_config_is_processed_by_a_default_run() {
-    let temp = repo(&[
-        (".uncommentrc.toml", ZORK),
-        ("thing.zork", "# a plain comment\nx = 1\n"),
-    ]);
+    let temp = repo(&[(".uncomment.toml", ZORK), ("thing.zork", "# a plain comment\nx = 1\n")]);
 
     let output = run(temp.path(), &["."]);
 
@@ -282,7 +279,7 @@ fn a_custom_extension_from_the_root_config_is_processed_by_a_default_run() {
 #[test]
 fn a_custom_extension_from_a_subdirectory_config_is_processed_by_a_default_run() {
     let temp = repo(&[
-        ("sub/.uncommentrc.toml", ZORK),
+        ("sub/.uncomment.toml", ZORK),
         ("sub/thing.zork", "# a plain comment\nx = 1\n"),
     ]);
 
@@ -304,10 +301,7 @@ fn a_custom_extension_from_a_subdirectory_config_is_processed_by_a_default_run()
 
 #[test]
 fn scan_inventories_a_custom_extension_from_the_root_config() {
-    let temp = repo(&[
-        (".uncommentrc.toml", ZORK),
-        ("thing.zork", "# a plain comment\nx = 1\n"),
-    ]);
+    let temp = repo(&[(".uncomment.toml", ZORK), ("thing.zork", "# a plain comment\nx = 1\n")]);
 
     let paths = scanned_paths(temp.path(), &["scan", ".", "--format", "json"]);
 
@@ -320,7 +314,7 @@ fn scan_inventories_a_custom_extension_from_the_root_config() {
 #[test]
 fn scan_inventories_a_custom_extension_from_a_subdirectory_config() {
     let temp = repo(&[
-        ("sub/.uncommentrc.toml", ZORK),
+        ("sub/.uncomment.toml", ZORK),
         ("sub/thing.zork", "# a plain comment\nx = 1\n"),
     ]);
 
@@ -337,7 +331,7 @@ fn linted(temp: &TempDir) -> Outcome {
 #[test]
 fn lint_inspects_a_custom_extension_from_the_root_config() {
     let temp = repo(&[
-        (".uncommentrc.toml", ZORK_LINT),
+        (".uncomment.toml", ZORK_LINT),
         ("thing.zork", "# TODO: wire this up\nx = 1\n"),
     ]);
 
@@ -357,7 +351,7 @@ fn lint_inspects_a_custom_extension_from_the_root_config() {
 fn a_declared_language_without_a_grammar_is_reported() {
     let temp = repo(&[
         (
-            ".uncommentrc.toml",
+            ".uncomment.toml",
             r#"
 [languages.zorklang]
 name = "zorklang"
@@ -380,7 +374,7 @@ comment_nodes = ["comment"]
 #[test]
 fn lint_inspects_a_custom_extension_from_a_subdirectory_config() {
     let temp = repo(&[
-        ("sub/.uncommentrc.toml", ZORK_LINT),
+        ("sub/.uncomment.toml", ZORK_LINT),
         ("sub/thing.zork", "# TODO: wire this up\nx = 1\n"),
     ]);
 

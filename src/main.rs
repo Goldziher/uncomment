@@ -209,7 +209,7 @@ fn main() -> Result<()> {
         anstream::eprintln!(
             "{}",
             ui::dim(
-                "     Preserve matching text everywhere with --ignore \"<pattern>\" or preserve_patterns in .uncommentrc.toml."
+                "     Preserve matching text everywhere with --ignore \"<pattern>\" or preserve_patterns in .uncomment.toml."
             )
         );
         anstream::eprintln!("{}", ui::dim("     Preview changes first with --dry-run --diff."));

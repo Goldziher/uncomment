@@ -348,7 +348,7 @@ fn a_broken_config_below_the_invocation_directory_marks_nothing() {
     let source = "// one\nfn a() {}\n";
     let dir = fixture(&[
         ("src/a.rs", source),
-        ("src/.uncommentrc.toml", "[global]\nremove_todoz = true\n"),
+        ("src/.uncomment.toml", "[global]\nremove_todoz = true\n"),
     ]);
 
     let run = run_keep(dir.path(), &["--all-removable", "."]);
@@ -370,7 +370,7 @@ fn a_language_section_without_a_grammar_is_reported() {
     let dir = fixture(&[
         ("src/a.zz", "// one\nfn a() {}\n"),
         (
-            ".uncommentrc.toml",
+            ".uncomment.toml",
             "[languages.nosuchlang]\nname = \"NoSuchLang\"\nextensions = [\"zz\"]\ncomment_nodes = [\"comment\"]\n",
         ),
     ]);

@@ -1,0 +1,1356 @@
+//! The configuration `uncomment init` writes: the fixed templates, the project sweep behind
+//! `--smart`, the interactive prompts, and the per-language snippets they assemble.
+//!
+//! Every key these emit has to exist on [`Config`] — see `super::file`.
+
+use super::Config;
+use ahash::AHashSet;
+use anyhow::Result;
+use std::collections::HashMap;
+use std::path::Path;
+
+#[derive(Debug, Clone)]
+pub struct DetectionInfo {
+    pub detected_languages: HashMap<String, usize>,
+    pub configured_languages: usize,
+    pub total_files: usize,
+}
+
+fn prompt_bool(prompt: &str, default: bool) -> Result<bool> {
+    use std::io::{self, Write};
+
+    print!("{} [{}]: ", prompt, if default { "Y/n" } else { "y/N" });
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim().to_lowercase();
+
+    Ok(match input.as_str() {
+        "y" | "yes" => true,
+        "n" | "no" => false,
+        "" => default,
+        _ => default,
+    })
+}
+
+impl Config {
+    pub fn template_clean() -> String {
+        r#"[global]
+remove_todos = false
+remove_fixme = false
+remove_docs = false
+preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+use_default_ignores = true
+respect_gitignore = true
+traverse_git_repos = false
+
+[languages.python]
+name = "Python"
+extensions = [".py", ".pyw", ".pyi"]
+comment_nodes = ["comment"]
+preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:"]
+remove_docs = true
+
+[languages.javascript]
+name = "JavaScript"
+extensions = [".js", ".jsx", ".mjs", ".cjs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "webpack"]
+
+[languages.typescript]
+name = "TypeScript"
+extensions = [".ts", ".tsx", ".mts", ".cts", ".d.ts"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore"]
+
+[languages.ruby]
+name = "Ruby"
+extensions = ["rb", "rbw", "gemspec", "rake"]
+comment_nodes = ["comment"]
+preserve_patterns = ["rubocop:", "frozen_string_literal:"]
+
+[patterns."tests/**/*"]
+remove_todos = true
+
+[patterns."**/*.spec.*"]
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.generated.*"]
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+"#
+        .to_string()
+    }
+
+    pub fn template() -> String {
+        r#"# Uncomment Configuration File
+# https://github.com/Goldziher/uncomment
+
+[global]
+# Global settings that apply to all files
+remove_todos = false        # Remove TODO comments
+remove_fixme = false        # Remove FIXME comments
+remove_docs = false         # Remove documentation comments
+preserve_patterns = [       # Additional patterns to preserve
+    "HACK",
+    "WORKAROUND",
+    "NOTE"
+]
+use_default_ignores = true  # Use built-in ignore patterns
+respect_gitignore = true    # Respect .gitignore files
+traverse_git_repos = false # Traverse into nested git repos
+
+# Language-specific overrides (for built-in languages)
+# These extend/override the built-in language configurations
+
+# Override settings for Python files
+[languages.python]
+name = "Python"
+extensions = [".py", ".pyw", ".pyi"]
+comment_nodes = ["comment"]
+preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:"]
+remove_docs = true  # Remove docstrings in Python
+
+# Override settings for JavaScript files
+[languages.javascript]
+name = "JavaScript"
+extensions = [".js", ".jsx", ".mjs", ".cjs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "webpack"]
+
+# Override settings for TypeScript files
+[languages.typescript]
+name = "TypeScript"
+extensions = [".ts", ".tsx", ".mts", ".cts", ".d.ts"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore"]
+
+# Example: Add Ruby support (not included in builtins)
+[languages.ruby]
+name = "Ruby"
+extensions = ["rb", "rbw", "gemspec", "rake"]
+comment_nodes = ["comment"]
+preserve_patterns = ["rubocop:", "frozen_string_literal:"]
+
+# Example: Add Vue.js support
+[languages.vue]
+name = "Vue"
+extensions = [".vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+
+# Example: Add Swift support
+[languages.swift]
+name = "Swift"
+extensions = [".swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+# Example: Add Objective-C support
+[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]
+
+# [languages.custom]
+# name = "Custom Language"
+# extensions = ["cst"]
+# comment_nodes = ["comment"]
+#
+# [languages.proprietary]
+# name = "Proprietary"
+# extensions = ["prop"]
+# comment_nodes = ["comment"]
+#
+# Pattern-based rules for specific file patterns
+[patterns."tests/**/*.py"]
+# Apply different rules to test files
+remove_docs = true
+remove_todos = true
+
+[patterns."src/**/*.spec.ts"]
+# Apply different rules to TypeScript test files
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.generated.*"]
+# Be more aggressive with generated files
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+"#
+        .to_string()
+    }
+
+    pub fn comprehensive_template_clean() -> String {
+        r#"[global]
+remove_todos = false
+remove_fixme = false
+remove_docs = false
+preserve_patterns = ["HACK", "WORKAROUND", "NOTE", "XXX", "FIXME", "TODO"]
+use_default_ignores = true
+respect_gitignore = true
+traverse_git_repos = false
+
+[languages.vue]
+name = "Vue"
+extensions = [".vue"]
+comment_nodes = ["comment", "template_element"]
+preserve_patterns = ["eslint-", "prettier-", "vue-", "@vue/"]
+
+[languages.svelte]
+name = "Svelte"
+extensions = [".svelte"]
+comment_nodes = ["comment", "text"]
+preserve_patterns = ["eslint-", "prettier-", "svelte-"]
+
+[languages.astro]
+name = "Astro"
+extensions = [".astro"]
+comment_nodes = ["comment", "frontmatter"]
+preserve_patterns = ["astro-", "eslint-"]
+
+[languages.swift]
+name = "Swift"
+extensions = [".swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["swiftlint:", "TODO:", "FIXME:"]
+
+[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]
+
+[languages.kotlin]
+name = "Kotlin"
+extensions = [".kt", ".kts"]
+comment_nodes = ["line_comment", "block_comment"]
+preserve_patterns = ["ktlint:", "TODO:", "FIXME:"]
+
+[languages.dart]
+name = "Dart"
+extensions = [".dart"]
+comment_nodes = ["comment", "documentation_comment"]
+preserve_patterns = ["ignore:", "TODO:", "FIXME:"]
+
+[languages.zig]
+name = "Zig"
+extensions = [".zig"]
+comment_nodes = ["line_comment", "doc_comment"]
+preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
+
+[languages.elixir]
+name = "Elixir"
+extensions = [".ex", ".exs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["credo:", "dialyzer:", "TODO:", "FIXME:"]
+
+[languages.haskell]
+name = "Haskell"
+extensions = [".hs", ".lhs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["hlint:", "TODO:", "FIXME:"]
+
+[languages.julia]
+name = "Julia"
+extensions = [".jl"]
+comment_nodes = ["comment"]
+preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
+
+[languages.r]
+name = "R"
+extensions = [".r", ".R"]
+comment_nodes = ["comment"]
+preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
+
+[languages.lua]
+name = "Lua"
+extensions = [".lua"]
+comment_nodes = ["comment"]
+preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
+
+[languages.nix]
+name = "Nix"
+extensions = [".nix"]
+comment_nodes = ["comment"]
+preserve_patterns = ["TODO:", "FIXME:", "NOTE:"]
+
+[patterns."tests/**/*"]
+remove_todos = true
+
+[patterns."**/*.spec.*"]
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.test.*"]
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.generated.*"]
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+
+[patterns."**/dist/**/*"]
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+"#
+        .to_string()
+    }
+
+    pub fn comprehensive_template() -> String {
+        r#"# Comprehensive Uncomment Configuration File
+# Generated with all supported languages from tree-sitter-language-pack
+# https://github.com/Goldziher/uncomment
+
+[global]
+# Global settings that apply to all files
+remove_todos = false        # Remove TODO comments
+remove_fixme = false        # Remove FIXME comments
+remove_docs = false         # Remove documentation comments
+preserve_patterns = [       # Additional patterns to preserve
+    "HACK",
+    "WORKAROUND",
+    "NOTE",
+    "XXX",
+    "FIXME",
+    "TODO"
+]
+use_default_ignores = true  # Use built-in ignore patterns
+respect_gitignore = true    # Respect .gitignore files
+traverse_git_repos = false # Traverse into nested git repos
+
+# Language-specific configurations
+
+# Web Development Languages
+[languages.vue]
+name = "Vue"
+extensions = [".vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]
+
+[languages.svelte]
+name = "Svelte"
+extensions = [".svelte"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "prettier-ignore"]
+
+[languages.astro]
+name = "Astro"
+extensions = [".astro"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "prettier-ignore"]
+
+# Mobile Development
+[languages.swift]
+name = "Swift"
+extensions = [".swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]
+
+[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]
+
+[languages.kotlin]
+name = "Kotlin"
+extensions = [".kt", ".kts"]
+comment_nodes = ["line_comment", "block_comment"]
+preserve_patterns = ["@Suppress", "ktlint:"]
+
+[languages.dart]
+name = "Dart"
+extensions = [".dart"]
+comment_nodes = ["comment"]
+preserve_patterns = ["ignore:", "ignore_for_file:"]
+
+# Systems Programming
+[languages.zig]
+name = "Zig"
+extensions = [".zig"]
+comment_nodes = ["line_comment"]
+preserve_patterns = ["zig fmt:"]
+
+[languages.nim]
+name = "Nim"
+extensions = ["nim", "nims"]
+comment_nodes = ["comment"]
+preserve_patterns = ["pragma:"]
+
+# Functional Programming
+[languages.haskell]
+name = "Haskell"
+extensions = [".hs", ".lhs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]
+
+[languages.elixir]
+name = "Elixir"
+extensions = [".ex", ".exs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@doc", "@moduledoc"]
+
+[languages.elm]
+name = "Elm"
+extensions = ["elm"]
+comment_nodes = ["line_comment", "block_comment"]
+
+[languages.clojure]
+name = "Clojure"
+extensions = ["clj", "cljs", "cljc", "edn"]
+comment_nodes = ["comment"]
+
+# Data Science & ML
+[languages.r]
+name = "R"
+extensions = [".r", ".R"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@param", "@return", "@export"]
+
+[languages.julia]
+name = "Julia"
+extensions = [".jl"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@doc", "@inline", "@noinline"]
+
+# DevOps & Configuration
+[languages.dockerfile]
+name = "Dockerfile"
+extensions = ["dockerfile"]
+comment_nodes = ["comment"]
+
+[languages.nix]
+name = "Nix"
+extensions = [".nix"]
+comment_nodes = ["comment"]
+
+[languages.lua]
+name = "Lua"
+extensions = [".lua"]
+comment_nodes = ["comment"]
+
+# Shell Scripting
+[languages.fish]
+name = "Fish"
+extensions = ["fish"]
+comment_nodes = ["comment"]
+
+# Override built-in languages with custom settings
+[languages.python]
+name = "Python"
+extensions = ["py", "pyw", "pyi"]
+comment_nodes = ["comment"]
+preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:", "pylint:"]
+remove_docs = false  # Keep docstrings by default
+
+[languages.javascript]
+name = "JavaScript"
+extensions = ["js", "jsx", "mjs", "cjs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "webpack", "eslint-"]
+
+[languages.typescript]
+name = "TypeScript"
+extensions = ["ts", "tsx", "mts", "cts", "d.ts"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "eslint-"]
+
+[languages.rust]
+name = "Rust"
+extensions = ["rs"]
+comment_nodes = ["line_comment", "block_comment"]
+doc_comment_nodes = ["doc_comment"]
+preserve_patterns = ["clippy:", "allow", "deny", "warn"]
+remove_docs = false  # Keep doc comments by default
+
+# Pattern-based rules for different file types
+[patterns."tests/**/*.py"]
+# More aggressive with test files
+remove_docs = true
+remove_todos = true
+
+[patterns."src/**/*.spec.ts"]
+# TypeScript test files
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.generated.*"]
+# Be aggressive with generated files
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+
+[patterns."docs/**/*"]
+# Preserve everything in documentation
+remove_docs = false
+remove_todos = false
+remove_fixme = false
+"#
+        .to_string()
+    }
+
+    pub fn smart_template<P: AsRef<Path>>(project_dir: P) -> Result<String> {
+        use walkdir::WalkDir;
+
+        let mut detected_languages = HashMap::new();
+        let mut file_count = 0;
+
+        let supported_extensions = [
+            "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "rs", "go", "java",
+            "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml", "yaml", "hcl", "tf", "tfvars", "vue",
+            "svelte", "astro", "swift", "m", "kt", "kts", "dart", "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj",
+            "cljs", "cljc", "edn", "r", "jl", "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl",
+            "xslt", "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
+        ];
+
+        for entry in WalkDir::new(project_dir.as_ref())
+            .max_depth(3)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            if entry.file_type().is_file() {
+                if let Some(ext) = entry.path().extension() {
+                    let ext_str = ext.to_string_lossy().to_lowercase();
+                    if supported_extensions.contains(&ext_str.as_str()) {
+                        *detected_languages.entry(ext_str).or_insert(0) += 1;
+                        file_count += 1;
+                    }
+                }
+
+                if let Some(filename) = entry.path().file_name() {
+                    let filename_str = filename.to_string_lossy().to_lowercase();
+                    if filename_str == "dockerfile" {
+                        *detected_languages.entry("dockerfile".to_string()).or_insert(0) += 1;
+                        file_count += 1;
+                    } else if filename_str == "makefile" || filename_str.ends_with(".mk") {
+                        *detected_languages.entry("make".to_string()).or_insert(0) += 1;
+                        file_count += 1;
+                    }
+                }
+            }
+        }
+
+        if file_count == 0 {
+            return Ok(Self::template());
+        }
+
+        let mut config = String::from(
+            r#"# Smart Uncomment Configuration
+# Generated based on detected files in your project
+# https://github.com/Goldziher/uncomment
+
+[global]
+remove_todos = false
+remove_fixme = false
+remove_docs = false
+preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+use_default_ignores = true
+respect_gitignore = true
+traverse_git_repos = false
+
+# Detected languages in your project:
+"#,
+        );
+
+        let language_configs = Self::get_language_mappings();
+
+        for (ext, count) in &detected_languages {
+            if *count > 0 {
+                config.push_str(&format!("# Found {count} {ext} files\n"));
+            }
+        }
+        config.push('\n');
+
+        let mut configured_keys = AHashSet::new();
+        for ext in detected_languages.keys() {
+            let lookup_key = match ext.as_str() {
+                "py" | "pyw" | "pyi" | "pyx" | "pxd" => "py",
+                "js" | "jsx" | "mjs" | "cjs" => "js",
+                "ts" | "tsx" | "mts" | "cts" => "ts",
+                "swift" => "swift",
+                "m" => "objc",
+                "kt" | "kts" => "kt",
+                "hs" | "lhs" => "hs",
+                "html" | "htm" | "xhtml" => "html",
+                "xml" | "xsd" | "xsl" | "xslt" | "svg" => "xml",
+                "ps1" | "psm1" | "psd1" => "ps1",
+                "ini" | "cfg" | "conf" => "ini",
+                other => other,
+            };
+
+            if configured_keys.insert(lookup_key)
+                && let Some(lang_config) = language_configs.get(lookup_key)
+            {
+                config.push_str(lang_config);
+                config.push('\n');
+            }
+        }
+
+        config.push_str(
+            r#"
+# Pattern-based rules
+[patterns."tests/**/*"]
+# More aggressive with test files
+remove_todos = true
+
+[patterns."**/*.spec.*"]
+# Test specification files
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.generated.*"]
+# Generated files
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+"#,
+        );
+
+        Ok(config)
+    }
+
+    pub fn smart_template_with_info<P: AsRef<Path>>(project_dir: P) -> Result<(String, DetectionInfo)> {
+        use walkdir::WalkDir;
+
+        let mut detected_languages = HashMap::new();
+        let mut file_count = 0;
+        let mut total_files = 0;
+
+        let supported_extensions = [
+            "py", "pyw", "pyi", "pyx", "pxd", "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "rs", "go", "java",
+            "c", "h", "cpp", "cc", "cxx", "hpp", "hxx", "hh", "rb", "yml", "yaml", "hcl", "tf", "tfvars", "vue",
+            "svelte", "astro", "swift", "m", "kt", "kts", "dart", "zig", "nim", "hs", "lhs", "ex", "exs", "elm", "clj",
+            "cljs", "cljc", "edn", "r", "jl", "nix", "lua", "fish", "html", "htm", "xhtml", "css", "xml", "xsd", "xsl",
+            "xslt", "svg", "sql", "ps1", "psm1", "psd1", "proto", "ini", "cfg", "conf",
+        ];
+
+        for entry in WalkDir::new(project_dir.as_ref())
+            .max_depth(3)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            if entry.file_type().is_file() {
+                total_files += 1;
+
+                if let Some(ext) = entry.path().extension() {
+                    let ext_str = ext.to_string_lossy().to_lowercase();
+                    if supported_extensions.contains(&ext_str.as_str()) {
+                        let lang_name = match ext_str.as_str() {
+                            "py" | "pyw" | "pyi" | "pyx" | "pxd" => "Python",
+                            "js" | "jsx" | "mjs" | "cjs" => "JavaScript",
+                            "ts" | "tsx" | "mts" | "cts" => "TypeScript",
+                            "rs" => "Rust",
+                            "go" => "Go",
+                            "java" => "Java",
+                            "c" | "h" => "C",
+                            "cpp" | "cc" | "cxx" | "hpp" | "hxx" | "hh" => "C++",
+                            "rb" => "Ruby",
+                            "yml" | "yaml" => "YAML",
+                            "hcl" | "tf" | "tfvars" => "HCL/Terraform",
+                            "vue" => "Vue",
+                            "svelte" => "Svelte",
+                            "astro" => "Astro",
+                            "swift" => "Swift",
+                            "m" => "Objective-C",
+                            "kt" | "kts" => "Kotlin",
+                            "dart" => "Dart",
+                            "zig" => "Zig",
+                            "nim" => "Nim",
+                            "hs" | "lhs" => "Haskell",
+                            "ex" | "exs" => "Elixir",
+                            "elm" => "Elm",
+                            "clj" | "cljs" | "cljc" | "edn" => "Clojure",
+                            "r" => "R",
+                            "jl" => "Julia",
+                            "nix" => "Nix",
+                            "lua" => "Lua",
+                            "fish" => "Fish",
+                            "html" | "htm" | "xhtml" => "HTML",
+                            "css" => "CSS",
+                            "xml" | "xsd" | "xsl" | "xslt" | "svg" => "XML",
+                            "sql" => "SQL",
+                            "ps1" | "psm1" | "psd1" => "PowerShell",
+                            "proto" => "Proto",
+                            "ini" | "cfg" | "conf" => "INI",
+                            _ => &ext_str,
+                        };
+                        *detected_languages.entry(lang_name.to_string()).or_insert(0) += 1;
+                        file_count += 1;
+                    }
+                }
+
+                if let Some(filename) = entry.path().file_name() {
+                    let filename_str = filename.to_string_lossy().to_lowercase();
+                    if filename_str == "dockerfile" {
+                        *detected_languages.entry("Docker".to_string()).or_insert(0) += 1;
+                        file_count += 1;
+                    } else if filename_str == "makefile" || filename_str.ends_with(".mk") {
+                        *detected_languages.entry("Makefile".to_string()).or_insert(0) += 1;
+                        file_count += 1;
+                    }
+                }
+            }
+        }
+
+        if file_count == 0 {
+            let detection_info = DetectionInfo {
+                detected_languages: HashMap::new(),
+                configured_languages: 0,
+                total_files,
+            };
+            return Ok((Self::template_clean(), detection_info));
+        }
+
+        let mut config = String::from(
+            r#"[global]
+remove_todos = false
+remove_fixme = false
+remove_docs = false
+preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+use_default_ignores = true
+respect_gitignore = true
+traverse_git_repos = false
+
+"#,
+        );
+
+        let language_configs = Self::get_language_mappings();
+        let mut configured_languages = 0;
+
+        for lang_name in detected_languages.keys() {
+            let lookup_key = match lang_name.as_str() {
+                "Python" => "py",
+                "JavaScript" => "js",
+                "TypeScript" => "ts",
+                "Rust" => "rs",
+                "Go" => "go",
+                "Java" => "java",
+                "C" => "c",
+                "C++" => "cpp",
+                "Ruby" => "rb",
+                "YAML" => "yml",
+                "HCL/Terraform" => "hcl",
+                "Vue" => "vue",
+                "Svelte" => "svelte",
+                "Astro" => "astro",
+                "Swift" => "swift",
+                "Objective-C" => "objc",
+                "Kotlin" => "kt",
+                "Dart" => "dart",
+                "Zig" => "zig",
+                "Nim" => "nim",
+                "Haskell" => "hs",
+                "Elixir" => "ex",
+                "Elm" => "elm",
+                "Clojure" => "clj",
+                "R" => "r",
+                "Julia" => "jl",
+                "Nix" => "nix",
+                "Lua" => "lua",
+                "Fish" => "fish",
+                "HTML" => "html",
+                "CSS" => "css",
+                "XML" => "xml",
+                "SQL" => "sql",
+                "PowerShell" => "ps1",
+                "Proto" => "proto",
+                "INI" => "ini",
+                "Docker" => "dockerfile",
+                "Makefile" => "make",
+                _ => continue,
+            };
+
+            if let Some(lang_config) = language_configs.get(lookup_key) {
+                config.push_str(lang_config);
+                config.push_str("\n\n");
+                configured_languages += 1;
+            }
+        }
+
+        if configured_languages > 0 {
+            config.push_str(
+                r#"[patterns."tests/**/*"]
+remove_todos = true
+
+[patterns."**/*.spec.*"]
+remove_docs = true
+remove_todos = true
+
+[patterns."**/*.generated.*"]
+remove_docs = true
+remove_todos = true
+preserve_patterns = []
+"#,
+            );
+        }
+
+        let detection_info = DetectionInfo {
+            detected_languages,
+            configured_languages,
+            total_files,
+        };
+
+        Ok((config, detection_info))
+    }
+
+    pub fn interactive_template_clean() -> Result<String> {
+        use std::io::{self, Write};
+
+        println!("🚀 Welcome to Uncomment Interactive Configuration!");
+        println!("I'll help you create a customized configuration file.\n");
+
+        let remove_todos = prompt_bool("Remove TODO comments by default? (y/n)", false)?;
+        let remove_fixme = prompt_bool("Remove FIXME comments by default? (y/n)", false)?;
+        let remove_docs = prompt_bool("Remove documentation comments by default? (y/n)", false)?;
+
+        println!("\n📋 Available languages with grammar support:");
+        let available_languages = vec![
+            ("vue", "Vue.js single-file components"),
+            ("svelte", "Svelte components"),
+            ("swift", "Swift (iOS/macOS development)"),
+            ("objc", "Objective-C (iOS/macOS development)"),
+            ("kotlin", "Kotlin (Android/JVM development)"),
+            ("dart", "Dart (Flutter development)"),
+            ("zig", "Zig systems language"),
+            ("haskell", "Haskell functional language"),
+            ("elixir", "Elixir/Phoenix development"),
+            ("r", "R statistical computing"),
+            ("julia", "Julia scientific computing"),
+            ("nix", "Nix package manager"),
+            ("lua", "Lua scripting"),
+        ];
+
+        for (i, (name, desc)) in available_languages.iter().enumerate() {
+            println!("  {}. {} - {}", i + 1, name, desc);
+        }
+
+        println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
+        print!("> ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim();
+
+        let mut selected_languages = Vec::new();
+
+        if input == "all" {
+            selected_languages = available_languages.iter().map(|(name, _)| *name).collect();
+        } else if input != "skip" {
+            for num_str in input.split(',') {
+                if let Ok(num) = num_str.trim().parse::<usize>()
+                    && num > 0
+                    && num <= available_languages.len()
+                {
+                    selected_languages.push(available_languages[num - 1].0);
+                }
+            }
+        }
+
+        let mut config = format!(
+            r#"[global]
+remove_todos = {remove_todos}
+remove_fixme = {remove_fixme}
+remove_docs = {remove_docs}
+preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+use_default_ignores = true
+respect_gitignore = true
+traverse_git_repos = false
+
+"#
+        );
+
+        let language_configs = Self::get_extended_language_mappings();
+        for lang in &selected_languages {
+            if let Some(lang_config) = language_configs.get(*lang) {
+                config.push_str(lang_config);
+                config.push('\n');
+            }
+        }
+
+        if !selected_languages.is_empty() {
+            println!(
+                "\n✅ Generated configuration with {} languages!",
+                selected_languages.len()
+            );
+        }
+
+        Ok(config)
+    }
+
+    pub fn interactive_template() -> Result<String> {
+        use std::io::{self, Write};
+
+        println!("🚀 Welcome to Uncomment Interactive Configuration!");
+        println!("I'll help you create a customized configuration file.\n");
+
+        let remove_todos = prompt_bool("Remove TODO comments by default? (y/n)", false)?;
+        let remove_fixme = prompt_bool("Remove FIXME comments by default? (y/n)", false)?;
+        let remove_docs = prompt_bool("Remove documentation comments by default? (y/n)", false)?;
+
+        println!("\n📋 Available languages with grammar support:");
+        let available_languages = vec![
+            ("vue", "Vue.js single-file components"),
+            ("svelte", "Svelte components"),
+            ("swift", "Swift (iOS/macOS development)"),
+            ("objc", "Objective-C (iOS/macOS development)"),
+            ("kotlin", "Kotlin (Android/JVM development)"),
+            ("dart", "Dart (Flutter development)"),
+            ("zig", "Zig systems language"),
+            ("haskell", "Haskell functional language"),
+            ("elixir", "Elixir/Phoenix development"),
+            ("r", "R statistical computing"),
+            ("julia", "Julia scientific computing"),
+            ("nix", "Nix package manager"),
+            ("lua", "Lua scripting"),
+        ];
+
+        for (i, (name, desc)) in available_languages.iter().enumerate() {
+            println!("  {}. {} - {}", i + 1, name, desc);
+        }
+
+        println!("\nSelect languages to include (comma-separated numbers, or 'all' for all, or 'skip' to skip):");
+        print!("> ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim();
+
+        let mut selected_languages = Vec::new();
+
+        if input == "all" {
+            selected_languages = available_languages.iter().map(|(name, _)| *name).collect();
+        } else if input != "skip" {
+            for num_str in input.split(',') {
+                if let Ok(num) = num_str.trim().parse::<usize>()
+                    && num > 0
+                    && num <= available_languages.len()
+                {
+                    selected_languages.push(available_languages[num - 1].0);
+                }
+            }
+        }
+
+        let mut config = format!(
+            r#"# Interactive Uncomment Configuration
+# Generated through interactive setup
+# https://github.com/Goldziher/uncomment
+
+[global]
+remove_todos = {remove_todos}
+remove_fixme = {remove_fixme}
+remove_docs = {remove_docs}
+preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+use_default_ignores = true
+respect_gitignore = true
+traverse_git_repos = false
+
+"#
+        );
+
+        let language_configs = Self::get_extended_language_mappings();
+        for lang in &selected_languages {
+            if let Some(lang_config) = language_configs.get(*lang) {
+                config.push_str(lang_config);
+                config.push('\n');
+            }
+        }
+
+        if !selected_languages.is_empty() {
+            println!(
+                "\n✅ Generated configuration with {} languages!",
+                selected_languages.len()
+            );
+        }
+
+        Ok(config)
+    }
+
+    fn get_language_mappings() -> std::collections::HashMap<String, &'static str> {
+        let mut map = std::collections::HashMap::new();
+
+        map.insert(
+            "py".to_string(),
+            r#"[languages.python]
+name = "Python"
+extensions = [".py", ".pyw", ".pyi"]
+comment_nodes = ["comment"]
+preserve_patterns = ["mypy:", "type:", "noqa:", "pragma:", "pylint:"]
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "js".to_string(),
+            r#"[languages.javascript]
+name = "JavaScript"
+extensions = [".js", ".jsx", ".mjs", ".cjs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "webpack", "eslint-"]"#,
+        );
+
+        map.insert(
+            "ts".to_string(),
+            r#"[languages.typescript]
+name = "TypeScript"
+extensions = [".ts", ".tsx", ".mts", ".cts", ".d.ts"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@ts-expect-error", "@ts-ignore", "eslint-"]"#,
+        );
+
+        map.insert(
+            "rs".to_string(),
+            r#"[languages.rust]
+name = "Rust"
+extensions = [".rs"]
+comment_nodes = ["line_comment", "block_comment"]
+doc_comment_nodes = ["doc_comment"]
+preserve_patterns = ["clippy:", "allow", "deny", "warn"]
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "go".to_string(),
+            r##"[languages.go]
+name = "Go"
+extensions = [".go"]
+comment_nodes = ["comment"]
+preserve_patterns = ["go:build", "go:generate", "go:embed", "go:cgo", "+build", "nolint", "#cgo", "#include"]"##,
+        );
+
+        map.insert(
+            "rb".to_string(),
+            r#"[languages.ruby]
+name = "Ruby"
+extensions = [".rb", ".rbw", "gemspec", "rake"]
+comment_nodes = ["comment"]
+preserve_patterns = ["rubocop:", "frozen_string_literal:"]
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "php".to_string(),
+            r#"[languages.php]
+name = "PHP"
+extensions = [".php", ".phtml"]
+comment_nodes = ["comment"]
+preserve_patterns = []
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "ex".to_string(),
+            r#"[languages.elixir]
+name = "Elixir"
+extensions = [".ex", ".exs"]
+comment_nodes = ["comment"]
+preserve_patterns = []
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "toml".to_string(),
+            r#"[languages.toml]
+name = "TOML"
+extensions = [".toml"]
+comment_nodes = ["comment"]
+preserve_patterns = []
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "cs".to_string(),
+            r#"[languages.csharp]
+name = "CSharp"
+extensions = [".cs"]
+comment_nodes = ["comment"]
+preserve_patterns = []
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "java".to_string(),
+            r#"[languages.java]
+name = "Java"
+extensions = [".java"]
+comment_nodes = ["line_comment", "block_comment"]
+doc_comment_nodes = ["doc_comment"]
+preserve_patterns = ["@SuppressWarnings", "@Override"]
+remove_docs = false"#,
+        );
+
+        map.insert(
+            "vue".to_string(),
+            r#"[languages.vue]
+name = "Vue"
+extensions = [".vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]"#,
+        );
+
+        map.insert(
+            "dockerfile".to_string(),
+            r#"[languages.dockerfile]
+name = "Dockerfile"
+extensions = ["dockerfile"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "swift".to_string(),
+            r#"[languages.swift]
+name = "Swift"
+extensions = [".swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]"#,
+        );
+
+        map.insert(
+            "objc".to_string(),
+            r#"[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]"#,
+        );
+
+        map.insert(
+            "kt".to_string(),
+            r#"[languages.kotlin]
+name = "Kotlin"
+extensions = [".kt", ".kts"]
+comment_nodes = ["line_comment", "block_comment"]
+preserve_patterns = ["@Suppress", "ktlint:"]"#,
+        );
+
+        map.insert(
+            "hs".to_string(),
+            r#"[languages.haskell]
+name = "Haskell"
+extensions = [".hs", ".lhs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]"#,
+        );
+
+        map.insert(
+            "html".to_string(),
+            r#"[languages.html]
+name = "HTML"
+extensions = [".html", ".htm", ".xhtml"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "css".to_string(),
+            r#"[languages.css]
+name = "CSS"
+extensions = [".css"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "xml".to_string(),
+            r#"[languages.xml]
+name = "XML"
+extensions = [".xml", ".xsd", ".xsl", ".xslt", ".svg"]
+comment_nodes = ["Comment"]"#,
+        );
+
+        map.insert(
+            "sql".to_string(),
+            r#"[languages.sql]
+name = "SQL"
+extensions = [".sql"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "lua".to_string(),
+            r#"[languages.lua]
+name = "Lua"
+extensions = [".lua"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "nix".to_string(),
+            r#"[languages.nix]
+name = "Nix"
+extensions = [".nix"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "ps1".to_string(),
+            r#"[languages.powershell]
+name = "PowerShell"
+extensions = [".ps1", ".psm1", ".psd1"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "proto".to_string(),
+            r#"[languages.proto]
+name = "Proto"
+extensions = [".proto"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "ini".to_string(),
+            r#"[languages.ini]
+name = "INI"
+extensions = [".ini", ".cfg", ".conf"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map
+    }
+
+    fn get_extended_language_mappings() -> std::collections::HashMap<&'static str, &'static str> {
+        let mut map = std::collections::HashMap::new();
+
+        map.insert(
+            "vue",
+            r#"[languages.vue]
+name = "Vue"
+extensions = [".vue"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "@ts-", "prettier-ignore"]"#,
+        );
+
+        map.insert(
+            "svelte",
+            r#"[languages.svelte]
+name = "Svelte"
+extensions = [".svelte"]
+comment_nodes = ["comment"]
+preserve_patterns = ["eslint-", "prettier-ignore"]"#,
+        );
+
+        map.insert(
+            "swift",
+            r#"[languages.swift]
+name = "Swift"
+extensions = [".swift"]
+comment_nodes = ["comment", "multiline_comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:", "swiftlint:"]"#,
+        );
+
+        map.insert(
+            "objc",
+            r#"[languages.objc]
+name = "ObjC"
+extensions = [".m"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["comment"]
+preserve_patterns = ["MARK:", "TODO:", "FIXME:"]"#,
+        );
+
+        map.insert(
+            "kotlin",
+            r#"[languages.kotlin]
+name = "Kotlin"
+extensions = [".kt", ".kts"]
+comment_nodes = ["line_comment", "block_comment"]
+preserve_patterns = ["@Suppress", "ktlint:"]"#,
+        );
+
+        map.insert(
+            "dart",
+            r#"[languages.dart]
+name = "Dart"
+extensions = [".dart"]
+comment_nodes = ["comment"]
+preserve_patterns = ["ignore:", "ignore_for_file:"]"#,
+        );
+
+        map.insert(
+            "zig",
+            r#"[languages.zig]
+name = "Zig"
+extensions = [".zig"]
+comment_nodes = ["line_comment"]
+preserve_patterns = ["zig fmt:"]"#,
+        );
+
+        map.insert(
+            "haskell",
+            r#"[languages.haskell]
+name = "Haskell"
+extensions = [".hs", ".lhs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["LANGUAGE", "OPTIONS_GHC"]"#,
+        );
+
+        map.insert(
+            "elixir",
+            r#"[languages.elixir]
+name = "Elixir"
+extensions = [".ex", ".exs"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@doc", "@moduledoc"]"#,
+        );
+
+        map.insert(
+            "r",
+            r#"[languages.r]
+name = "R"
+extensions = [".r", ".R"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@param", "@return", "@export"]"#,
+        );
+
+        map.insert(
+            "julia",
+            r#"[languages.julia]
+name = "Julia"
+extensions = [".jl"]
+comment_nodes = ["comment"]
+preserve_patterns = ["@doc", "@inline", "@noinline"]"#,
+        );
+
+        map.insert(
+            "nix",
+            r#"[languages.nix]
+name = "Nix"
+extensions = [".nix"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map.insert(
+            "lua",
+            r#"[languages.lua]
+name = "Lua"
+extensions = [".lua"]
+comment_nodes = ["comment"]"#,
+        );
+
+        map
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_template() {
+        let template = Config::template();
+        assert!(template.contains("[global]"));
+        assert!(template.contains("[languages.python]"));
+        assert!(template.contains("[patterns."));
+    }
+}

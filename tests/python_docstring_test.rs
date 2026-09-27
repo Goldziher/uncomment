@@ -21,7 +21,7 @@ doc_comment_nodes = ["string"]
 remove_docs = true
 "#;
 
-    fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
+    fs::write(root.join(".uncomment.toml"), config_content).unwrap();
 
     let py_file = root.join("test_docstrings.py");
     let py_content = r#""""Module level docstring"""
@@ -99,7 +99,7 @@ doc_comment_nodes = ["string"]
 remove_docs = true
 "#;
 
-    fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
+    fs::write(root.join(".uncomment.toml"), config_content).unwrap();
 
     let py_file = root.join("test_edge_cases.py");
     let py_content = r#""""This is a module docstring"""

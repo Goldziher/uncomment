@@ -6,7 +6,7 @@ use uncomment::cli::Cli;
 #[test]
 fn test_init_command_basic() {
     let temp_dir = TempDir::new().unwrap();
-    let output_path = temp_dir.path().join(".uncommentrc.toml");
+    let output_path = temp_dir.path().join(".uncomment.toml");
 
     let original_dir = std::env::current_dir().unwrap();
     std::env::set_current_dir(temp_dir.path()).unwrap();
@@ -28,7 +28,7 @@ fn test_init_command_basic() {
 #[test]
 fn test_init_command_force() {
     let temp_dir = TempDir::new().unwrap();
-    let output_path = temp_dir.path().join(".uncommentrc.toml");
+    let output_path = temp_dir.path().join(".uncomment.toml");
 
     fs::write(&output_path, "existing content").unwrap();
 
