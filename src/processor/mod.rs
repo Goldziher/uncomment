@@ -539,6 +539,7 @@ fn preserve_reason(decision: VisitDecision<'_>, extended: bool) -> Option<Preser
         return Some(match rule {
             PreservationRule::Pattern(pattern) if pattern.as_ref() == KEEP_MARKER => PreserveReason::KeepMarker,
             PreservationRule::Pattern(pattern) => PreserveReason::Pattern(pattern.as_ref().to_string()),
+            PreservationRule::PatternCaseInsensitive(pattern) => PreserveReason::Pattern(pattern.as_ref().to_string()),
             PreservationRule::Documentation => PreserveReason::Documentation,
             PreservationRule::FileHeader => PreserveReason::FileHeader,
             PreservationRule::Shebang => PreserveReason::Shebang,
