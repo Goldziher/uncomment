@@ -29,5 +29,5 @@ uncomment is distributed across multiple package ecosystems. All distribution ch
 
 - Always test binary wrapper install scripts when modifying `npm-package/install.js` or `pip-package/uncomment/downloader.py`
 - Ensure binaries are built for: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-gnu`
-- Tree-sitter grammars are downloaded on demand at runtime (tree-sitter-language-pack dynamic mode); they are not baked into the binary
+- Every tree-sitter grammar is compiled into the binary by `tree-sitter-language-pack`. Nothing is fetched, built or cached at runtime, so the binary is large and self-contained, and a release asset needs no companion grammar download
 - RC releases use `vX.Y.Z-rc.N` tags (note: PyPI uses `X.Y.ZrcN` format without hyphens)

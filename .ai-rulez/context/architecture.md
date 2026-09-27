@@ -8,17 +8,30 @@ uncomment is a Rust CLI tool for AST-based comment removal from source code, dis
 
 ## Source Code (`src/`)
 
-- `main.rs` — Entry point, CLI argument parsing
+- `main.rs` — Entry point, subcommand dispatch
 - `cli.rs` — CLI interface and argument definitions
-- `config.rs` — TOML configuration loading and merging
-- `processor.rs` — Main file processing logic (orchestrates parsing, detection, removal)
-- `ast/` — AST visitor pattern for tree traversal and comment detection
-  - `visitor.rs` — Core visitor implementation
-- `grammar/` — Tree-sitter grammar loading and management
-  - `mod.rs` — Static grammar registry (`static_languages()` HashMap), dynamic loader
+- `lib.rs` — Library surface (`uncomment::…`) the binary and the integration tests share
+- `config/` — TOML configuration
+  - `file.rs` — the deserialized shapes (`Config`, `GlobalConfig`, `LanguageConfig`, `PatternConfig`)
+  - `manager.rs` — `ConfigManager`: discovery, caching, per-file layering
+  - `templates.rs` — the `init` template generators
+- `processor/` — Main file processing logic (orchestrates parsing, detection, removal)
+- `ast/visitor.rs` — AST visitor for tree traversal and comment detection
 - `languages/` — Language definitions and registry
-  - `registry.rs` — Language configurations (extensions, comment nodes, preserve patterns)
-- `rules/` — Comment preservation rule engine
+  - `config.rs` — `LanguageConfig`: extensions, comment node kinds, line-comment token
+  - `registry.rs` — the built-in language configurations
+  - `handlers.rs` — language-specific comment handling (Python docstrings, …)
+- `rules/preservation.rs` — Comment preservation rule engine
+- `scan/` — `uncomment scan`: the comment inventory and its stable ids (`id.rs`)
+- `keep.rs` — `uncomment keep`: writing `~keep` markers back from a scan decision
+- `lint/` — `uncomment lint`: tag rules, their config, and the findings they produce
+- `edit.rs` — Applying many byte-range edits to one file in a single pass
+- `git.rs` — Reading the current branch and the issue key embedded in it
+- `paths.rs` — Lexical path helpers shared by config resolution and the inventory commands
+- `ui.rs` — Terminal presentation: colors, symbols, structured output
+
+Tree-sitter grammars are compiled into the binary by `tree-sitter-language-pack`; there is no
+grammar loader and nothing is fetched at runtime.
 
 ## Distribution
 
@@ -37,7 +50,7 @@ uncomment is a Rust CLI tool for AST-based comment removal from source code, dis
 
 ## Configuration Files
 
-- `.uncommentrc.toml` — Per-project configuration
+- `.uncomment.toml` — Per-project configuration
 - `~/.config/uncomment/config.toml` — Global user configuration
 - `examples/` — Example configuration files and usage
 

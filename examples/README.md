@@ -18,7 +18,7 @@ Minimal example for quickly customizing language settings.
 
 ## Adding Languages
 
-To customize or add a language, create an `.uncommentrc.toml` in your project root:
+To customize or add a language, create an `.uncomment.toml` in your project root:
 
 ```toml
 [languages.hare]

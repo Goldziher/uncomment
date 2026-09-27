@@ -38,7 +38,7 @@ anything with a tree-sitter grammar.
 - **100% accurate** — tree-sitter AST parsing identifies comments structurally, not by pattern matching
 - **No false positives** — never removes comment-like content from strings
 - **Smart preservation** — keeps TODO/FIXME, docs, and language-specific linting directives by default
-- **306 languages** — powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack), grammars downloaded on demand
+- **306 languages** — powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack), every grammar compiled into the binary
 - **Parallel** — multi-threaded processing that scales across cores
 - **Safe** — dry-run mode with line-by-line diffs previews every change before you write
 - **Configurable** — hierarchical TOML config with a smart `init` command
@@ -118,20 +118,20 @@ Run `uncomment --help` for the full, grouped list of options.
 <details>
 <summary><b>Configuring with <code>init</code></b></summary>
 
-The `init` command detects the languages in your project and writes a matching `.uncommentrc.toml`:
+The `init` command detects the languages in your project and writes a matching `.uncomment.toml`:
 
 ```bash
 # Smart detection — includes only the languages it finds
 uncomment init
 
-# All 50 built-in languages
+# All 51 built-in languages
 uncomment init --comprehensive
 
 # Interactive selection
 uncomment init --interactive
 
 # Custom output location / overwrite
-uncomment init --output config/uncomment.toml --force
+uncomment init --output config/uncomment-rules.toml --force
 ```
 
 </details>
@@ -155,15 +155,17 @@ cargo run --release --features bench-tools --bin profile -- /path/to/repo
 
 ## Supported Languages
 
-uncomment ships with 50 built-in language configurations and can process any of the **306 languages**
-in [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — grammars
-are downloaded automatically on first use, and any language can be added via configuration.
+uncomment ships with 51 built-in language configurations and can process any of the **306 languages**
+in [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — every
+grammar is compiled into the binary, so nothing is downloaded, built or cached at runtime, and any
+language can be added via configuration.
 
 <details>
-<summary><b>50 built-in languages</b></summary>
+<summary><b>51 built-in languages</b></summary>
 
 Python (`.py`, `.pyw`, `.pyi`, `.pyx`, `.pxd`) · JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) ·
-TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`, `.d.ts`) · Rust (`.rs`) · Go (`.go`) · Java (`.java`) ·
+TypeScript (`.ts`, `.mts`, `.cts`, `.d.ts`, `.d.mts`, `.d.cts`) · TSX (`.tsx`) · Rust (`.rs`) ·
+Go (`.go`) · Java (`.java`) ·
 C (`.c`, `.h`) · C++ (`.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`) · C# (`.cs`) ·
 Ruby (`.rb`, `.rake`, `.gemspec`) · PHP (`.php`, `.phtml`) · Elixir (`.ex`, `.exs`) · TOML (`.toml`) ·
 JSON (`.json`) · JSON with Comments (`.jsonc`) · YAML (`.yml`, `.yaml`) ·
@@ -241,14 +243,159 @@ rather than as a directive.
 
 </details>
 
+## Subcommands
+
+### `uncomment scan` — comment inventory
+
+Reports every comment in the tree with the verdict a real run would reach, as JSONL, JSON or text. Each comment gets a stable id that survives edits elsewhere in the file.
+
+```bash
+# Inventory everything
+uncomment scan src/ --format jsonl -o scan.jsonl
+
+# Only the comments a run would remove
+uncomment scan src/ --only removable
+
+# Collapse identical comments into groups, sorted by frequency
+uncomment scan src/ --group-identical --only removable
+```
+
+**Flags:**
+
+- `--format jsonl|json|text` — output format (default: jsonl)
+- `--only removable|preserved|all` — filter by verdict (default: all)
+- `--group-identical` — collapse equivalent comments into one record per distinct text, with a site count and list
+- `-o FILE` — write report to FILE instead of stdout
+
+**ID scheme:** IDs are derived from the file path, comment bytes, and occurrence index within the file — no line numbers, so an id survives edits above the comment. Collisions within a file are widened to the full 32-hex identifier; cross-file collisions widen the later claimant.
+
+### `uncomment keep` — write `~keep` markers
+
+Applies `~keep` markers to comments selected by id, substring, or verdict. A line comment gets `~keep` appended; a block, doc or docstring comment gets a marker line directly above it, written with the language's plain line-comment token — or with its block pair (`/* ~keep */`, `<!-- ~keep -->`) when the language has no line form. A block, doc or docstring comment sharing its line with code cannot be marked at all: a marker line above it would attach to the line of code, so the comment is reported as unmarkable instead.
+
+```bash
+# Mark everything a scan reported as removable
+uncomment keep src/ --from scan.jsonl
+
+# Mark specific comments by id
+uncomment keep src/ --id a3f9c1d2ab --id b7e4f8a1cd
+
+# Mark every comment whose text contains a substring
+uncomment keep src/ --match "legacy shim"
+
+# Mark everything that would be removed
+uncomment keep src/ --all-removable
+```
+
+**Flags:**
+
+- `--from FILE` — read comment ids from a scan output file (JSONL or JSON; every field but `id` is ignored)
+- `--id ID` — mark the comment with this id (repeatable)
+- `--match SUBSTRING` — mark every comment whose text contains SUBSTRING
+- `--all-removable` — mark every comment a default run would remove
+- `--skip-missing` — warn about ids that no longer resolve instead of failing
+
+**Why a marker line above for docstrings:** A Python docstring is the `string` node that becomes `__doc__` at runtime, so editing its bytes changes what the program reports about itself. A marker line written above the docstring is a plain comment that uncomment reads but the runtime ignores.
+
+### `uncomment lint` — tag comment linting
+
+Checks tag comments (TODO, FIXME, HACK, XXX) against the convention configured under `[lint]`: that the tag is canonical, that it carries an issue key, and that the key is not the issue the current branch is working on. Removes nothing, exits 1 on violations, and works as a pre-commit hook.
+
+```bash
+# Check comments, report violations, write nothing
+uncomment lint src/
+
+# Fix what can be fixed (canonical tags, injecting --todo-key)
+uncomment lint src/ --fix --todo-key PROJ-1234
+
+# Check only what the branch touched
+uncomment lint src/ --changed-only
+
+# Record current violations; future runs treat them as informational
+uncomment lint src/ --baseline .lint-baseline.json --write-baseline
+uncomment lint src/ --baseline .lint-baseline.json
+```
+
+**Flags:**
+
+- `--fix` — rewrite what can be rewritten (canonical tag form, injecting `--todo-key` where missing)
+- `--todo-key KEY` — issue key to insert into tag comments that have none (with `--fix`)
+- `--changed-only` — lint only files changed against `--base` (default: `origin/HEAD`, else `main`)
+- `--base REF` — base ref for `--changed-only`
+- `--baseline FILE` — treat violations recorded here as informational
+- `--write-baseline` — record every current violation in the baseline file and exit 0
+- `--format text|json` — output format (default: text)
+
+**Three rules:**
+
+1. `tag-not-canonical` — a tag not written the way `canonical_tag` is written. That covers two defects and the message says which: a different spelling, reported as *`FIXME` should be written as `TODO`*, and the canonical spelling in the wrong casing, reported as *`todo` is `TODO` written with the wrong casing*. `--fix` rewrites both.
+2. `todo-missing-key` — the tag must carry an issue key matching `key_pattern`
+3. `todo-self-reference` — the key must not be the issue the current branch is for (that issue closes when the branch merges, leaving the TODO pointing at a dead ticket)
+
+**Casing:** tags are matched regardless of casing, so `fixme`, `Todo` and `xXx` are tags and each is a `tag-not-canonical` violation. The key is not: `todo(AMVP-1)` counts as keyed, while `TODO(amvp-1)` and `todo(amvp-1)` do not, because `key_pattern` still requires the key exactly as written. Set `case_sensitive_tags = true` to go back to matching only the literal casing in `tags`, where `todo:` is not a tag at all.
+
+A sigil is a separate question from casing and always has been: `\b` sits between `@` and the tag, so `# @TODO: x` is a tag today and `# @todo: x` becomes one now. `--fix` rewrites the tag token alone and leaves the sigil, giving `# @TODO: x`. If `@todo` is prose you do not want linted, `case_sensitive_tags = true` is not the lever — drop `TODO` from `tags` or baseline the occurrences.
+
+**Opt-in:** Linting is off by default. Enable it per file tree with `[lint]` in `.uncomment.toml`:
+
+```toml
+[lint]
+enabled = true
+key_pattern = '^\s*(?:TODO|FIXME|HACK|XXX)\((?<key>[A-Z][A-Z0-9]+-\d+)\)\s*:'
+# Optional, default false. With `true`, only the literal casing in `tags` is a tag,
+# so `todo:` and `Fixme:` are not flagged at all.
+case_sensitive_tags = true
+```
+
+Note what `enabled = true` alone commits you to: with the default `tags` and `canonical_tag`, every existing `FIXME`, `HACK` and `XXX` in the tree becomes two violations — one for the tag, one for the missing key — and `--fix` rewrites the tag to `TODO`. Every miscased tag counts too, `todo:` and `Fixme:` included. On an existing codebase, reach for `--changed-only` or `--write-baseline` first.
+
+### Large-repo workflow
+
+On a large codebase, deciding which comments to keep is a batch process: scan once, filter the report, then mark what the filter selected.
+
+Two scans, because the two reports answer different questions. A grouped report is for *deciding* — one judgement per distinct wording instead of hundreds. `keep` cannot act on it: a grouped record's `id` is a group id derived from the normalized text, with no path and no occurrence index, so it resolves to no single comment and the run fails with every id unresolved (`--skip-missing` downgrades that to a warning). Feed `keep --from` the ungrouped report.
+
+```bash
+# 1. Read the decision surface: one record per distinct comment, by frequency
+uncomment scan . --group-identical --only removable
+
+# 2. Inventory every site, which is what keep consumes
+uncomment scan . --only removable --format jsonl -o scan.jsonl
+
+# 3. Filter scan.jsonl — delete the lines for comments that should be removed,
+#    keep the lines for comments that should be kept. Any JSON-aware tool works;
+#    the only field `keep` reads is `id`.
+
+# 4. Apply markers to the comments the filtered report selected
+uncomment keep . --from scan.jsonl
+
+# 5. Run the real removal
+uncomment .
+
+# 6. Verify: a second scan reports 0 removable comments
+uncomment scan . --only removable
+```
+
 ## Configuration
 
-uncomment reads a hierarchical TOML configuration, merged highest-to-lowest precedence:
+uncomment reads hierarchical TOML configuration. Precedence, lowest to highest:
 
-1. Command-line flags
-2. Local `.uncommentrc.toml` (closest to the file being processed wins)
-3. Global `~/.config/uncomment/config.toml`
-4. Built-in defaults
+1. Built-in defaults
+2. Global config at `uncomment/config.toml` under the platform config directory (`dirs::config_dir()`) — `$XDG_CONFIG_HOME` or `~/.config` on Linux, `~/Library/Application Support` on macOS, `%APPDATA%` on Windows
+3. Local `.uncomment.toml` files (from repository root toward the file; inner beats outer)
+4. Pattern matches (`[patterns."glob"]`) within those configs, last match wins
+5. Language-specific settings (`[languages.name]`)
+6. Command-line flags
+
+A directory's config file is named `.uncomment.toml`. Two earlier names are still read — `.uncommentrc.toml`, then `uncomment.toml` — so an existing config keeps working, but each is deprecated and a run that loads one says so once on stderr. A directory holding more than one of the three uses the highest-precedence name outright; the others are ignored rather than merged.
+
+`[lint]` layers differently from the rest: a nested table amends the one above it key by key, each severity in `[lint.rules]` included, so a subdirectory can switch one rule off and still inherit `enabled`, `tags` and `key_pattern` from above.
+
+`[languages.*]` does not follow step 3 either. The language registry is built once, before any file is read, from the configs in the invocation directory and its ancestors plus every config found under the paths being processed — deepest declaration wins. (`--config FILE` replaces that discovery entirely.) A config reached only later, during per-file resolution, comes too late: its `[languages]` section is ignored, with a warning naming the directory.
+
+CLI flags are one-directional: `--remove-doc` sets `remove_docs = true` but an unset flag never clobbers a config-file value back to false.
+
+Every table rejects unknown keys, and a project config that does not parse stops the run instead of degrading to built-in defaults — so a typo such as `enable` for `enabled` in `[lint]` fails every subcommand, not just `lint`.
 
 ```toml
 [global]
@@ -260,7 +407,10 @@ use_default_ignores = true
 respect_gitignore = true
 
 [languages.python]
+name = "Python"
 extensions = ["py", "pyw", "pyi"]
+comment_nodes = ["comment"]
+doc_comment_nodes = ["string"]
 preserve_patterns = ["noqa", "type:", "pragma:", "pylint:"]
 
 [patterns."tests/**/*.py"]
@@ -273,8 +423,11 @@ remove_docs = false
 <details>
 <summary><b>Adding a language via configuration</b></summary>
 
-Any of the 306 tree-sitter-language-pack languages works — grammars download automatically on first
-use, no manual grammar setup:
+Any of the 306 tree-sitter-language-pack languages works. The grammar is already in the binary, so
+there is no grammar to fetch or build. The grammar is looked up by the `name` field lowercased — not
+by the section key — so `name` has to be the pack's own name for the language, or the name of a
+built-in you are overriding. A `name` that matches neither is reported on stderr rather than
+silently ignored:
 
 ```toml
 [languages.hare]
@@ -296,9 +449,9 @@ tree-sitter, so it distinguishes:
 - Inline comments vs standalone comments
 - Language-specific metadata that must be preserved
 
-The pipeline is modular: a **language registry** (50 built-ins + on-demand grammars) feeds an
-**AST visitor** that finds comment nodes, a **preservation engine** decides what to keep, and an
-**output generator** emits clean code.
+The pipeline is modular: a **language registry** (51 built-ins, plus any other compiled-in grammar
+named in config) feeds an **AST visitor** that finds comment nodes, a **preservation engine** decides
+what to keep, and an **output generator** emits clean code.
 
 ## Git Hooks
 
