@@ -4,6 +4,7 @@ use std::borrow::Cow;
 #[derive(Debug, Clone)]
 pub enum PreservationRule {
     Pattern(Cow<'static, str>),
+    PatternCaseInsensitive(Cow<'static, str>),
     Documentation,
     FileHeader,
     Shebang,
@@ -13,6 +14,9 @@ impl PreservationRule {
     pub fn matches(&self, comment: &CommentInfo, content: &str) -> bool {
         match self {
             PreservationRule::Pattern(pattern) => content.contains(pattern.as_ref()),
+            PreservationRule::PatternCaseInsensitive(pattern) => {
+                Self::contains_case_insensitive(content, pattern.as_ref())
+            }
             PreservationRule::Documentation => self.is_documentation_comment(comment, content),
             PreservationRule::FileHeader => self.is_file_header_comment(comment, content),
             PreservationRule::Shebang => self.is_shebang(comment, content),
@@ -22,8 +26,23 @@ impl PreservationRule {
     pub fn pattern_matches(&self, pattern: &str) -> bool {
         match self {
             PreservationRule::Pattern(rule_pattern) => rule_pattern.as_ref() == pattern,
+            PreservationRule::PatternCaseInsensitive(rule_pattern) => rule_pattern.as_ref() == pattern,
             _ => false,
         }
+    }
+
+    /// Every case-insensitive pattern is an ASCII word tag, so this folds over bytes rather than
+    /// lowercasing: this runs for each such rule against every comment in the tree, and allocating a
+    /// `String` per offset made it the hottest path in a large run. A needle of ASCII bytes cannot
+    /// match at a UTF-8 continuation byte, so raw byte windows need no char-boundary check.
+    fn contains_case_insensitive(haystack: &str, needle: &str) -> bool {
+        if needle.is_empty() {
+            return true;
+        }
+        haystack
+            .as_bytes()
+            .windows(needle.len())
+            .any(|window| window.eq_ignore_ascii_case(needle.as_bytes()))
     }
 
     fn is_shebang(&self, comment: &CommentInfo, content: &str) -> bool {
@@ -113,6 +132,14 @@ impl PreservationRule {
         PreservationRule::Pattern(Cow::Owned(pattern))
     }
 
+    pub fn pattern_ci(pattern: &'static str) -> Self {
+        PreservationRule::PatternCaseInsensitive(Cow::Borrowed(pattern))
+    }
+
+    pub fn pattern_ci_owned(pattern: String) -> Self {
+        PreservationRule::PatternCaseInsensitive(Cow::Owned(pattern))
+    }
+
     pub fn documentation() -> Self {
         PreservationRule::Documentation
     }
@@ -129,14 +156,14 @@ impl PreservationRule {
 impl PreservationRule {
     pub fn default_rules() -> Vec<Self> {
         vec![
-            Self::pattern("TODO"),
-            Self::pattern("FIXME"),
-            Self::pattern("HACK"),
-            Self::pattern("XXX"),
+            Self::pattern_ci("TODO"),
+            Self::pattern_ci("FIXME"),
+            Self::pattern_ci("HACK"),
+            Self::pattern_ci("XXX"),
             Self::pattern("NOTE"),
             Self::pattern("WARNING"),
-            Self::pattern("COPYRIGHT"),
-            Self::pattern("LICENSE"),
+            Self::pattern_ci("COPYRIGHT"),
+            Self::pattern_ci("LICENSE"),
             Self::documentation(),
             Self::file_header(),
             Self::pattern("eslint-disable"),
@@ -149,7 +176,7 @@ impl PreservationRule {
             Self::pattern("@ts-ignore"),
             Self::pattern("@ts-expect-error"),
             Self::pattern("/// <reference"),
-            Self::pattern("NOSONAR"),
+            Self::pattern_ci("NOSONAR"),
             Self::shebang(),
         ]
     }
@@ -157,12 +184,12 @@ impl PreservationRule {
     pub fn comprehensive_rules() -> Vec<Self> {
         let mut rules = Self::default_rules();
         rules.extend(vec![
-            Self::pattern("BUG"),
-            Self::pattern("REVIEW"),
-            Self::pattern("OPTIMIZE"),
-            Self::pattern("PERFORMANCE"),
-            Self::pattern("SECURITY"),
-            Self::pattern("DEPRECATED"),
+            Self::pattern_ci("BUG"),
+            Self::pattern_ci("REVIEW"),
+            Self::pattern_ci("OPTIMIZE"),
+            Self::pattern_ci("PERFORMANCE"),
+            Self::pattern_ci("SECURITY"),
+            Self::pattern_ci("DEPRECATED"),
             Self::pattern("eslint-disable"),
             Self::pattern("eslint-enable"),
             Self::pattern("eslint-disable-next-line"),
@@ -516,6 +543,106 @@ mod tests {
         assert!(
             matches_with_test_id,
             "# nosec B101 should be preserved by comprehensive rules"
+        );
+    }
+
+    #[test]
+    fn test_word_tag_case_insensitive_matching() {
+        let comment = create_test_comment("line_comment", 5);
+        let default_rules = PreservationRule::default_rules();
+
+        let test_cases = vec![
+            ("# todo: fix this", true, "lowercase todo should be preserved"),
+            ("# Todo: fix this", true, "titlecase Todo should be preserved"),
+            ("# TODO: fix this", true, "uppercase TODO should be preserved"),
+            ("# hack something", true, "lowercase hack should be preserved"),
+            ("# Hack something", true, "titlecase Hack should be preserved"),
+            ("# HACK something", true, "uppercase HACK should be preserved"),
+            (
+                "// todo refactor",
+                true,
+                "lowercase todo in C-style comment should be preserved",
+            ),
+            (
+                "// Todo refactor",
+                true,
+                "titlecase Todo in C-style comment should be preserved",
+            ),
+            ("// fixme: broken", true, "lowercase fixme should be preserved"),
+            ("// FIXME: broken", true, "uppercase FIXME should be preserved"),
+            (
+                "# just a plain comment",
+                false,
+                "plain comment without tag should NOT be preserved",
+            ),
+        ];
+
+        for (content, should_match, description) in test_cases {
+            let matches = default_rules.iter().any(|rule| rule.matches(&comment, content));
+            assert_eq!(matches, should_match, "{description}");
+        }
+    }
+
+    #[test]
+    fn test_case_insensitive_matching_on_non_ascii_comments() {
+        let comment = create_test_comment("line_comment", 5);
+        let default_rules = PreservationRule::default_rules();
+
+        // The matcher compares raw byte windows, so a multi-byte comment must neither panic nor
+        // report a tag that is not there. Both of these are real shapes in a mixed-language repo.
+        let matches_accented = default_rules
+            .iter()
+            .any(|rule| rule.matches(&comment, "# étoile — plain prose, pas de balise"));
+        assert!(
+            !matches_accented,
+            "accented prose without a tag should NOT be preserved"
+        );
+
+        let matches_cjk_with_tag = default_rules
+            .iter()
+            .any(|rule| rule.matches(&comment, "# 修正が必要 todo: fix the encoding"));
+        assert!(
+            matches_cjk_with_tag,
+            "a lowercase tag after multi-byte text should still be preserved"
+        );
+    }
+
+    #[test]
+    fn test_pragma_patterns_remain_case_sensitive() {
+        let comment = create_test_comment("comment", 5);
+        let comprehensive_rules = PreservationRule::comprehensive_rules();
+
+        let matches_lowercase_noqa = comprehensive_rules.iter().any(|rule| rule.matches(&comment, "# noqa"));
+        assert!(
+            matches_lowercase_noqa,
+            "lowercase '# noqa' should be preserved (exact match)"
+        );
+
+        let matches_uppercase_noqa = comprehensive_rules.iter().any(|rule| rule.matches(&comment, "# NOQA"));
+        assert!(
+            !matches_uppercase_noqa,
+            "uppercase '# NOQA' should NOT be preserved by the '# noqa' pattern (pragma is case-sensitive)"
+        );
+
+        let matches_bare_noqa = comprehensive_rules.iter().any(|rule| rule.matches(&comment, "noqa"));
+        assert!(matches_bare_noqa, "bare 'noqa' should be preserved (exact match)");
+
+        let matches_bare_uppercase = comprehensive_rules.iter().any(|rule| rule.matches(&comment, "NOQA"));
+        assert!(
+            !matches_bare_uppercase,
+            "bare 'NOQA' should NOT be preserved by the 'noqa' pattern (pragma is case-sensitive)"
+        );
+
+        let matches_lowercase_nosec = comprehensive_rules.iter().any(|rule| rule.matches(&comment, "# nosec"));
+        assert!(
+            matches_lowercase_nosec,
+            "lowercase 'nosec' should be preserved (exact match)"
+        );
+
+        let matches_uppercase_nosec = comprehensive_rules.iter().any(|rule| rule.matches(&comment, "# NOSEC"));
+        assert!(
+            !matches_uppercase_nosec,
+            "uppercase 'NOSEC' should NOT be preserved by the 'nosec' pattern (pragma is case-sensitive)"
         );
     }
 }
