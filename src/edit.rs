@@ -100,25 +100,25 @@ fn validate_range(content: &str, edit: &Edit) -> Result<()> {
 
 /// Reject overlapping ranges in a slice already sorted ascending by `(start, end)`.
 ///
-/// Sorted that way, the furthest-reaching range seen so far is enough to decide the next one: a
-/// range whose start falls strictly before that end intersects it, and equality means they only
-/// touch. Comparing against the running maximum rather than the immediate predecessor is what
-/// catches a short range nested inside a long one.
+/// Sorted that way the immediate predecessor is enough to decide the next range: a range whose
+/// start falls strictly before the predecessor's end intersects it, and equality means they only
+/// touch. No earlier range needs consulting, because starts are non-decreasing, so once every
+/// adjacent pair up to `i` has passed, `edits[i].start >= edits[j + 1].start >= edits[j].end` holds
+/// for every earlier `j`. A short range nested inside a long one is still caught: the long range is
+/// its predecessor in this order, and the pair fails there.
 fn reject_overlaps(edits: &[Edit]) -> Result<()> {
-    let mut furthest = &edits[0];
+    let mut previous = &edits[0];
     for edit in &edits[1..] {
-        if edit.start < furthest.end {
+        if edit.start < previous.end {
             bail!(
                 "overlapping edits: {}..{} overlaps {}..{}",
-                furthest.start,
-                furthest.end,
+                previous.start,
+                previous.end,
                 edit.start,
                 edit.end
             );
         }
-        if edit.end >= furthest.end {
-            furthest = edit;
-        }
+        previous = edit;
     }
     Ok(())
 }
@@ -202,8 +202,8 @@ mod tests {
 
     #[test]
     fn a_range_nested_inside_another_is_rejected() {
-        // The immediate predecessor of 6..7 in sorted order is 2..3, which it does not touch; only
-        // comparing against the furthest end reached so far catches the containing 0..9.
+        // 2..3 sits inside 0..9 and follows it directly once sorted, so the sweep rejects that pair
+        // before it ever reaches 6..7.
         let err = apply_edits(
             "abcdefghij",
             vec![Edit::new(0, 9, "x"), Edit::new(2, 3, "y"), Edit::new(6, 7, "z")],
@@ -285,5 +285,38 @@ mod tests {
         let twice = apply_edits(&once, Vec::new()).unwrap();
         assert_eq!(once, content);
         assert_eq!(twice, content);
+    }
+
+    #[test]
+    fn every_triple_of_ranges_is_judged_the_way_pairwise_intersection_says() {
+        // The sweep in `reject_overlaps` leans on the sort order to look at one pair of ranges per
+        // step. This pins its verdict to the definition it is supposed to implement — two half-open
+        // ranges intersect when each starts strictly before the other ends, which is also what makes
+        // a zero-width insertion at a boundary fine and one in mid-range not — over every triple of
+        // ranges in a four-byte content, rather than over the handful spelled out above.
+        const CONTENT: &str = "abcd";
+
+        let ranges: Vec<(usize, usize)> = (0..=CONTENT.len())
+            .flat_map(|start| (start..=CONTENT.len()).map(move |end| (start, end)))
+            .collect();
+        let intersects = |a: (usize, usize), b: (usize, usize)| a.0 < b.1 && b.0 < a.1;
+
+        for &a in &ranges {
+            for &b in &ranges {
+                for &c in &ranges {
+                    let expected_overlap = intersects(a, b) || intersects(a, c) || intersects(b, c);
+                    let edits = vec![
+                        Edit::new(a.0, a.1, "A"),
+                        Edit::new(b.0, b.1, "B"),
+                        Edit::new(c.0, c.1, "C"),
+                    ];
+                    let accepted = apply_edits(CONTENT, edits).is_ok();
+                    assert_eq!(
+                        accepted, !expected_overlap,
+                        "{a:?} {b:?} {c:?}: accepted = {accepted}, intersecting = {expected_overlap}"
+                    );
+                }
+            }
+        }
     }
 }
