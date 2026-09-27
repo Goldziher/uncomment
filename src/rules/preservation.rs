@@ -211,6 +211,7 @@ impl PreservationRule {
             Self::pattern("fmt:off"),
             Self::pattern("fmt:on"),
             Self::pattern("bandit:"),
+            Self::pattern("nosec"),
             Self::pattern("isort:"),
             Self::pattern("pyre-ignore"),
             Self::pattern("pyre-fixme"),
@@ -498,6 +499,23 @@ mod tests {
         assert!(
             matches_comprehensive,
             "NOSONAR should be preserved by comprehensive rules"
+        );
+    }
+
+    #[test]
+    fn test_nosec_pattern_preserved() {
+        let comment = create_test_comment("comment", 5);
+        let comprehensive_rules = PreservationRule::comprehensive_rules();
+
+        let matches_bare = comprehensive_rules.iter().any(|rule| rule.matches(&comment, "# nosec"));
+        assert!(matches_bare, "# nosec should be preserved by comprehensive rules");
+
+        let matches_with_test_id = comprehensive_rules
+            .iter()
+            .any(|rule| rule.matches(&comment, "# nosec B101"));
+        assert!(
+            matches_with_test_id,
+            "# nosec B101 should be preserved by comprehensive rules"
         );
     }
 }

@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [Unreleased]
+
+### Fixed
+
+- bandit suppressions are no longer deleted. The comprehensive preservation set knew
+  `bandit:` but not the `# nosec` form bandit actually reads, so a run silently
+  re-enabled every security finding those comments had suppressed.
+
 ## [v3.8.0] - 2026-09-27
 
 ### Added
