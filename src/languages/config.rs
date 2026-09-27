@@ -479,16 +479,18 @@ impl LanguageConfig {
     /// Bazel's build language. `BUILD` and `WORKSPACE` carry no extension at all, so the filename
     /// list — not the extension list — is what makes most of a Bazel repository visible.
     ///
-    /// `doc_comment_types` is deliberately empty. Starlark has Python's docstrings rather than a
-    /// doc-comment form, and only [`crate::languages::handlers::PythonHandler`] can tell a docstring
-    /// `string` node from any other string literal; declaring `string` here without that classifier
-    /// would hand every string in a `BUILD` file to the doc-comment machinery.
+    /// Starlark has Python's docstrings rather than a doc-comment form, so `string` is the
+    /// doc-comment kind — a `.bzl` module or macro documents itself with a leading string expression,
+    /// and Stardoc publishes it. The kind only pays its way alongside the handler:
+    /// [`crate::languages::handlers::PythonHandler`] is what tells a docstring `string` node from any
+    /// other string literal, and without it every string in a `BUILD` file would be handed to the
+    /// doc-comment machinery.
     pub fn starlark() -> Self {
         Self::new(
             "starlark",
             vec!["bzl", "bazel", "star"],
             vec!["comment"],
-            vec![],
+            vec!["string"],
             "starlark",
         )
         .with_filenames(vec![
