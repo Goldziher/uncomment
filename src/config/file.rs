@@ -40,6 +40,10 @@ pub struct GlobalConfig {
 
     pub preserve_patterns: Vec<String>,
 
+    /// Path globs no subcommand collects a file from. See [`super::ExcludeSet`] for how one is
+    /// anchored and matched.
+    pub exclude: Vec<String>,
+
     pub use_default_ignores: bool,
 
     pub respect_gitignore: bool,
@@ -74,6 +78,8 @@ struct GlobalConfigFile {
     remove_docs: Option<bool>,
     #[serde(default)]
     preserve_patterns: Vec<String>,
+    #[serde(default)]
+    exclude: Vec<String>,
     use_default_ignores: Option<bool>,
     respect_gitignore: Option<bool>,
     traverse_git_repos: Option<bool>,
@@ -89,6 +95,7 @@ impl<'de> Deserialize<'de> for GlobalConfig {
             remove_fixme: file.remove_fixme.unwrap_or(defaults.remove_fixme),
             remove_docs: file.remove_docs.unwrap_or(defaults.remove_docs),
             preserve_patterns: file.preserve_patterns,
+            exclude: file.exclude,
             use_default_ignores: file.use_default_ignores.unwrap_or(defaults.use_default_ignores),
             respect_gitignore: file.respect_gitignore.unwrap_or(defaults.respect_gitignore),
             traverse_git_repos: file.traverse_git_repos.unwrap_or(defaults.traverse_git_repos),
@@ -199,12 +206,19 @@ impl PatternConfig {
 
 /// `literal_separator` keeps `*` from crossing a `/`, so `src/*.py` matches
 /// `src/main.py` but not `src/inner/main.py`.
-fn compile_pattern_glob(pattern: &str) -> Result<GlobMatcher> {
+///
+/// Shared with `[global] exclude` so that one glob dialect covers the whole config file. The caller
+/// attaches the context, because the key a broken glob is reported against differs.
+pub(super) fn compile_path_glob(pattern: &str) -> Result<GlobMatcher> {
     GlobBuilder::new(pattern)
         .literal_separator(true)
         .build()
         .map(|glob| glob.compile_matcher())
-        .with_context(|| format!("Invalid glob in [patterns.\"{pattern}\"]"))
+        .map_err(anyhow::Error::from)
+}
+
+fn compile_pattern_glob(pattern: &str) -> Result<GlobMatcher> {
+    compile_path_glob(pattern).with_context(|| format!("Invalid glob in [patterns.\"{pattern}\"]"))
 }
 
 #[derive(Debug)]
@@ -287,6 +301,7 @@ impl Default for GlobalConfig {
             remove_fixme: false,
             remove_docs: false,
             preserve_patterns: Vec::new(),
+            exclude: Vec::new(),
             use_default_ignores: true,
             respect_gitignore: true,
             traverse_git_repos: false,
@@ -324,6 +339,8 @@ impl Config {
                 return Err(anyhow::anyhow!("Language '{}' has no comment node types", lang_name));
             }
         }
+
+        super::exclude::validate(&self.global.exclude, super::exclude::CONFIG_KEY)?;
 
         let mut pattern_names: Vec<&String> = self.patterns.keys().collect();
         pattern_names.sort();
@@ -366,6 +383,14 @@ impl Config {
         patterns.sort();
         patterns.dedup();
         merged.global.preserve_patterns = patterns;
+
+        // A union, like `preserve_patterns`: an inner config adds paths the project will not touch
+        // and cannot take back one an outer config already excluded.
+        let mut exclude = merged.global.exclude.clone();
+        exclude.extend(other.global.exclude.iter().cloned());
+        exclude.sort();
+        exclude.dedup();
+        merged.global.exclude = exclude;
 
         merged.languages.extend(
             other

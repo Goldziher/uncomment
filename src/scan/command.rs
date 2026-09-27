@@ -59,7 +59,7 @@ use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 use serde::Serialize;
 
-use crate::config::{Config, ConfigManager, ResolvedConfig};
+use crate::config::{Config, ConfigManager, ExcludeSet, ResolvedConfig};
 use crate::languages::LanguageRegistry;
 use crate::languages::registry::warn_languages_without_a_grammar;
 use crate::paths::{absolute_normalized, find_repo_root, repo_relative, to_slash};
@@ -162,7 +162,8 @@ pub fn run(args: &ScanArgs) -> Result<()> {
     let mut registry = LanguageRegistry::new();
     warn_languages_without_a_grammar(&registry.register_configured_languages(&config_manager.get_all_languages()));
 
-    let files = collect_files(&args.process.paths, &options, &registry)?;
+    let excludes = config_manager.exclude_set(&args.process.exclude)?;
+    let files = collect_files(&args.process.paths, &options, &registry, &excludes)?;
 
     let num_threads = if args.process.threads == 0 {
         num_cpus::get()
@@ -752,20 +753,34 @@ fn build_config_manager(args: &ScanArgs, current_dir: &Path) -> Result<ConfigMan
 ///
 /// Mirrors the default run's collection — gitignore-aware directory walks, globs otherwise — so
 /// the inventory covers exactly the files that run would have processed.
-fn collect_files(paths: &[String], options: &ProcessingOptions, registry: &LanguageRegistry) -> Result<Vec<PathBuf>> {
+fn collect_files(
+    paths: &[String],
+    options: &ProcessingOptions,
+    registry: &LanguageRegistry,
+    excludes: &ExcludeSet,
+) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     for pattern in paths {
         let path = Path::new(pattern);
 
         if path.is_file() {
-            if registry.detect_language(path).is_some() {
+            if !excludes.is_excluded(path) && registry.detect_language(path).is_some() {
                 files.push(path.to_path_buf());
             }
         } else if path.is_dir() {
-            collect_from_pattern(&format!("{}/**/*", path.display()), &mut files, options, registry)?;
+            if excludes.prunes_dir(path) {
+                continue;
+            }
+            collect_from_pattern(
+                &format!("{}/**/*", path.display()),
+                &mut files,
+                options,
+                registry,
+                excludes,
+            )?;
         } else {
-            collect_from_pattern(pattern, &mut files, options, registry)?;
+            collect_from_pattern(pattern, &mut files, options, registry, excludes)?;
         }
     }
 
@@ -779,11 +794,16 @@ fn collect_from_pattern(
     files: &mut Vec<PathBuf>,
     options: &ProcessingOptions,
     registry: &LanguageRegistry,
+    excludes: &ExcludeSet,
 ) -> Result<()> {
     if !options.respect_gitignore {
         for entry in glob::glob(pattern).context("Failed to parse glob pattern")? {
             match entry {
-                Ok(path) if path.is_file() && registry.detect_language(&path).is_some() => files.push(path),
+                Ok(path)
+                    if path.is_file() && !excludes.is_excluded(&path) && registry.detect_language(&path).is_some() =>
+                {
+                    files.push(path);
+                }
                 Ok(_) => {}
                 Err(error) => anstream::eprintln!("{} reading path: {error}", ui::danger("error")),
             }
@@ -812,6 +832,7 @@ fn collect_from_pattern(
         .git_exclude(true)
         .parents(true)
         .require_git(false)
+        .filter_entry(excludes.walk_filter())
         .build();
 
     for entry in walker {
@@ -823,7 +844,7 @@ fn collect_from_pattern(
                 {
                     continue;
                 }
-                if path.is_file() && registry.detect_language(path).is_some() {
+                if path.is_file() && !excludes.is_excluded(path) && registry.detect_language(path).is_some() {
                     files.push(path.to_path_buf());
                 }
             }

@@ -23,7 +23,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 
-use crate::config::ConfigManager;
+use crate::config::{ConfigManager, ExcludeSet};
 use crate::edit::{Edit, apply_edits};
 use crate::languages::registry::{LanguageRegistry, warn_languages_without_a_grammar};
 use crate::paths::{absolute_normalized, find_repo_root, repo_relative, to_slash};
@@ -234,7 +234,8 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
     let mut registry = LanguageRegistry::new();
     warn_languages_without_a_grammar(&registry.register_configured_languages(&config_manager.get_all_languages()));
 
-    let mut files = collect_files(&base, &args.process.paths, respect_gitignore, &registry)?;
+    let excludes = config_manager.exclude_set(&args.process.exclude)?;
+    let mut files = collect_files(&base, &args.process.paths, respect_gitignore, &registry, &excludes)?;
 
     if args.changed_only {
         let root = repo_root
@@ -631,22 +632,25 @@ fn collect_files(
     paths: &[String],
     respect_gitignore: bool,
     registry: &LanguageRegistry,
+    excludes: &ExcludeSet,
 ) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     for pattern in paths {
         let path = absolute_normalized(base, Path::new(pattern));
         if path.is_file() {
-            if registry.detect_language(&path).is_some() {
+            if !excludes.is_excluded(&path) && registry.detect_language(&path).is_some() {
                 files.push(path);
             }
         } else if path.is_dir() {
-            walk_dir(&path, respect_gitignore, registry, &mut files);
+            if !excludes.prunes_dir(&path) {
+                walk_dir(&path, respect_gitignore, registry, excludes, &mut files);
+            }
         } else {
             let pattern = to_slash(&path);
             for entry in glob::glob(&pattern).with_context(|| format!("invalid path or glob: {pattern}"))? {
                 let entry = entry.with_context(|| format!("failed to read a match for {pattern}"))?;
-                if entry.is_file() && registry.detect_language(&entry).is_some() {
+                if entry.is_file() && !excludes.is_excluded(&entry) && registry.detect_language(&entry).is_some() {
                     files.push(entry);
                 }
             }
@@ -658,7 +662,13 @@ fn collect_files(
     Ok(files)
 }
 
-fn walk_dir(dir: &Path, respect_gitignore: bool, registry: &LanguageRegistry, files: &mut Vec<PathBuf>) {
+fn walk_dir(
+    dir: &Path,
+    respect_gitignore: bool,
+    registry: &LanguageRegistry,
+    excludes: &ExcludeSet,
+    files: &mut Vec<PathBuf>,
+) {
     let walker = ignore::WalkBuilder::new(dir)
         .hidden(false)
         .git_ignore(respect_gitignore)
@@ -666,11 +676,12 @@ fn walk_dir(dir: &Path, respect_gitignore: bool, registry: &LanguageRegistry, fi
         .git_exclude(respect_gitignore)
         .parents(respect_gitignore)
         .require_git(false)
+        .filter_entry(excludes.walk_filter())
         .build();
 
     for entry in walker.flatten() {
         let path = entry.path();
-        if path.is_file() && registry.detect_language(path).is_some() {
+        if path.is_file() && !excludes.is_excluded(path) && registry.detect_language(path).is_some() {
             files.push(path.to_path_buf());
         }
     }

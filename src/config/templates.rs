@@ -41,6 +41,7 @@ remove_todos = false
 remove_fixme = false
 remove_docs = false
 preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+exclude = []
 use_default_ignores = true
 respect_gitignore = true
 traverse_git_repos = false
@@ -99,6 +100,7 @@ preserve_patterns = [       # Additional patterns to preserve
     "WORKAROUND",
     "NOTE"
 ]
+exclude = []                # Path globs no subcommand collects, e.g. "vendor/**"
 use_default_ignores = true  # Use built-in ignore patterns
 respect_gitignore = true    # Respect .gitignore files
 traverse_git_repos = false # Traverse into nested git repos
@@ -193,6 +195,7 @@ remove_todos = false
 remove_fixme = false
 remove_docs = false
 preserve_patterns = ["HACK", "WORKAROUND", "NOTE", "XXX", "FIXME", "TODO"]
+exclude = []
 use_default_ignores = true
 respect_gitignore = true
 traverse_git_repos = false
@@ -324,6 +327,7 @@ preserve_patterns = [       # Additional patterns to preserve
     "FIXME",
     "TODO"
 ]
+exclude = []                # Path globs no subcommand collects, e.g. "vendor/**"
 use_default_ignores = true  # Use built-in ignore patterns
 respect_gitignore = true    # Respect .gitignore files
 traverse_git_repos = false # Traverse into nested git repos
@@ -555,6 +559,7 @@ remove_todos = false
 remove_fixme = false
 remove_docs = false
 preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+exclude = []
 use_default_ignores = true
 respect_gitignore = true
 traverse_git_repos = false
@@ -718,6 +723,7 @@ remove_todos = false
 remove_fixme = false
 remove_docs = false
 preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+exclude = []
 use_default_ignores = true
 respect_gitignore = true
 traverse_git_repos = false
@@ -864,6 +870,7 @@ remove_todos = {remove_todos}
 remove_fixme = {remove_fixme}
 remove_docs = {remove_docs}
 preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+exclude = []
 use_default_ignores = true
 respect_gitignore = true
 traverse_git_repos = false
@@ -953,6 +960,7 @@ remove_todos = {remove_todos}
 remove_fixme = {remove_fixme}
 remove_docs = {remove_docs}
 preserve_patterns = ["HACK", "WORKAROUND", "NOTE"]
+exclude = []
 use_default_ignores = true
 respect_gitignore = true
 traverse_git_repos = false
