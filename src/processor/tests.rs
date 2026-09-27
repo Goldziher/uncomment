@@ -41,7 +41,11 @@ fn plan_removals_reports_removable_comments_with_ranges() {
         &source[removals[0].remove_start..removals[0].remove_end],
         "// remove me\n"
     );
-    assert_eq!(&source[removals[1].remove_start..removals[1].remove_end], "// trailing");
+    // A trailing comment's range reaches back over the space separating it from the code.
+    assert_eq!(
+        &source[removals[1].remove_start..removals[1].remove_end],
+        " // trailing"
+    );
 }
 
 fn process_rust_with(source: &str, remove_docs: bool) -> ProcessOutcome {
@@ -1166,7 +1170,7 @@ fn inspect_expanded_range_swallows_a_standalone_comment_line() {
             Verdict::Preserve => None,
         })
         .collect();
-    assert_eq!(ranges, vec!["// standalone\n", "// trailing"]);
+    assert_eq!(ranges, vec!["// standalone\n", " // trailing"]);
 }
 
 #[test]
