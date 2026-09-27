@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
-## [Unreleased]
+## [v3.8.0] - 2026-09-27
 
 ### Added
 
@@ -13,7 +13,7 @@ This changelog is generated from git tags and commit history.
   Select comments with `--from FILE` (a scan inventory with the lines you don't want
   deleted), `--id`, `--match SUBSTRING`, or `--all-removable`.
 
-  A line comment gets ` ~keep` appended; a block, doc or docstring comment gets a plain
+  A line comment gets `~keep` appended; a block, doc or docstring comment gets a plain
   marker line directly above it, at its own indentation. That split is not cosmetic — a
   Python docstring is a string node whose bytes are `__doc__` at runtime, and a marker
   written with a doc prefix (`///`, `##`) is classified as documentation and does nothing
@@ -49,7 +49,7 @@ This changelog is generated from git tags and commit history.
   ticket and the work invisible. `--fix` rewrites non-canonical tags in place; a missing key
   is reported rather than invented, unless `--todo-key KEY` says which one to write.
 
-  Every part of the convention is configuration, under `[lint]` in `.uncommentrc.toml` —
+  Every part of the convention is configuration, under `[lint]` in `.uncomment.toml` —
   the tags, the canonical one, the key pattern, and how the current issue is read out of
   the branch name — because no two repositories agree on it. Linting is off until
   `enabled = true` appears under `[lint]`, and a run that matches files under no such
@@ -76,7 +76,136 @@ This changelog is generated from git tags and commit history.
   and byte offsets, so they survive unrelated edits to the file) and `paths` (lexical
   normalization, so a `..` component can no longer defeat a containment check).
 
+### Changed
+
+- `uncomment lint` now matches tags regardless of casing, where before only the literal casing in
+  `lint.tags` was a tag at all. This is a behaviour change: a tree that lints clean today can start
+  reporting violations, because a miscased tag is a `tag-not-canonical` violation and `--fix`
+  rewrites it to `canonical_tag` — `# todo: x` becomes `# TODO: x`, and `# fixme: x` becomes
+  `# TODO: x`. The rule now covers two defects rather than one, a tag spelled differently from the
+  canonical tag and the canonical tag spelled in the wrong casing, and the message says which:
+  "`TODO` should be written as `TODO`" would say nothing. Set `case_sensitive_tags = true` under
+  `[lint]` for exactly the previous behaviour; it layers key by key like every other key in that
+  table, so one subdirectory can opt out without restating the rest.
+
+  The key half of the convention did not loosen along with the tag half. `key_pattern` is a regex
+  you supply and it spells the tags out itself, so a miscased tag is reconciled before the pattern
+  runs rather than the pattern being compiled case-insensitively, which would have accepted a
+  miscased key too: `# todo(AMVP-1):` counts as keyed, while `# TODO(amvp-1):` and
+  `# todo(amvp-1):` do not. Two entries in `lint.tags` that differ only in casing are now a
+  configuration error, because case-insensitive matching makes them one tag and which of the two
+  `--fix` should write is unanswerable.
+
+- The configuration file a project is read from is now `.uncomment.toml`, and that is the name
+  `uncomment init` writes when no `--output` is given. One name, spelled the way the tool is,
+  instead of an `rc` suffix borrowed from a different ecosystem and a second spelling beside it.
+  Both previous names are still discovered — `.uncommentrc.toml` first, then `uncomment.toml` —
+  so no existing configuration stops being read; they are deprecated, and the first config a run
+  loads from either name prints one notice on stderr naming that file and the name to move to.
+  Nothing is renamed for you and nothing fails. A directory holding more than one of the three
+  uses the highest-precedence name outright rather than merging them, which is the rule the older
+  pair already followed.
+
+- The library's `keep::Unmarkable::NoLineCommentToken` is now `NoMarkerToken`, since a
+  missing line-comment token is no longer on its own a reason a comment cannot be marked.
+
+- Unknown keys in a configuration file are now a load error naming the
+  offending key, instead of being silently ignored. A typo such as `remove_todoz = true`
+  previously parsed fine and did nothing. Every shipped `uncomment init` template still
+  round-trips, and every key documented in the README remains valid.
+
+- Config precedence is now unambiguous in two cases that previously depended on sort
+  order: a directory holding more than one of the accepted config file names uses the
+  highest-precedence one outright, and the user-level global config is always the
+  lowest-precedence layer. A config between the invocation directory and the git root
+  now applies at all — previously a repo-root config was invisible from a subdirectory.
+
+- `--help` no longer lists `clippy::` among the directives preserved by default. It is
+  only in the comprehensive rule set, so the claim was misleading.
+
+- The minimum supported Rust version is now declared: `rust-version = "1.90"`. Edition 2024
+  alone needs 1.85, but `tree-sitter` 0.27 and `ordered-float` 5.5 both require 1.90, so
+  that was already the real floor — it is now stated and enforced in CI.
+
+- The published crate contains only `src/`, `Cargo.toml`, `README.md`, `LICENSE` and
+  `CHANGELOG.md`. The repository root also holds the npm and pip wrappers, the test corpus
+  and the AI-assistant configuration, none of which a crates.io consumer can use.
+
+- The npm package's `tar` dependency moved from `^6` to `^7`, which is where every published
+  fix for the outstanding node-tar advisories lives. The extraction call site is unchanged
+  across the major, and a full install — download, checksum verification, extract, run — was
+  exercised against 7.5.22. `adm-zip` moved to `^0.6.1` alongside it; its one behaviour change
+  on the `0.6` line concerns directory entries, and the published Windows archive holds a
+  single flat file, so the Windows install path was verified to extract byte-for-byte what
+  `unzip` produces.
+
+- The pip package requires Python 3.10 or newer, and the npm package Node 22 or newer. Both
+  previous floors — Python 3.8 and Node 18 — are past end of life, and the Python one was no
+  longer buildable anyway: the current `setuptools` needs 3.10. Neither wrapper does more than
+  download and exec the binary for your platform, so the dropped versions were not being
+  exercised by anything. Releases are now built on Python 3.14 and Node 24.
+
+- The pip package declares its licence as a PEP 639 SPDX expression (`license = "MIT"`) rather
+  than a table plus a classifier, both of which setuptools deprecates with a stated removal
+  date. `certifi` moved to `>=2026.7.22`, and the build requirement to `setuptools>=84`.
+
 ### Fixed
+
+- A `[lint]` section in a config file no longer breaks every other subcommand. Rejecting
+  unknown keys made `[lint]` a hard parse error — `unknown field 'lint', expected one of
+  'global', 'languages', 'patterns'` — for `uncomment`, `scan` and `keep` alike; only
+  `lint` itself worked, because it stripped the table before deserializing. Enabling
+  linting therefore disabled everything else in that tree. One config file now serves both.
+
+  A nested `[lint]` table also amends the table above it key by key rather than replacing
+  it outright, so naming one rule's severity no longer resets `enabled` or the tag
+  vocabulary — the same layering `[global]` already had. A config rejected below the
+  invocation directory fails the lint run before `--fix` rewrites anything.
+
+- A comment in a language with no line-comment form can now be marked. `uncomment keep`
+  refused every block comment in CSS, HTML and the other block-only languages for want of
+  a token to write the marker line with — 108 of 3261 comments in one real run. A block
+  comment alone on its line satisfies the marker guard exactly as a line comment does, so
+  the marker falls back to `<!-- ~keep -->` / `/* ~keep */`.
+
+  Recognising that form back is what keeps a decisions file idempotent. An unrecognised
+  `/* ~keep */` is reconstructed with its marker stripped as `/* */`, which claims the id
+  of any real empty comment in the file — and `keep` then refuses the whole run as
+  ambiguous rather than marking what was asked for. Writing and recognising now share one
+  list of candidate marker lines, so the two cannot drift apart.
+
+- Ruby and Perl no longer offer a block-comment pair that cannot carry a marker. `=begin`
+  /`=end` and POD are recognised only at column 0, so they cannot wrap an indented marker
+  line; both languages now declare their line form only.
+
+- The library's `paths::is_ancestor_of` and `paths::repo_relative` no longer treat a root that
+  names the current directory as containing everything. `.`, `""` and `a/..` all normalize to
+  the empty path, which `Path::starts_with` calls a prefix of every path — so `/etc/passwd` and
+  `../sibling` read as contained, and `repo_relative` handed an absolute path straight back as
+  though it were already relative. Every command resolves its root to an absolute path first, so
+  this was latent rather than live; it is fixed because the ids `scan` and `keep` derive from that
+  string would otherwise differ between checkouts.
+
+- `uncomment keep` now reports a `[languages.*]` section it could not register, as the
+  default run, `scan` and `lint` already did. A section naming a language no grammar exists
+  for registers nothing — not even its extensions, so the files it was written for are never
+  collected — and `keep` answered `0 marked, 0 already marked, 0 unmarkable, 0 unresolved`,
+  which reads as "nothing needed marking".
+
+- A custom language declared in `[languages]` is now recognized while files are being
+  collected, so a file whose extension exists only in your config is processed instead of
+  counted as unsupported and skipped. Collection was built from the built-in languages
+  alone and the config was consulted only afterwards, per file — so overriding an
+  extension that was already built in worked, and declaring a genuinely new one silently
+  did nothing. Declarations in a config file *below* the invocation directory, under the
+  paths being processed, now count too: deepest declaration wins.
+
+- `npm install -g uncomment-cli` no longer installs uncomment 2.0.0. A 15 MB macOS arm64
+  binary from that release was committed at `npm-package/bin/uncomment` and shipped
+  verbatim in every tarball since, so the postinstall download was overwritten on macOS
+  and the wrong binary ran on every other platform. `bin/uncomment` is now a launcher that
+  execs the binary the postinstall step fetched for your platform, and reports a clear
+  error if that step did not run.
 
 - `[patterns."<glob>"]` config sections now actually do something. They were parsed and
   then never consulted — resolution only ever read `[global]` — so every per-path
@@ -95,7 +224,7 @@ This changelog is generated from git tags and commit history.
   silently deleted by a plain `uncomment` run despite being documented as protected.
 
 - A config file that does not contain a `[global]` section no longer resets every global
-  setting to its default. A nested `.uncommentrc.toml` carrying only `[patterns]` used to
+  setting to its default. A nested `.uncomment.toml` carrying only `[patterns]` used to
   deserialize as all-defaults and silently erase the enclosing config's `remove_docs`,
   `remove_todos` and the rest; only the keys a file actually contains now override the
   layer above it.
@@ -106,7 +235,7 @@ This changelog is generated from git tags and commit history.
 
 - A config file that fails to parse or validate is now a hard error naming the file,
   instead of being silently replaced by defaults. The previous behaviour was the dangerous
-  one: a typo in `.uncommentrc.toml` meant the run continued under default settings and
+  one: a typo in `.uncomment.toml` meant the run continued under default settings and
   deleted comments the config existed to protect. A config discovered below the invocation
   directory is also recorded and reported, and fails the run's exit code.
 
@@ -115,22 +244,6 @@ This changelog is generated from git tags and commit history.
   literal path, so `repo/sub/..` matched `repo/sub`'s settings — `Path::starts_with` and
   `parent` are both lexical. Paths are normalized before any containment check, which also
   removes a spurious "`[languages]` … is ignored" warning on such a path.
-
-### Changed
-
-- Unknown keys in `.uncommentrc.toml` / `uncomment.toml` are now a load error naming the
-  offending key, instead of being silently ignored. A typo such as `remove_todoz = true`
-  previously parsed fine and did nothing. Every shipped `uncomment init` template still
-  round-trips, and every key documented in the README remains valid.
-
-- Config precedence is now unambiguous in two cases that previously depended on sort
-  order: a directory holding both `.uncommentrc.toml` and `uncomment.toml` uses
-  `.uncommentrc.toml` outright, and the user-level global config is always the
-  lowest-precedence layer. A config between the invocation directory and the git root
-  now applies at all — previously a repo-root config was invisible from a subdirectory.
-
-- `--help` no longer lists `clippy::` among the directives preserved by default. It is
-  only in the comprehensive rule set, so the claim was misleading.
 
 ## [v3.7.0] - 2026-09-18
 
