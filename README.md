@@ -204,8 +204,10 @@ In a Go template a comment is only a comment inside an action, so a bare `/* …
 text and `{{/* … */}}` is the only form. The grammar models the `{{` and `}}` as *siblings* of the
 comment rather than as part of it, so the whole action is removed — deleting only the comment would
 leave `{{}}`, which Helm refuses to render. One spacing caveat: `{{ /* spaced */ }}` and `{{-/* x */-}}`
-produce no comment node at all and are left alone. An inline comment keeps the spaces around it
-(`hello {{/* x */}} world` → `hello  world`), because in a template that whitespace is rendered output.
+produce no comment node at all and are left alone. A comment with code on *both* sides keeps the
+spaces around it (`hello {{/* x */}} world` → `hello  world`), because in a template that whitespace is
+rendered output. One that ends the line does not: `hello {{/* x */}}` leaves `hello`, since a trailing
+comment takes its separator with it like any other language's.
 
 ## Preservation Rules
 

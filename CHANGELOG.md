@@ -99,6 +99,18 @@ This changelog is generated from git tags and commit history.
 
 ### Fixed
 
+- A removed trailing comment takes the whitespace that separated it from the code with it.
+  `name = "z",  # why` left `name = "z",··`, so a run that removed one trailing comment turned a
+  clean file into a trailing-whitespace lint failure — `buildifier`, `gofmt`, ruff's `W291` and the
+  usual pre-commit whitespace hook all reject it, which is enough to make an otherwise correct run
+  unmergeable. Spaces and tabs are consumed, never the newline, so lines cannot splice. A comment
+  with code on *both* sides is untouched, and a standalone comment still loses its whole line.
+
+  Measured over 6,054 tracked Bazel files: the old behaviour introduced 54 new trailing-whitespace
+  lines across 26 files, the new one introduces zero, and the two outputs differ under nothing but
+  `diff --ignore-all-space`. Over 4,000 mixed `.py`/`.tf`/`.go`/`.ts`/`.sh`/`.yaml`/`.md`/`.tpl`
+  files: 1,839 such lines across 595 files before, zero after.
+
 - `lint --fix` no longer rewrites English prose. Matching tags case-insensitively made the ordinary
   words `hack`, `todo` and `xxx` into tags wherever they appeared, so "this is a hack to work around
   the upstream bug" became "this is a TODO to work around the upstream bug". A miscased tag now has
