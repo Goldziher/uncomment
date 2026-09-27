@@ -325,6 +325,12 @@ impl PreservationRule {
             Self::pattern("cspell:"),        // cSpell: disable / ignore / words
             Self::pattern("spell-checker:"), // Code Spell Checker alternate prefix
             Self::pattern("codespell:ignore"),
+            // Markdown and prose linters. These arrive as ordinary HTML comments, so nothing but
+            // this list distinguishes them from a removable aside.
+            Self::pattern("markdownlint"), // -disable, -enable, -capture, -restore, -configure-file
+            Self::pattern("vale off"),     // bare `vale` would also match "prevalent"
+            Self::pattern("vale on"),
+            Self::pattern("doctoc"), // the START/END markers delimit generated content
         ]);
         rules
     }
@@ -543,6 +549,43 @@ mod tests {
         assert!(
             matches_with_test_id,
             "# nosec B101 should be preserved by comprehensive rules"
+        );
+    }
+
+    /// Markdown's directives are ordinary HTML comments, so a markdown run sees them as removable
+    /// unless they are named here. Silently deleting one turns a knowingly-suppressed lint error
+    /// back into a build failure in a file nobody edited.
+    #[test]
+    fn markdown_directive_comments_are_preserved() {
+        let comment = create_test_comment("html_block", 1);
+        let comprehensive_rules = PreservationRule::comprehensive_rules();
+
+        let directives = [
+            "<!-- markdownlint-disable -->",
+            "<!-- markdownlint-disable MD013 -->",
+            "<!-- markdownlint-enable -->",
+            "<!-- markdownlint-capture -->",
+            "<!-- markdownlint-restore -->",
+            "<!-- markdownlint-disable-next-line MD033 -->",
+            "<!-- markdownlint-configure-file { \"MD013\": false } -->",
+            "<!-- prettier-ignore -->",
+            "<!-- vale off -->",
+            "<!-- vale on -->",
+            "<!-- START doctoc generated TOC -->",
+            "<!-- END doctoc -->",
+        ];
+        for directive in directives {
+            assert!(
+                comprehensive_rules.iter().any(|rule| rule.matches(&comment, directive)),
+                "{directive} should be preserved by comprehensive rules"
+            );
+        }
+
+        assert!(
+            !comprehensive_rules
+                .iter()
+                .any(|rule| rule.matches(&comment, "<!-- an ordinary aside -->")),
+            "a prose comment must still be removable"
         );
     }
 
