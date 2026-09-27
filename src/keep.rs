@@ -165,6 +165,13 @@ pub fn run(args: &KeepArgs) -> Result<()> {
         }
     }
 
+    // Reading the inventory is what pulls in the configs below the invocation directory, and a
+    // config that failed to load is recorded there rather than returned. Marking under built-in
+    // defaults would mark the wrong comments, so stop before anything is written.
+    if let Some(error) = config_manager.deferred_config_error() {
+        bail!("{error}");
+    }
+
     let mut summary = Summary {
         unresolved: unresolved.len(),
         ..Summary::default()

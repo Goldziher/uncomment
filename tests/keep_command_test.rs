@@ -326,6 +326,28 @@ fn a_comment_in_a_language_with_no_line_comment_token_is_reported_not_guessed_at
     assert_eq!(read(dir.path(), "src/a.css"), source);
 }
 
+/// A config below the invocation directory is read during the inventory pass, from a call that
+/// records its failure instead of returning it. Which comments are removable depends on that
+/// config, so marking under built-in defaults would mark the wrong set.
+#[test]
+fn a_broken_config_below_the_invocation_directory_marks_nothing() {
+    let source = "// one\nfn a() {}\n";
+    let dir = fixture(&[
+        ("src/a.rs", source),
+        ("src/.uncommentrc.toml", "[global]\nremove_todoz = true\n"),
+    ]);
+
+    let run = run_keep(dir.path(), &["--all-removable", "."]);
+
+    assert!(!run.ok, "a rejected config must fail the run: {}", run.message);
+    assert!(
+        run.message.contains("remove_todoz"),
+        "the error must name the offending key, got: {}",
+        run.message
+    );
+    assert_eq!(read(dir.path(), "src/a.rs"), source, "no marker may be written");
+}
+
 /// The acceptance test for the feature: mark everything a default run would strip, then prove a
 /// default run strips nothing, that the markers survive it, and that the only change to the tree is
 /// added markers.

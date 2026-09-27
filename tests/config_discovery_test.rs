@@ -465,6 +465,47 @@ remove_todoz = true
     );
 }
 
+/// The same guarantee for a config the ancestor walk never sees. This one is only read
+/// during the per-file pass, from a call that cannot return an error, so the run has to
+/// consult the recorded failure rather than finishing green.
+#[test]
+fn broken_config_below_the_invocation_directory_fails_the_run() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(&root.join(".uncommentrc.toml"), "[global]\nremove_todos = false\n");
+    write(
+        &root.join("sub").join(".uncommentrc.toml"),
+        "[global]\nremove_todoz = true\n",
+    );
+    let above = root.join("x.py");
+    let below = root.join("sub").join("y.py");
+    write(&above, "# plain\nx = 1\n");
+    write(&below, "# plain\ny = 1\n");
+
+    let output = run_uncomment(root, &["."]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !output.status.success(),
+        "a config discovered below the invocation directory must still fail the run, stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("remove_todoz"),
+        "the error must name the offending key, got: {stderr}"
+    );
+    assert_eq!(
+        fs::read_to_string(&above).unwrap(),
+        "# plain\nx = 1\n",
+        "no file may be rewritten when a config was rejected, not even one the config never covered"
+    );
+    assert_eq!(
+        fs::read_to_string(&below).unwrap(),
+        "# plain\ny = 1\n",
+        "the file the rejected config covered must be untouched"
+    );
+}
+
 /// Which file name wins must not depend on whether the preferred one parses.
 #[test]
 fn broken_dotfile_config_does_not_promote_uncomment_toml() {
