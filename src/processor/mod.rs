@@ -298,9 +298,12 @@ impl Processor {
 
     /// Expand a comment byte range `[start, end)` to cover its whole line(s) when
     /// only whitespace surrounds it, so removing a standalone comment also drops
-    /// the now-blank line. Returns `None` for degenerate ranges (empty or past the
-    /// end of `bytes`); otherwise the expanded range, or the original span when the
-    /// comment shares its line with code.
+    /// the now-blank line. A comment that *trails* code takes the horizontal
+    /// whitespace separating it from that code as well — it exists only to hold the
+    /// comment off the code, and leaving it behind fails every trailing-whitespace
+    /// lint. Returns `None` for degenerate ranges (empty or past the end of
+    /// `bytes`); otherwise the expanded range, or the original span when code sits
+    /// on both sides of the comment.
     fn expand_range(bytes: &[u8], start: usize, end: usize) -> Option<(usize, usize)> {
         let end = end.min(bytes.len());
         if start >= end || start >= bytes.len() {
@@ -323,6 +326,8 @@ impl Processor {
 
         if before_ws && after_ws {
             Some((line_start, line_end))
+        } else if after_ws {
+            Some((start - trailing_horizontal_whitespace(before), end))
         } else {
             Some((start, end))
         }
@@ -714,6 +719,16 @@ fn dedupe_nested(comments: Vec<&CommentInfo>) -> Vec<&CommentInfo> {
         }
     }
     kept
+}
+
+/// Length of the run of spaces and tabs at the end of `bytes`. Only horizontal whitespace counts:
+/// a newline is the line boundary, not a separator, and swallowing it would splice two lines.
+fn trailing_horizontal_whitespace(bytes: &[u8]) -> usize {
+    bytes
+        .iter()
+        .rev()
+        .take_while(|byte| matches!(byte, b' ' | b'\t'))
+        .count()
 }
 
 /// The whole source line that `offset` falls on.
