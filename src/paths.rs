@@ -81,9 +81,10 @@ fn lexically_contains(ancestor: &Path, candidate: &Path) -> bool {
         return true;
     }
 
-    // The ancestor is the current directory, and nothing absolute can be placed relative to it
+    // The ancestor is the current directory, and nothing rooted can be placed relative to it
     // without resolving one side against the working directory, which this module does not do.
-    candidate.is_relative() && candidate.components().next() != Some(Component::ParentDir)
+    // `is_relative` alone is not enough on Windows, where `\etc` is rooted but not absolute.
+    candidate.is_relative() && matches!(candidate.components().next(), None | Some(Component::Normal(_)))
 }
 
 /// Nearest ancestor of `start` (inclusive) containing a `.git` entry.
