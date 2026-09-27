@@ -185,7 +185,7 @@ pub fn run(args: &KeepArgs) -> Result<()> {
             &work.path,
             &work.comments,
             comments,
-            work.line_token,
+            work.syntax,
             &mut processor,
             &work.config,
         )
@@ -338,9 +338,10 @@ impl Placement {
 /// marker in the wrong place is either inert or actively wrong, and both are worse than a refusal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unmarkable {
-    /// The language has no plain line-comment token, so no marker line can be written.
-    NoLineCommentToken,
-    /// The language's line-comment token is itself classified as documentation.
+    /// The language has neither a line-comment token nor a block pair, so no marker line can be
+    /// written.
+    NoMarkerToken,
+    /// Every comment token the language has is itself classified as documentation.
     DocPrefixToken,
     /// Code shares the comment's line, so a marker line above it would not attach to it.
     NotStandalone,
@@ -354,8 +355,8 @@ pub enum Unmarkable {
 impl fmt::Display for Unmarkable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
-            Unmarkable::NoLineCommentToken => "no plain line-comment token is known for this language",
-            Unmarkable::DocPrefixToken => "this language's line-comment token reads as documentation",
+            Unmarkable::NoMarkerToken => "no comment token is known for this language to write a marker with",
+            Unmarkable::DocPrefixToken => "this language's comment tokens all read as documentation",
             Unmarkable::NotStandalone => "code shares its line, so a marker line above it would not attach",
             Unmarkable::Directive => "it is a shebang or language directive, whose text cannot be extended",
             Unmarkable::MarkerDidNotAttach => "the marker did not preserve it when the result was re-inspected",
@@ -364,14 +365,57 @@ impl fmt::Display for Unmarkable {
     }
 }
 
+/// The literal comment tokens a marker line can be written with: the plain line form (`//`, `#`,
+/// `--`, `;`, `%`) when the language has one, and the plain block pair (`("/*", "*/")`,
+/// `("<!--", "-->")`) otherwise. A language may have either, both, or neither.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MarkerSyntax<'a> {
+    pub line: Option<&'a str>,
+    pub block: Option<(&'a str, &'a str)>,
+}
+
+impl MarkerSyntax<'_> {
+    /// Every marker line this syntax could produce, line form first because [`Self::marker_line_text`]
+    /// prefers it.
+    ///
+    /// Shared with [`is_emitted_marker_line`] so that the text this module writes and the text it later
+    /// recognises as its own cannot drift apart.
+    fn marker_line_candidates(self) -> [Option<String>; 2] {
+        [
+            self.line.map(|token| format!("{token} {KEEP_MARKER}")),
+            self.block.map(|(open, close)| format!("{open} {KEEP_MARKER} {close}")),
+        ]
+    }
+
+    /// The marker comment to put on its own line, preferring the line form because it is the shorter
+    /// and the more conventional of the two.
+    ///
+    /// A token whose marker would be classified as documentation is skipped rather than written: such
+    /// a marker is read as documentation and preserves nothing, so writing it would be silently inert.
+    fn marker_line_text(self) -> std::result::Result<String, Unmarkable> {
+        let mut had_token = false;
+        for candidate in self.marker_line_candidates().into_iter().flatten() {
+            had_token = true;
+            if !reads_as_documentation(&candidate) {
+                return Ok(candidate);
+            }
+        }
+
+        Err(if had_token {
+            Unmarkable::DocPrefixToken
+        } else {
+            Unmarkable::NoMarkerToken
+        })
+    }
+}
+
 /// Where a marker for `comment` belongs, or why it cannot have one.
 ///
-/// `line_token` is the language's *plain* line-comment token (`//`, `#`, `--`, `;`, `%`), and
-/// `line_ending` the terminator new lines are written with so a CRLF file stays CRLF.
+/// `line_ending` is the terminator new lines are written with, so a CRLF file stays CRLF.
 pub fn plan_marker(
     content: &str,
     comment: &InspectedComment,
-    line_token: Option<&str>,
+    syntax: MarkerSyntax<'_>,
     line_ending: &str,
 ) -> std::result::Result<Placement, Unmarkable> {
     if matches!(
@@ -386,10 +430,7 @@ pub fn plan_marker(
             offset: text_end(content, comment.start_byte, comment.end_byte),
         }),
         CommentKind::Block | CommentKind::Doc | CommentKind::Docstring => {
-            let token = line_token.ok_or(Unmarkable::NoLineCommentToken)?;
-            if marker_line_reads_as_documentation(token) {
-                return Err(Unmarkable::DocPrefixToken);
-            }
+            let marker = syntax.marker_line_text()?;
             if !is_standalone(content, comment.start_byte) {
                 return Err(Unmarkable::NotStandalone);
             }
@@ -397,19 +438,18 @@ pub fn plan_marker(
             let indent = &content[line_start..comment.start_byte];
             Ok(Placement::AboveLine {
                 offset: line_start,
-                text: format!("{indent}{token} {KEEP_MARKER}{line_ending}"),
+                text: format!("{indent}{marker}{line_ending}"),
             })
         }
     }
 }
 
-/// Whether a marker line written with `token` would be classified as documentation, and so read as
-/// documentation rather than as a marker.
+/// Whether `text` would be classified as documentation, and so read as documentation rather than as
+/// a marker.
 ///
 /// Asked of the real classifier instead of a hand-kept list of prefixes, because the list that
 /// matters is the one [`PreservationRule::Documentation`] applies.
-fn marker_line_reads_as_documentation(token: &str) -> bool {
-    let text = format!("{token} {KEEP_MARKER}");
+fn reads_as_documentation(text: &str) -> bool {
     let probe = CommentInfo {
         start_byte: 0,
         end_byte: text.len(),
@@ -419,7 +459,7 @@ fn marker_line_reads_as_documentation(token: &str) -> bool {
         should_preserve: false,
         is_documentation: false,
     };
-    PreservationRule::documentation().matches(&probe, &text)
+    PreservationRule::documentation().matches(&probe, text)
 }
 
 /// Offset just past the comment's last non-whitespace byte, so ` ~keep` is appended to the text
@@ -499,7 +539,7 @@ pub(crate) fn apply_markers(
     path: &Path,
     comments: &[InspectedComment],
     selected: &BTreeSet<usize>,
-    line_token: Option<&str>,
+    syntax: MarkerSyntax<'_>,
     processor: &mut Processor,
     config: &ResolvedConfig,
 ) -> Result<MarkOutcome> {
@@ -515,7 +555,7 @@ pub(crate) fn apply_markers(
             outcome.already_marked.push(index);
             continue;
         }
-        match plan_marker(content, comment, line_token, line_ending) {
+        match plan_marker(content, comment, syntax, line_ending) {
             Ok(placement) => candidates.push(Candidate {
                 comment: index,
                 placement: Some(placement),
@@ -713,7 +753,7 @@ struct FileWork {
     content: String,
     comments: Vec<InspectedComment>,
     config: ResolvedConfig,
-    line_token: Option<&'static str>,
+    syntax: MarkerSyntax<'static>,
     /// Per comment, the ids that resolve to it.
     ids: Vec<Vec<String>>,
 }
@@ -734,14 +774,18 @@ impl FileWork {
         let language_name = language.name.to_lowercase();
         let config = resolve_config(config_manager, path, &language_name, options);
         let comments = processor.inspect(&content, path, &config)?;
-        let ids = comment_ids(&id_path(path), &comments, language.line_comment_token());
+        let syntax = MarkerSyntax {
+            line: language.line_comment_token(),
+            block: language.block_comment_delimiters(),
+        };
+        let ids = comment_ids(&id_path(path), &comments, syntax);
 
         Ok(Some(Self {
             path: path.to_path_buf(),
             content,
             comments,
             config,
-            line_token: language.line_comment_token(),
+            syntax,
             ids,
         }))
     }
@@ -796,7 +840,7 @@ fn id_path(path: &Path) -> String {
 /// Reconstructing the pre-marker view — marker lines this module emitted removed, appended markers
 /// stripped, occurrence indices reassigned over *that* text — reproduces exactly the ids the earlier
 /// scan wrote.
-fn comment_ids(path: &str, comments: &[InspectedComment], line_token: Option<&str>) -> Vec<Vec<String>> {
+fn comment_ids(path: &str, comments: &[InspectedComment], syntax: MarkerSyntax<'_>) -> Vec<Vec<String>> {
     let texts: Vec<&str> = comments.iter().map(|comment| comment.text.as_str()).collect();
     let occurrences = assign_occurrence_indices(&texts);
     let mut ids: Vec<Vec<String>> = texts
@@ -808,7 +852,7 @@ fn comment_ids(path: &str, comments: &[InspectedComment], line_token: Option<&st
     let prior: Vec<Option<String>> = comments
         .iter()
         .map(|comment| {
-            if is_emitted_marker_line(comment, line_token) {
+            if is_emitted_marker_line(comment, syntax) {
                 return None;
             }
             Some(unmarked_text(comment))
@@ -832,8 +876,19 @@ fn comment_ids(path: &str, comments: &[InspectedComment], line_token: Option<&st
 }
 
 /// Whether this comment is a marker line this module wrote, and so did not exist before.
-fn is_emitted_marker_line(comment: &InspectedComment, line_token: Option<&str>) -> bool {
-    line_token.is_some_and(|token| comment.text.trim() == format!("{token} {KEEP_MARKER}"))
+///
+/// Every form the language could have produced counts, not only the one [`MarkerSyntax::marker_line_text`]
+/// would choose today. A marker line mistaken for a pre-existing comment is reconstructed into the
+/// pre-marker view with its ` ~keep` stripped out, where it claims the id of any real comment with that
+/// text — and two comments answering to one id is what [`IdIndex`] reports as ambiguous, so `keep`
+/// refuses to mark the comment the id was written for.
+fn is_emitted_marker_line(comment: &InspectedComment, syntax: MarkerSyntax<'_>) -> bool {
+    let text = comment.text.trim();
+    syntax
+        .marker_line_candidates()
+        .iter()
+        .flatten()
+        .any(|candidate| candidate == text)
 }
 
 /// The comment's text with one appended marker removed, for a comment a marker of its own preserves.
@@ -1046,6 +1101,20 @@ mod tests {
         }
     }
 
+    /// The marker syntax the registry reports for `file_name`, so a test asks the same question the
+    /// command does rather than restating a token the language definition owns.
+    fn syntax_for(file_name: &str) -> MarkerSyntax<'static> {
+        let path = PathBuf::from(file_name);
+        let registry = LanguageRegistry::new();
+        let language = registry
+            .detect_language(&path)
+            .unwrap_or_else(|| panic!("no language for {file_name}"));
+        MarkerSyntax {
+            line: language.line_comment_token(),
+            block: language.block_comment_delimiters(),
+        }
+    }
+
     /// Mark the comments `select` accepts in `content`, returning the rewritten text and the outcome.
     fn mark_with(
         content: &str,
@@ -1054,11 +1123,7 @@ mod tests {
         select: impl Fn(&InspectedComment) -> bool,
     ) -> (String, MarkOutcome, Vec<InspectedComment>) {
         let path = PathBuf::from(file_name);
-        let registry = LanguageRegistry::new();
-        let language = registry
-            .detect_language(&path)
-            .unwrap_or_else(|| panic!("no language for {file_name}"));
-        let token = language.line_comment_token();
+        let syntax = syntax_for(file_name);
 
         let mut config = default_config();
         config.remove_docs = remove_docs;
@@ -1072,8 +1137,8 @@ mod tests {
             .map(|(index, _)| index)
             .collect();
 
-        let outcome =
-            apply_markers(content, &path, &comments, &selected, token, &mut processor, &config).expect("apply markers");
+        let outcome = apply_markers(content, &path, &comments, &selected, syntax, &mut processor, &config)
+            .expect("apply markers");
         (outcome.content.clone(), outcome, comments)
     }
 
@@ -1168,12 +1233,12 @@ mod tests {
     }
 
     #[test]
-    fn marker_lines_use_the_language_line_token_and_never_a_doc_prefix() {
-        for (file, token) in [("a.c", "//"), ("a.py", "#"), ("a.lua", "--")] {
-            assert!(!marker_line_reads_as_documentation(token), "{file} {token}");
+    fn marker_lines_use_a_plain_comment_token_and_never_a_doc_prefix() {
+        for marker in ["// ~keep", "# ~keep", "-- ~keep", "/* ~keep */", "<!-- ~keep -->"] {
+            assert!(!reads_as_documentation(marker), "{marker}");
         }
-        for doc_prefix in ["///", "//!", "/**", "##"] {
-            assert!(marker_line_reads_as_documentation(doc_prefix), "{doc_prefix}");
+        for marker in ["/// ~keep", "//! ~keep", "/** ~keep */", "## ~keep"] {
+            assert!(reads_as_documentation(marker), "{marker}");
         }
     }
 
@@ -1248,16 +1313,35 @@ mod tests {
         assert_eq!(mark_removable(before, "a.rs"), "// one ~keep");
     }
 
+    /// CSS and HTML have no line-comment form at all, so the marker line has to be written with the
+    /// block pair. Refusing them instead would leave every comment in those languages unprotectable.
     #[test]
-    fn a_language_without_a_line_comment_token_reports_the_comment_unmarkable() {
-        let before = "/* only blocks here */\na { color: red; }\n";
-        let (after, outcome, _) = mark_with(before, "a.css", false, |comment| {
-            matches!(comment.verdict, Verdict::Remove { .. })
-        });
-        assert_eq!(after, before);
-        assert_eq!(outcome.placements.len(), 0);
-        assert_eq!(outcome.unmarkable.len(), 1);
-        assert_eq!(outcome.unmarkable[0].1, Unmarkable::NoLineCommentToken);
+    fn a_language_with_only_a_block_pair_gets_a_block_marker_line() {
+        for (file, before, expected) in [
+            (
+                "a.css",
+                "/* legacy rule */\na { color: red; }\n",
+                "/* ~keep */\n/* legacy rule */\na { color: red; }\n",
+            ),
+            (
+                "a.html",
+                "<!-- legacy markup -->\n<p>x</p>\n",
+                "<!-- ~keep -->\n<!-- legacy markup -->\n<p>x</p>\n",
+            ),
+        ] {
+            let after = mark_removable(before, file);
+            assert_eq!(after, expected, "{file}");
+            assert_eq!(removable_count(&after, file), 0, "{file}");
+        }
+    }
+
+    #[test]
+    fn a_language_with_neither_comment_token_reports_the_comment_unmarkable() {
+        let content = "/* only blocks here */\na { color: red; }\n";
+        let (_, _, comments) = mark_with(content, "a.css", false, |_| false);
+        let error =
+            plan_marker(content, &comments[0], MarkerSyntax::default(), "\n").expect_err("no token can carry a marker");
+        assert_eq!(error, Unmarkable::NoMarkerToken);
     }
 
     #[test]
@@ -1325,11 +1409,11 @@ mod tests {
         let mut processor = Processor::new();
 
         let original = processor.inspect(before, &path, &default_config()).expect("inspect");
-        let original_ids = comment_ids("a.rs", &original, Some("//"));
+        let original_ids = comment_ids("a.rs", &original, syntax_for("a.rs"));
 
         let after = mark_removable(before, "a.rs");
         let marked = processor.inspect(&after, &path, &default_config()).expect("inspect");
-        let marked_ids = comment_ids("a.rs", &marked, Some("//"));
+        let marked_ids = comment_ids("a.rs", &marked, syntax_for("a.rs"));
 
         assert!(
             marked_ids[0].contains(&original_ids[0][0]),
@@ -1349,8 +1433,52 @@ mod tests {
             .iter()
             .find(|comment| comment.text.trim() == "// ~keep")
             .expect("marker line");
-        assert!(is_emitted_marker_line(marker, Some("//")));
-        assert!(!is_emitted_marker_line(&comments[1], Some("//")));
+        assert!(is_emitted_marker_line(marker, syntax_for("a.rs")));
+        assert!(!is_emitted_marker_line(&comments[1], syntax_for("a.rs")));
+    }
+
+    /// The same invariant for a language whose marker line is itself a block comment, and it is not
+    /// cosmetic. The pre-marker view strips ` ~keep` back out of each comment it keeps, so a
+    /// `/* ~keep */` marker line mistaken for a pre-existing comment is reconstructed as `/* */` and
+    /// claims the scan's id for the file's real empty comment. Two comments answering to one id is
+    /// what [`IdIndex`] reports as ambiguous, and `keep` then refuses to mark either of them.
+    #[test]
+    fn a_block_form_marker_line_is_not_treated_as_a_pre_existing_comment() {
+        let path = PathBuf::from("a.css");
+        let syntax = syntax_for("a.css");
+        let mut processor = Processor::new();
+
+        // The empty comment is the collision: `/* */` is exactly what ` ~keep` stripped out of a
+        // `/* ~keep */` marker line leaves behind.
+        let before = "/* legacy rule */\na { color: red; }\n/* */\nb { color: blue; }\n";
+        let original = processor.inspect(before, &path, &default_config()).expect("inspect");
+        let original_ids = comment_ids("a.css", &original, syntax);
+
+        let after = mark_removable(before, "a.css");
+        let marked = processor.inspect(&after, &path, &default_config()).expect("inspect");
+        let marked_ids = comment_ids("a.css", &marked, syntax);
+
+        let marker = marked
+            .iter()
+            .find(|comment| comment.text.trim() == "/* ~keep */")
+            .expect("marker line");
+        assert!(is_emitted_marker_line(marker, syntax));
+
+        let empty = |comments: &[InspectedComment]| {
+            comments
+                .iter()
+                .position(|comment| comment.text.trim() == "/* */")
+                .expect("empty comment")
+        };
+        let (was, is) = (empty(&original), empty(&marked));
+        let scanned = &original_ids[was][0];
+        assert!(
+            marked_ids[is].contains(scanned),
+            "{:?} does not carry {scanned:?}",
+            marked_ids[is]
+        );
+        let owners = marked_ids.iter().filter(|ids| ids.contains(scanned)).count();
+        assert_eq!(owners, 1, "{scanned} is claimed by {owners} comments: {marked_ids:?}");
     }
 
     #[test]

@@ -317,13 +317,27 @@ fn a_dry_run_writes_nothing() {
     assert_eq!(read(dir.path(), "src/a.rs"), source);
 }
 
+/// A language with no line-comment form still gets a marker, written with its block pair. CSS and
+/// HTML carry every comment they have that way, so refusing them would leave those files entirely
+/// unprotectable — and a block comment on its own line satisfies the marker guard just as a line
+/// comment does, which is what makes the fallback sound rather than a guess.
 #[test]
-fn a_comment_in_a_language_with_no_line_comment_token_is_reported_not_guessed_at() {
+fn a_language_with_only_a_block_pair_is_marked_with_that_pair() {
     let source = "/* only blocks here */\na { color: red; }\n";
     let dir = fixture(&[("src/a.css", source)]);
     let run = run_keep(dir.path(), &["--all-removable", "."]);
     assert!(run.ok, "{}", run.message);
-    assert_eq!(read(dir.path(), "src/a.css"), source);
+    assert_eq!(
+        read(dir.path(), "src/a.css"),
+        "/* ~keep */\n/* only blocks here */\na { color: red; }\n"
+    );
+
+    // The marker is only worth writing if the tool it is aimed at honours it.
+    default_run(dir.path(), &[]);
+    assert_eq!(
+        read(dir.path(), "src/a.css"),
+        "/* ~keep */\n/* only blocks here */\na { color: red; }\n"
+    );
 }
 
 /// A config below the invocation directory is read during the inventory pass, from a call that
