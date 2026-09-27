@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -258,7 +259,8 @@ impl Cli {
             (template, Some(info))
         };
 
-        std::fs::write(output, template)?;
+        std::fs::write(output, template)
+            .with_context(|| format!("Failed to write configuration file to {}", output.display()))?;
 
         use crate::ui;
         anstream::println!(
