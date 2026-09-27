@@ -76,7 +76,7 @@ remove_dox = true
 /// `toml::from_str` plus a hand-rolled `validate` call.
 fn assert_loads(label: &str, template: &str) {
     let temp = TempDir::new().unwrap();
-    let path = temp.path().join(".uncommentrc.toml");
+    let path = temp.path().join(".uncomment.toml");
     fs::write(&path, template).unwrap();
 
     Config::from_file(&path).unwrap_or_else(|e| panic!("{label} failed to load: {e:#}"));
@@ -123,7 +123,7 @@ fn smart_templates_parse_for_a_project_with_no_source_files() {
 #[test]
 fn interactive_template_parses() {
     let temp = TempDir::new().unwrap();
-    let output_path = temp.path().join(".uncommentrc.toml");
+    let output_path = temp.path().join(".uncomment.toml");
 
     let mut child = Command::new(env!("CARGO_BIN_EXE_uncomment"))
         .current_dir(temp.path())

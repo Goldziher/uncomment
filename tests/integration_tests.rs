@@ -142,7 +142,7 @@ remove_docs = false
 preserve_patterns = ["KEEP"]
 "#;
 
-    fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
+    fs::write(root.join(".uncomment.toml"), config_content).unwrap();
 
     let test_file = root.join("test.py");
     let test_content = r#"# Header comment
@@ -194,7 +194,7 @@ fn test_nested_configuration() {
 remove_todos = false
 remove_fixme = false
 "#;
-    fs::write(root.join(".uncommentrc.toml"), root_config).unwrap();
+    fs::write(root.join(".uncomment.toml"), root_config).unwrap();
 
     let subdir = root.join("subdir");
     fs::create_dir(&subdir).unwrap();
@@ -205,7 +205,7 @@ remove_fixme = false
 remove_todos = true
 remove_fixme = false
 "#;
-    fs::write(subdir.join(".uncommentrc.toml"), sub_config).unwrap();
+    fs::write(subdir.join(".uncomment.toml"), sub_config).unwrap();
 
     let root_file = root.join("root_test.py");
     let sub_file = subdir.join("sub_test.py");
@@ -276,7 +276,7 @@ comment_nodes = ["comment"]
 preserve_patterns = ["@ts-ignore"]
 "#;
 
-    fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
+    fs::write(root.join(".uncomment.toml"), config_content).unwrap();
 
     let py_file = root.join("test.py");
     let py_content = r#""""This is a docstring"""
@@ -402,7 +402,7 @@ remove_docs = true
 preserve_patterns = ["PRODUCTION"]
 "#;
 
-    fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
+    fs::write(root.join(".uncomment.toml"), config_content).unwrap();
 
     fs::create_dir(root.join("src")).unwrap();
 
@@ -482,7 +482,7 @@ remove_todos = "invalid_boolean_value"  # Should fail TOML parsing
 invalid_syntax_here
 "#;
 
-    fs::write(root.join(".uncommentrc.toml"), invalid_config).unwrap();
+    fs::write(root.join(".uncomment.toml"), invalid_config).unwrap();
 
     fs::write(root.join("test.py"), "# comment\ndef hello(): pass").unwrap();
 
@@ -490,7 +490,7 @@ invalid_syntax_here
 
     let output = Command::new(&uncomment_path)
         .current_dir(root)
-        .args(["--config", ".uncommentrc.toml", "test.py"])
+        .args(["--config", ".uncomment.toml", "test.py"])
         .output()
         .unwrap();
 
@@ -517,7 +517,7 @@ fn test_config_override_cli_options() {
 remove_todos = false
 "#;
 
-    fs::write(root.join(".uncommentrc.toml"), config_content).unwrap();
+    fs::write(root.join(".uncomment.toml"), config_content).unwrap();
 
     let test_file = root.join("test.py");
     fs::write(&test_file, "# TODO: test comment\ndef hello(): pass").unwrap();

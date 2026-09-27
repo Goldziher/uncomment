@@ -30,7 +30,7 @@ fn write(path: &std::path::Path, contents: &str) {
 /// leaked value from a neighbouring group is visible in either direction.
 fn build_tree(root: &std::path::Path) -> Vec<Expectation> {
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
@@ -46,7 +46,7 @@ preserve_patterns = ["ROOT"]
 
         if overrides_globals {
             write(
-                &group_dir.join(".uncommentrc.toml"),
+                &group_dir.join(".uncomment.toml"),
                 &format!(
                     r#"
 [global]
@@ -57,7 +57,7 @@ preserve_patterns = ["G{group}"]
             );
         } else {
             write(
-                &group_dir.join(".uncommentrc.toml"),
+                &group_dir.join(".uncomment.toml"),
                 r#"
 [patterns."deep/*.py"]
 remove_docs = true
@@ -129,7 +129,7 @@ fn parallel_resolution_agrees_with_sequential_resolution() {
 /// The same tree through `Processor`, which is how the binary reaches the config: one
 /// processor per file, all sharing the manager.
 #[test]
-fn parallel_processing_applies_each_directorys_config() {
+fn parallel_processing_applies_the_config_of_each_directory() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();
     let expectations = build_tree(root);

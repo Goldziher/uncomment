@@ -33,7 +33,7 @@ fn construction_does_not_descend_below_the_root_directory() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
@@ -48,7 +48,7 @@ remove_todos = false
         }
     }
     write(
-        &decoy_root.join("branch0").join("leaf0").join(".uncommentrc.toml"),
+        &decoy_root.join("branch0").join("leaf0").join(".uncomment.toml"),
         r#"
 [global]
 remove_todoz = true
@@ -77,7 +77,7 @@ fn ancestor_config_up_to_the_git_root_is_loaded() {
     fs::create_dir_all(repo.join(".git")).unwrap();
 
     write(
-        &repo.join(".uncommentrc.toml"),
+        &repo.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = true
@@ -104,7 +104,7 @@ fn config_above_the_git_root_is_not_picked_up() {
     write(&repo.join(".git"), "gitdir: /elsewhere\n");
 
     write(
-        &outer.join(".uncommentrc.toml"),
+        &outer.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = true
@@ -127,14 +127,14 @@ fn nested_config_below_the_root_is_discovered_lazily() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
 "#,
     );
     write(
-        &root.join("sub").join(".uncommentrc.toml"),
+        &root.join("sub").join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = true
@@ -162,14 +162,14 @@ fn lazily_discovered_config_does_not_register_languages() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
 "#,
     );
     write(
-        &root.join("sub").join(".uncommentrc.toml"),
+        &root.join("sub").join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = true
@@ -202,7 +202,7 @@ fn nested_config_without_a_global_section_inherits_the_outer_globals() {
     fs::create_dir_all(repo.join(".git")).unwrap();
 
     write(
-        &repo.join(".uncommentrc.toml"),
+        &repo.join(".uncomment.toml"),
         r#"
 [global]
 remove_docs = true
@@ -210,7 +210,7 @@ respect_gitignore = false
 "#,
     );
     write(
-        &repo.join("sub").join(".uncommentrc.toml"),
+        &repo.join("sub").join(".uncomment.toml"),
         r#"
 [patterns."*.py"]
 remove_todos = true
@@ -231,10 +231,121 @@ remove_todos = true
     assert!(resolved.remove_todos, "the nested pattern section must still apply");
 }
 
-/// `.uncommentrc.toml` is the preferred name, so it wins over `uncomment.toml` in the
-/// same directory regardless of which one the filesystem hands back first.
+/// `.uncomment.toml` is the preferred name and needs no company to be found.
 #[test]
-fn dotfile_config_beats_uncomment_toml_in_the_same_directory() {
+fn the_preferred_config_name_alone_is_discovered() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(
+        &root.join(".uncomment.toml"),
+        r#"
+[global]
+remove_todos = true
+"#,
+    );
+
+    let file = root.join("thing.py");
+    write(&file, "# TODO: tracked work\n");
+
+    let resolved = ConfigManager::new(root).unwrap().get_config_for_file(&file);
+    assert!(resolved.remove_todos, ".uncomment.toml must be discovered and applied");
+}
+
+/// The preferred name outranks the deprecated dotfile, and the loser contributes nothing:
+/// the highest-precedence name is used outright rather than merged.
+#[test]
+fn the_preferred_name_beats_the_legacy_dotfile_in_the_same_directory() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(
+        &root.join(".uncomment.toml"),
+        r#"
+[global]
+remove_todos = true
+"#,
+    );
+    write(
+        &root.join(".uncommentrc.toml"),
+        r#"
+[global]
+remove_todos = false
+remove_fixme = true
+"#,
+    );
+
+    let file = root.join("thing.py");
+    write(&file, "# TODO: tracked work\n");
+
+    let resolved = ConfigManager::new(root).unwrap().get_config_for_file(&file);
+    assert!(resolved.remove_todos, ".uncomment.toml must win");
+    assert!(
+        !resolved.remove_fixme,
+        ".uncommentrc.toml must be ignored entirely when .uncomment.toml exists"
+    );
+}
+
+/// Reading a config under a deprecated name says so once, naming both the file and the
+/// name to move to — and never renames anything or fails the run.
+#[test]
+fn a_legacy_config_name_warns_once_naming_the_preferred_name() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(&root.join(".uncommentrc.toml"), "[global]\nremove_todos = false\n");
+    write(
+        &root.join("sub").join("uncomment.toml"),
+        "[global]\nremove_todos = false\n",
+    );
+    write(&root.join("x.py"), "# a comment\nx = 1\n");
+    write(&root.join("sub").join("y.py"), "# a comment\ny = 1\n");
+
+    let output = run_uncomment(root, &[".", "--dry-run"]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "a deprecated name is a notice, not a failure, stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(".uncommentrc.toml") && stderr.contains("rename it to .uncomment.toml"),
+        "the notice must name the offending file and the preferred name, got: {stderr}"
+    );
+    assert_eq!(
+        stderr.matches("deprecated").count(),
+        1,
+        "the notice must be emitted once per run, not once per config file, got: {stderr}"
+    );
+    assert!(
+        root.join(".uncommentrc.toml").is_file() && root.join("sub").join("uncomment.toml").is_file(),
+        "no config file may be renamed or removed"
+    );
+}
+
+/// The preferred name is not deprecated, so it must warn about nothing.
+#[test]
+fn the_preferred_config_name_does_not_warn() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    write(&root.join(".uncomment.toml"), "[global]\nremove_todos = false\n");
+    write(&root.join("x.py"), "# a comment\nx = 1\n");
+
+    let output = run_uncomment(root, &[".", "--dry-run"]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(output.status.success(), "stderr: {stderr}");
+    assert!(
+        !stderr.contains("deprecated"),
+        "the preferred config name must not warn, got: {stderr}"
+    );
+}
+
+/// Both deprecated names are still honoured, in their established order: a directory holding
+/// `.uncommentrc.toml` and `uncomment.toml` — and no `.uncomment.toml` — uses the dotfile.
+#[test]
+fn legacy_dotfile_config_beats_uncomment_toml_in_the_same_directory() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();
 
@@ -268,13 +379,13 @@ remove_fixme = true
 /// `cd repo/sub && uncomment ../other` must not hand `other/` the config that governs
 /// `sub/`: `Path::starts_with` is lexical, so an unnormalized `..` slips past it.
 #[test]
-fn a_parent_component_does_not_apply_a_sibling_directorys_config() {
+fn a_parent_component_does_not_apply_the_config_of_a_sibling_directory() {
     let temp = TempDir::new().unwrap();
     let repo = temp.path().join("repo");
     fs::create_dir_all(repo.join(".git")).unwrap();
 
     write(
-        &repo.join("sub").join(".uncommentrc.toml"),
+        &repo.join("sub").join(".uncomment.toml"),
         r#"
 [global]
 remove_fixme = true
@@ -309,7 +420,7 @@ fn a_parent_component_cannot_escape_the_git_root() {
     fs::create_dir_all(repo.join(".git")).unwrap();
 
     write(
-        &temp.path().join(".uncommentrc.toml"),
+        &temp.path().join(".uncomment.toml"),
         r#"
 [global]
 remove_fixme = true
@@ -336,7 +447,7 @@ fn a_dot_component_resolves_to_the_same_config() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_fixme = true
@@ -375,7 +486,7 @@ fn a_parent_component_argument_does_not_warn_that_languages_are_ignored() {
     fs::create_dir_all(repo.join("sub")).unwrap();
 
     write(
-        &repo.join(".uncommentrc.toml"),
+        &repo.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
@@ -404,9 +515,9 @@ fn a_broken_config_below_the_root_is_recorded_as_a_deferred_error() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();
 
-    write(&root.join(".uncommentrc.toml"), "[global]\nremove_todos = false\n");
+    write(&root.join(".uncomment.toml"), "[global]\nremove_todos = false\n");
     write(
-        &root.join("sub").join(".uncommentrc.toml"),
+        &root.join("sub").join(".uncomment.toml"),
         "[global]\nremove_todoz = true\n",
     );
     let file = root.join("sub").join("x.py");
@@ -424,7 +535,7 @@ fn a_broken_config_below_the_root_is_recorded_as_a_deferred_error() {
         .deferred_config_error()
         .expect("a config that fails to load must be recorded, not swallowed");
     assert!(
-        error.contains(".uncommentrc.toml") && error.contains("remove_todoz"),
+        error.contains(".uncomment.toml") && error.contains("remove_todoz"),
         "the recorded error must name the file and the key, got: {error}"
     );
 }
@@ -437,7 +548,7 @@ fn discovered_config_with_an_unknown_key_fails_the_run() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
@@ -455,7 +566,7 @@ remove_todoz = true
         "an unparsable discovered config must fail the run, stderr: {stderr}"
     );
     assert!(
-        stderr.contains(".uncommentrc.toml"),
+        stderr.contains(".uncomment.toml"),
         "the error must name the offending file, got: {stderr}"
     );
     assert_eq!(
@@ -473,9 +584,9 @@ fn broken_config_below_the_invocation_directory_fails_the_run() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();
 
-    write(&root.join(".uncommentrc.toml"), "[global]\nremove_todos = false\n");
+    write(&root.join(".uncomment.toml"), "[global]\nremove_todos = false\n");
     write(
-        &root.join("sub").join(".uncommentrc.toml"),
+        &root.join("sub").join(".uncomment.toml"),
         "[global]\nremove_todoz = true\n",
     );
     let above = root.join("x.py");
@@ -506,13 +617,15 @@ fn broken_config_below_the_invocation_directory_fails_the_run() {
     );
 }
 
-/// Which file name wins must not depend on whether the preferred one parses.
+/// Which file name wins must not depend on whether the preferred one parses — neither of the
+/// deprecated names may be promoted behind it.
 #[test]
-fn broken_dotfile_config_does_not_promote_uncomment_toml() {
+fn broken_dotfile_config_does_not_promote_a_deprecated_name() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();
 
-    write(&root.join(".uncommentrc.toml"), "[global]\nremove_todoz = true\n");
+    write(&root.join(".uncomment.toml"), "[global]\nremove_todoz = true\n");
+    write(&root.join(".uncommentrc.toml"), "[global]\nremove_todos = true\n");
     write(&root.join("uncomment.toml"), "[global]\nremove_todos = true\n");
     write(&root.join("x.py"), "# TODO: tracked work\nx = 1\n");
 
@@ -521,10 +634,10 @@ fn broken_dotfile_config_does_not_promote_uncomment_toml() {
 
     assert!(
         !output.status.success(),
-        "a broken .uncommentrc.toml must fail rather than promote uncomment.toml, stderr: {stderr}"
+        "a broken .uncomment.toml must fail rather than promote a deprecated name, stderr: {stderr}"
     );
     assert!(
-        stderr.contains(".uncommentrc.toml"),
+        stderr.contains(".uncomment.toml"),
         "the error must name the file that failed, got: {stderr}"
     );
 }
@@ -535,13 +648,13 @@ fn construction_fails_when_an_ancestor_config_is_invalid() {
     let temp = TempDir::new().unwrap();
     let repo = temp.path().join("repo");
     fs::create_dir_all(repo.join(".git")).unwrap();
-    write(&repo.join(".uncommentrc.toml"), "[global]\nremove_todoz = true\n");
+    write(&repo.join(".uncomment.toml"), "[global]\nremove_todoz = true\n");
     fs::create_dir_all(repo.join("sub")).unwrap();
 
     let error = ConfigManager::new(repo.join("sub")).expect_err("an invalid ancestor config must be fatal");
     let rendered = format!("{error:#}");
     assert!(
-        rendered.contains(".uncommentrc.toml") && rendered.contains("remove_todoz"),
+        rendered.contains(".uncomment.toml") && rendered.contains("remove_todoz"),
         "the error must name the file and the offending key, got: {rendered}"
     );
 }

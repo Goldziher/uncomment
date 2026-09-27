@@ -18,7 +18,7 @@ fn pattern_section_applies_to_matching_files_only() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
@@ -57,7 +57,7 @@ fn overlapping_patterns_resolve_deterministically() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
@@ -97,14 +97,14 @@ fn nested_config_patterns_are_relative_to_that_config_directory() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
 "#,
     );
     write(
-        &root.join("nested").join(".uncommentrc.toml"),
+        &root.join("nested").join(".uncomment.toml"),
         r#"
 [patterns."deep/*.py"]
 remove_todos = true
@@ -163,7 +163,7 @@ fn single_star_does_not_cross_a_path_separator() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
@@ -196,7 +196,7 @@ fn pattern_overrides_are_applied_before_language_overrides() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 remove_todos = false
@@ -234,7 +234,7 @@ fn empty_preserve_patterns_in_a_pattern_section_clears_the_inherited_list() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 preserve_patterns = ["KEEPME"]
@@ -280,7 +280,7 @@ fn omitted_preserve_patterns_in_a_pattern_section_inherits() {
     let root = temp.path();
 
     write(
-        &root.join(".uncommentrc.toml"),
+        &root.join(".uncomment.toml"),
         r#"
 [global]
 preserve_patterns = ["KEEPME"]

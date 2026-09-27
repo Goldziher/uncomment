@@ -7,14 +7,14 @@ const AFTER_LONG_HELP: &str = "Examples:
   uncomment src/ --dry-run --diff    Preview changes as a diff, write nothing
   uncomment main.rs --remove-doc     Also strip doc comments and docstrings
   uncomment . -j 0                   Process the whole tree using all CPU cores
-  uncomment init                     Generate a .uncommentrc.toml for this project
+  uncomment init                     Generate a .uncomment.toml for this project
   uncomment scan src/ --only removable  Inventory the comments a run would remove
   uncomment keep src/ --all-removable  Mark every removable comment with ~keep
   uncomment lint src/                  Check TODO/FIXME tags, removing nothing
 
 Preserved by default: TODO, FIXME, HACK, XXX, NOSONAR, the ~keep marker, doc
 comments, and common linting directives (eslint-disable, noqa, @ts-ignore, ...).
-Override with the flags above or a .uncommentrc.toml (see `uncomment init`).";
+Override with the flags above or a .uncomment.toml (see `uncomment init`).";
 
 #[derive(Parser, Debug)]
 #[command(
@@ -42,7 +42,7 @@ pub enum Commands {
     #[command(about = "Create a template configuration file")]
     Init {
         /// Output file name
-        #[arg(short, long, value_name = "FILE", default_value = ".uncommentrc.toml")]
+        #[arg(short, long, value_name = "FILE", default_value = crate::config::CONFIG_FILE_NAME)]
         output: PathBuf,
 
         /// Overwrite existing file

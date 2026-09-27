@@ -621,6 +621,79 @@ fn test_force_overwrite(project_dir: &std::path::Path) {
     println!("✅ Force overwrite test passed");
 }
 
+/// `uncomment init` with no `--output` writes the preferred config file name, which is what
+/// discovery looks for first.
+#[test]
+fn init_without_output_writes_the_preferred_config_name() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path();
+
+    fs::write(project_dir.join("main.py"), "print('hello')\n").unwrap();
+
+    let output = Command::new(get_binary_path())
+        .arg("init")
+        .current_dir(project_dir)
+        .output()
+        .expect("Failed to execute init command");
+
+    assert!(
+        output.status.success(),
+        "init failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        project_dir.join(".uncomment.toml").is_file(),
+        "init must create .uncomment.toml, found: {:?}",
+        fs::read_dir(project_dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name())
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        !project_dir.join(".uncommentrc.toml").exists(),
+        "init must not write the deprecated name"
+    );
+}
+
+/// `--output` still decides the destination, and the default name is not written alongside it.
+#[test]
+fn init_with_an_output_flag_writes_only_that_file() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path();
+
+    let output = Command::new(get_binary_path())
+        .args(["init", "--output", "config/custom.toml"])
+        .current_dir(project_dir)
+        .output()
+        .expect("Failed to execute init command");
+
+    // The parent directory has to exist for the write to land; create it and retry so the
+    // assertion is about `--output` rather than about directory creation.
+    if !output.status.success() {
+        fs::create_dir_all(project_dir.join("config")).unwrap();
+        let retry = Command::new(get_binary_path())
+            .args(["init", "--output", "config/custom.toml"])
+            .current_dir(project_dir)
+            .output()
+            .expect("Failed to execute init command");
+        assert!(
+            retry.status.success(),
+            "init --output failed: {}",
+            String::from_utf8_lossy(&retry.stderr)
+        );
+    }
+
+    assert!(
+        project_dir.join("config/custom.toml").is_file(),
+        "--output must be honoured"
+    );
+    assert!(
+        !project_dir.join(".uncomment.toml").exists(),
+        "--output must replace the default destination, not add to it"
+    );
+}
+
 /// Test error handling scenarios
 #[test]
 fn test_init_error_scenarios() {
