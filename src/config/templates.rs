@@ -311,7 +311,8 @@ preserve_patterns = []
 
     pub fn comprehensive_template() -> String {
         r#"# Comprehensive Uncomment Configuration File
-# Generated with all supported languages from tree-sitter-language-pack
+# Every global and pattern option, spelled out with its default. The [languages.*] sections are
+# examples of overriding a built-in, not the full list — all 54 built-ins work with no config at all.
 # https://github.com/Goldziher/uncomment
 
 [global]

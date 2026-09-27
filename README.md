@@ -127,7 +127,7 @@ The `init` command detects the languages in your project and writes a matching `
 # Smart detection — includes only the languages it finds
 uncomment init
 
-# All 51 built-in languages
+# Every global and pattern option, fully commented
 uncomment init --comprehensive
 
 # Interactive selection
@@ -158,13 +158,13 @@ cargo run --release --features bench-tools --bin profile -- /path/to/repo
 
 ## Supported Languages
 
-uncomment ships with 53 built-in language configurations and can process any of the **306 languages**
+uncomment ships with 54 built-in language configurations and can process any of the **306 languages**
 in [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack) — every
 grammar is compiled into the binary, so nothing is downloaded, built or cached at runtime, and any
 language can be added via configuration.
 
 <details>
-<summary><b>53 built-in languages</b></summary>
+<summary><b>54 built-in languages</b></summary>
 
 Python (`.py`, `.pyw`, `.pyi`, `.pyx`, `.pxd`) · JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) ·
 TypeScript (`.ts`, `.mts`, `.cts`, `.d.ts`, `.d.mts`, `.d.cts`) · TSX (`.tsx`) · Rust (`.rs`) ·
@@ -179,6 +179,7 @@ Objective-C (`.m`) · Swift (`.swift`) · Lua (`.lua`) · Nix (`.nix`) · PowerS
 Protobuf (`.proto`) · INI-like configs (`.ini`, `.cfg`, `.conf`) · Dockerfile (`Dockerfile`, `Dockerfile.*`) ·
 Starlark/Bazel (`BUILD`, `BUILD.bazel`, `WORKSPACE`, `WORKSPACE.bazel`, `WORKSPACE.bzlmod`, `MODULE.bazel`, `.bzl`, `.bazel`, `.star`) ·
 Java properties (`.properties`) ·
+Markdown (`.md`, `.markdown`, `.mdown`, `.mkd`) ·
 Scala (`.scala`, `.sc`) · Dart (`.dart`) · R (`.r`, `.R`) · Julia (`.jl`) · Zig (`.zig`) ·
 Clojure (`.clj`, `.cljs`, `.cljc`, `.edn`) · Elm (`.elm`) · Erlang (`.erl`, `.hrl`) · Vue (`.vue`) ·
 Svelte (`.svelte`) · SCSS (`.scss`) · LaTeX (`.tex`, `.sty`, `.cls`) · Fish (`.fish`) ·
@@ -191,6 +192,13 @@ Objective-C uses the `objc` grammar. The `.m` extension is also used by MATLAB;
 Uncomment treats it as Objective-C by default. When processing a mixed project,
 pass only the Objective-C paths. Headers (`.h`) retain the C configuration;
 Objective-C++ (`.mm`) is not included in built-in support.
+
+Markdown has no comment of its own — `<!-- … -->` is raw HTML to CommonMark, and the grammar reports
+it as the same `html_block` that carries a `<div align="center">` badge row. A block is treated as a
+comment only when it is *nothing but* one comment, so embedded HTML, a `<!DOCTYPE>`, an unterminated
+`<!--` (which runs to the end of the document) and `<!-- x --><div>kept</div>` are all left alone. A
+comment inside a paragraph or a table cell is inline content rather than an `html_block`, so it is
+out of reach; `.mdx` is not supported at all, because no grammar in the pack parses `{/* … */}`.
 
 ## Preservation Rules
 
@@ -236,7 +244,7 @@ rather than as a directive.
 | Language | Directives |
 | -------- | ---------- |
 | Go | `//nolint`, `//golangci-lint`, `//staticcheck`, `//go:generate` |
-| Python | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# pyre-ignore` |
+| Python | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# nosec`, `# pyre-ignore` |
 | JS/TS | `eslint-disable*`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `/// <reference`, `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`, `v8/c8/istanbul ignore` |
 | Rust | `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`, `clippy::`, `#[rustfmt::skip]` |
 | Java | `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:` |
@@ -245,6 +253,7 @@ rather than as a directive.
 | YAML | `# yamllint disable/enable` |
 | HCL/Terraform | `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore` |
 | Ruby | `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable` |
+| Markdown | `<!-- markdownlint-* -->`, `<!-- prettier-ignore -->`, `<!-- vale off/on -->`, `<!-- START/END doctoc -->` |
 
 </details>
 

@@ -34,6 +34,20 @@ This changelog is generated from git tags and commit history.
   their own language, and a config-declared language gets the same reach. A section with neither
   `extensions` nor `filenames` is now rejected instead of registering a language nothing can match.
 
+- Markdown is a built-in language, covering `.md`, `.markdown`, `.mdown` and `.mkd`. The grammar
+  emits no comment node at all — an HTML comment is raw HTML to CommonMark, so `<!-- … -->` arrives
+  as an `html_block`, the same node kind as a `<div align="center">` badge row or a `<details>`
+  block. A block therefore counts as a comment only when its text is *nothing but* one comment:
+  embedded HTML, a `<!DOCTYPE>`, an unterminated `<!--` (which CommonMark runs to the end of the
+  document) and a comment sharing its line with anything else are all left alone.
+
+  A comment inside a paragraph or a table cell is out of reach — it is inline content, not an
+  `html_block` — and so is `.mdx`, whose `{/* … */}` form no grammar in the pack parses.
+
+  Expressing this needed a new `LanguageHandler::classify_comment_node`, which can reject a node
+  whose kind is configured as a comment or narrow the span that counts as one. It defaults to "no
+  opinion", so every other language is unaffected.
+
 ### Changed
 
 - Word tags are matched without regard to case. `# todo`, `# Todo` and `# TODO` are now all
@@ -59,6 +73,11 @@ This changelog is generated from git tags and commit history.
 - bandit suppressions are no longer deleted. The comprehensive preservation set knew
   `bandit:` but not the `# nosec` form bandit actually reads, so a run silently
   re-enabled every security finding those comments had suppressed.
+
+- markdownlint, Vale and doctoc directives are preserved. A markdown directive is an ordinary HTML
+  comment, so nothing but the preservation set distinguishes `<!-- markdownlint-disable MD013 -->`
+  from a removable aside — and deleting one turns a knowingly-suppressed lint error back into a
+  build failure in a file nobody edited.
 
 ## [v3.8.0] - 2026-09-27
 
