@@ -50,8 +50,12 @@ pub enum Commands {
         #[arg(short, long)]
         force: bool,
 
-        /// Generate configuration for all supported languages
-        #[arg(long, help = "Generate comprehensive config with all supported languages")]
+        /// Spell out every global and pattern option, commented. The `[languages.*]` sections it
+        /// writes are examples of overriding a built-in, not the full list of them.
+        #[arg(
+            long,
+            help = "Generate a fully commented config with every global and pattern option"
+        )]
         comprehensive: bool,
 
         /// Interactive mode to select languages
