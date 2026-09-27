@@ -166,6 +166,7 @@ fn test_vuejs_configuration() {
     let config = LanguageConfig {
         name: "Vue".to_string(),
         extensions: vec!["vue".to_string()],
+        filenames: vec![],
         comment_nodes: vec!["comment".to_string()],
         doc_comment_nodes: vec![],
         preserve_patterns: vec!["eslint-".to_string(), "@ts-".to_string()],

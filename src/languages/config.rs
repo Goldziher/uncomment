@@ -77,9 +77,8 @@ impl CommentSyntax {
         let syntax = match tslp_name {
             "c" | "cpp" | "csharp" | "dart" | "go" | "groovy" | "java" | "javascript" | "kotlin" | "objc" | "php"
             | "proto" | "rust" | "scala" | "scss" | "swift" | "tsx" | "typescript" => Self::C_STYLE,
-            "bash" | "dockerfile" | "elixir" | "fish" | "make" | "perl" | "python" | "r" | "toml" | "yaml" => {
-                Self::HASH
-            }
+            "bash" | "dockerfile" | "elixir" | "fish" | "make" | "perl" | "properties" | "python" | "r"
+            | "starlark" | "toml" | "yaml" => Self::HASH,
             "hcl" | "nix" => Self::HASH_C_BLOCK,
             "html" | "svelte" | "vue" | "xml" => Self::MARKUP,
             "elm" | "haskell" => Self::DASH_BRACE,
@@ -115,6 +114,11 @@ pub enum CommentSyntaxResolution {
 pub struct LanguageConfig {
     pub name: String,
     pub extensions: Vec<String>,
+    /// Whole filenames this language claims, matched case-sensitively and before any extension rule.
+    ///
+    /// An entry ending in `.*` claims every name starting with the part before the `*`, which is how
+    /// `Dockerfile.prod` is reached without naming the language in detection code.
+    pub filenames: Vec<String>,
     pub comment_types: Vec<String>,
     pub doc_comment_types: Vec<String>,
     pub tslp_name: String,
@@ -132,6 +136,7 @@ impl LanguageConfig {
         Self {
             name: name.to_string(),
             extensions: extensions.iter().map(|&s| s.to_string()).collect(),
+            filenames: Vec::new(),
             comment_types: comment_types.iter().map(|&s| s.to_string()).collect(),
             doc_comment_types: doc_comment_types.iter().map(|&s| s.to_string()).collect(),
             tslp_name: tslp_name.to_string(),
@@ -142,6 +147,12 @@ impl LanguageConfig {
     #[must_use]
     pub const fn with_comment_syntax(mut self, syntax: CommentSyntax) -> Self {
         self.comment_syntax = Some(syntax);
+        self
+    }
+
+    #[must_use]
+    pub fn with_filenames(mut self, filenames: Vec<&str>) -> Self {
+        self.filenames = filenames.iter().map(|&s| s.to_string()).collect();
         self
     }
 
@@ -336,7 +347,9 @@ impl LanguageConfig {
     }
 
     pub fn make() -> Self {
-        Self::new("make", vec!["mk"], vec!["comment"], vec![], "make").with_comment_syntax(CommentSyntax::HASH)
+        Self::new("make", vec!["mk"], vec!["comment"], vec![], "make")
+            .with_filenames(vec!["Makefile", "makefile", "GNUmakefile"])
+            .with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn shell() -> Self {
@@ -347,6 +360,7 @@ impl LanguageConfig {
             vec!["comment"],
             "bash",
         )
+        .with_filenames(vec!["bashrc", ".bashrc", "zshrc", ".zshrc", "zshenv", ".zshenv"])
         .with_comment_syntax(CommentSyntax::HASH)
     }
 
@@ -437,7 +451,41 @@ impl LanguageConfig {
     }
 
     pub fn dockerfile() -> Self {
-        Self::new("dockerfile", vec![], vec!["comment"], vec![], "dockerfile").with_comment_syntax(CommentSyntax::HASH)
+        Self::new("dockerfile", vec![], vec!["comment"], vec![], "dockerfile")
+            .with_filenames(vec!["Dockerfile", "dockerfile", "Dockerfile.*", "dockerfile.*"])
+            .with_comment_syntax(CommentSyntax::HASH)
+    }
+
+    /// Bazel's build language. `BUILD` and `WORKSPACE` carry no extension at all, so the filename
+    /// list — not the extension list — is what makes most of a Bazel repository visible.
+    ///
+    /// `doc_comment_types` is deliberately empty. Starlark has Python's docstrings rather than a
+    /// doc-comment form, and only [`crate::languages::handlers::PythonHandler`] can tell a docstring
+    /// `string` node from any other string literal; declaring `string` here without that classifier
+    /// would hand every string in a `BUILD` file to the doc-comment machinery.
+    pub fn starlark() -> Self {
+        Self::new(
+            "starlark",
+            vec!["bzl", "bazel", "star"],
+            vec!["comment"],
+            vec![],
+            "starlark",
+        )
+        .with_filenames(vec![
+            "BUILD",
+            "BUILD.bazel",
+            "WORKSPACE",
+            "WORKSPACE.bazel",
+            "WORKSPACE.bzlmod",
+            "MODULE.bazel",
+        ])
+        .with_comment_syntax(CommentSyntax::HASH)
+    }
+
+    /// Java `.properties`. The grammar reports both comment forms — `#` and `!` — as `comment`.
+    pub fn properties() -> Self {
+        Self::new("properties", vec!["properties"], vec!["comment"], vec![], "properties")
+            .with_comment_syntax(CommentSyntax::HASH)
     }
 
     pub fn scala() -> Self {

@@ -26,7 +26,8 @@ const NO_COMMENT_SYNTAX: &[&str] = &["json"];
 ///
 /// * the language has no block form at all — `python` (a triple-quoted "block comment"
 ///   is a string node, not a comment), `yaml`, `toml`, `make`, `shell`, `fish`, `r`,
-///   `zig`, `elixir`, `erlang`, `clojure`, `ini`, `dockerfile`, `latex`, `fortran`;
+///   `zig`, `elixir`, `erlang`, `clojure`, `ini`, `dockerfile`, `latex`, `fortran`,
+///   `properties`, `starlark` (Starlark's `"""..."""` is a string node, as in Python);
 /// * the only block form is anchored to column 0, so it cannot be written at a
 ///   comment's indentation — `ruby` (`=begin`/`=end`) and `perl` (`=pod`/`=cut`);
 /// * the language has no comments at all — `json`.
@@ -42,10 +43,12 @@ const NO_BLOCK_COMMENT: &[&str] = &[
     "latex",
     "make",
     "perl",
+    "properties",
     "python",
     "r",
     "ruby",
     "shell",
+    "starlark",
     "toml",
     "yaml",
     "zig",
@@ -330,6 +333,7 @@ fn configured_languages_inherit_comment_syntax_from_the_builtin_they_override() 
         UserLanguageConfig {
             name: "python".to_string(),
             extensions: vec!["py".to_string(), "sage".to_string()],
+            filenames: vec![],
             comment_nodes: vec!["comment".to_string()],
             doc_comment_nodes: vec![],
             preserve_patterns: vec![],
