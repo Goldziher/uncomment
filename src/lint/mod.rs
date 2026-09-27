@@ -284,7 +284,7 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
         if disabled > 0 {
             notes.push(format!(
                 "lint is not enabled for {disabled} matched file(s): set `enabled = true` under `[lint]` in \
-                 .uncommentrc.toml"
+                 .uncomment.toml"
             ));
         }
         return Ok(Outcome {
@@ -437,7 +437,14 @@ fn lint_file(path: &Path, config: &LintConfig, config_manager: &ConfigManager, c
         }
 
         let id = comment_id(&id_path, &comment.text, occurrence);
-        for finding in findings {
+        for mut finding in findings {
+            // `tag-not-canonical` covers a tag spelled differently from the canonical one and the
+            // canonical tag spelled in the wrong casing, which cannot share one wording. The
+            // phrasing lives with the casing rules, on [`LintConfig`].
+            if finding.rule == Rule::TagNotCanonical {
+                finding.message = config.tag_not_canonical_message(&finding.tag);
+            }
+
             let (line, column) = line_and_column(&content, finding.offset);
             let fixed = context.fix && finding.is_fixable();
             if fixed {

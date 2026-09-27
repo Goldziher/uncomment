@@ -43,7 +43,7 @@ impl Fixture {
             dir: TempDir::new().expect("temp dir"),
         };
         fixture.write(".git/HEAD", &format!("ref: refs/heads/{branch}\n"));
-        fixture.write(".uncommentrc.toml", config);
+        fixture.write(".uncomment.toml", config);
         fixture
     }
 
@@ -130,10 +130,164 @@ fn an_untagged_comment_is_never_reported() {
     assert!(fixture.lint(&["src"]).violations.is_empty());
 }
 
+// --- tag casing ----------------------------------------------------------------------------------
+
+#[test]
+fn a_tag_written_in_any_casing_is_recognised_and_fixed_to_the_canonical_form() {
+    let fixture = Fixture::enabled("feat/casing");
+    let source = "\
+# fixme: a
+# todo: b
+# Todo: c
+# XXX: d
+# TODO(PROJ-1): e
+value = 1
+";
+    fixture.write("src/a.py", source);
+
+    let outcome = fixture.lint(&["src"]);
+    assert_eq!(
+        rules(&outcome),
+        vec![
+            "tag-not-canonical",
+            "todo-missing-key",
+            "tag-not-canonical",
+            "todo-missing-key",
+            "tag-not-canonical",
+            "todo-missing-key",
+            "tag-not-canonical",
+            "todo-missing-key",
+        ],
+        "every casing is a tag; only the keyed canonical one is clean"
+    );
+    assert_eq!(
+        outcome.violations.iter().map(|v| v.tag.as_str()).collect::<Vec<_>>(),
+        vec!["fixme", "fixme", "todo", "todo", "Todo", "Todo", "XXX", "XXX"],
+        "the tag is reported as it was written"
+    );
+
+    fixture.lint(&["src", "--fix"]);
+    assert_eq!(
+        fixture.read("src/a.py"),
+        "\
+# TODO: a
+# TODO: b
+# TODO: c
+# TODO: d
+# TODO(PROJ-1): e
+value = 1
+"
+    );
+
+    // Idempotent: the casing rewrite leaves nothing for a second run to do.
+    let after_first = fixture.read("src/a.py");
+    fixture.lint(&["src", "--fix"]);
+    assert_eq!(fixture.read("src/a.py"), after_first);
+}
+
+#[test]
+fn a_casing_only_violation_reads_differently_from_a_differently_spelled_tag() {
+    let fixture = Fixture::enabled("feat/casing");
+    fixture.write("src/a.py", "# todo(PROJ-1): a\n# FIXME(PROJ-2): b\nvalue = 1\n");
+
+    let outcome = fixture.lint(&["src"]);
+    assert_eq!(rules(&outcome), vec!["tag-not-canonical", "tag-not-canonical"]);
+    assert!(
+        outcome.violations[0].message.contains("casing"),
+        "a casing defect must say so rather than `TODO` should be written as `TODO`: {}",
+        outcome.violations[0].message
+    );
+    assert_eq!(outcome.violations[1].message, "`FIXME` should be written as `TODO`");
+}
+
+#[test]
+fn a_miscased_tag_reports_its_missing_key_the_same_way_an_uppercase_one_does() {
+    let fixture = Fixture::enabled("naaman.AMVP-1.testbed");
+    fixture.write("src/a.py", "# fixme: no key\nvalue = 1\n");
+    fixture.write("src/b.py", "# FIXME: no key\nvalue = 1\n");
+
+    let outcome = fixture.lint(&["src"]);
+    assert_eq!(
+        rules(&outcome),
+        vec![
+            "tag-not-canonical",
+            "todo-missing-key",
+            "tag-not-canonical",
+            "todo-missing-key",
+        ]
+    );
+}
+
+#[test]
+fn a_miscased_tag_still_self_references_because_its_key_is_found() {
+    let fixture = Fixture::enabled("naaman.AMVP-1.testbed");
+    fixture.write("src/a.py", "# fixme(AMVP-1): the current issue\nvalue = 1\n");
+
+    let outcome = fixture.lint(&["src"]);
+    assert_eq!(
+        rules(&outcome),
+        vec!["tag-not-canonical", "todo-self-reference"],
+        "a lowercase tag must not hide the key from `key_pattern`"
+    );
+    assert_eq!(outcome.violations[1].key.as_deref(), Some("AMVP-1"));
+}
+
+#[test]
+fn a_miscased_key_is_not_accepted_as_a_key() {
+    let fixture = Fixture::enabled("feat/casing");
+    fixture.write("src/a.py", "# todo(proj-1): a\nvalue = 1\n");
+
+    let outcome = fixture.lint(&["src"]);
+    assert_eq!(
+        rules(&outcome),
+        vec!["tag-not-canonical", "todo-missing-key"],
+        "loosening the tag half of key_pattern must not loosen the key half"
+    );
+    assert_eq!(outcome.violations[1].key, None);
+}
+
+#[test]
+fn a_miscased_tag_inside_a_string_literal_is_still_not_flagged() {
+    let fixture = Fixture::enabled("feat/casing");
+    fixture.write(
+        "src/a.rs",
+        "fn main() {\n    let note = \"todo: this is data\";\n    let other = \"fixme: also data\";\n}\n",
+    );
+    fixture.write(
+        "src/b.py",
+        "NOTE = \"todo: this is data\"\nOTHER = 'Fixme: also data'\n",
+    );
+
+    let outcome = fixture.lint(&["src"]);
+    assert!(
+        outcome.violations.is_empty(),
+        "case-insensitive matching must not turn a string literal into a comment: {:?}",
+        outcome.violations
+    );
+    assert_eq!(outcome.summary.files_linted, 2);
+}
+
+#[test]
+fn case_sensitive_tags_reverts_to_literal_matching() {
+    let fixture = Fixture::new("feat/casing", "[lint]\nenabled = true\ncase_sensitive_tags = true\n");
+    let source = "# fixme: a\n# todo: b\n# Todo: c\nvalue = 1\n";
+    fixture.write("src/a.py", source);
+    fixture.write("src/b.py", "# FIXME: a\nvalue = 1\n");
+
+    let outcome = fixture.lint(&["src", "--fix"]);
+    assert_eq!(
+        rules(&outcome),
+        vec!["tag-not-canonical", "todo-missing-key"],
+        "only the literal casing in lint.tags is a tag"
+    );
+    assert_eq!(outcome.violations[0].path, PathBuf::from("src/b.py"));
+    assert_eq!(fixture.read("src/a.py"), source, "--fix must leave it byte-identical");
+}
+
 // --- todo-self-reference ------------------------------------------------------------------------
 
 #[test]
-fn a_self_reference_fires_only_when_the_key_is_the_branchs_own_issue() {
+fn a_self_reference_fires_only_when_the_key_is_the_issue_the_branch_names() {
     let fixture = Fixture::enabled("naaman.hirschfeld.AMVP-160815.testbed");
     fixture.write("src/a.rs", "// TODO(AMVP-160815): drop the shim\nfn main() {}\n");
     fixture.write("src/b.rs", "// TODO(AMVP-999999): drop the shim\nfn main() {}\n");
@@ -190,7 +344,7 @@ fn a_detached_head_skips_the_rule_with_a_note() {
 fn no_git_repository_skips_the_rule_with_a_note() {
     // No `.git` at all: `find_repo_root` returns nothing and there is no branch to compare against.
     let dir = TempDir::new().expect("temp dir");
-    fs::write(dir.path().join(".uncommentrc.toml"), ENABLED).expect("write config");
+    fs::write(dir.path().join(".uncomment.toml"), ENABLED).expect("write config");
     fs::write(
         dir.path().join("a.rs"),
         "// TODO(AMVP-160815): drop the shim\nfn main() {}\n",
@@ -474,7 +628,7 @@ fn slash(path: &Path) -> String {
 fn a_nested_lint_table_applies_to_that_directory_and_not_above_it() {
     let fixture = Fixture::enabled("feat/nested");
     fixture.write(
-        "src/nested/.uncommentrc.toml",
+        "src/nested/.uncomment.toml",
         "[lint]\ntags = [\"NOTE\"]\ncanonical_tag = \"NOTE\"\n",
     );
     fixture.write(
@@ -486,7 +640,7 @@ fn a_nested_lint_table_applies_to_that_directory_and_not_above_it() {
         "// NOTE: no key\n// TODO: not a tag down here\nfn main() {}\n",
     );
 
-    // Named file by file: a `.uncommentrc.toml` is itself a TOML file a directory walk would lint.
+    // Named file by file: a `.uncomment.toml` is itself a TOML file a directory walk would lint.
     let outcome = fixture.lint(&["src/a.rs", "src/nested/b.rs"]);
     assert_eq!(
         outcome.summary.files_linted, 2,
@@ -514,7 +668,7 @@ fn a_nested_lint_table_overrides_only_the_keys_it_names() {
         "[lint]\nenabled = true\n\n[lint.rules]\ntag-not-canonical = \"warn\"\n",
     );
     fixture.write(
-        "src/nested/.uncommentrc.toml",
+        "src/nested/.uncomment.toml",
         "[lint.rules]\ntodo-missing-key = \"off\"\n",
     );
     fixture.write("src/a.rs", "// FIXME: no key\nfn main() {}\n");
@@ -539,7 +693,7 @@ fn a_nested_lint_table_overrides_only_the_keys_it_names() {
 #[test]
 fn a_broken_regex_in_a_nested_lint_table_is_an_error_naming_that_file() {
     let fixture = Fixture::enabled("feat/nested");
-    fixture.write("src/nested/.uncommentrc.toml", "[lint]\nkey_pattern = '([unclosed'\n");
+    fixture.write("src/nested/.uncomment.toml", "[lint]\nkey_pattern = '([unclosed'\n");
     fixture.write("src/nested/b.rs", "// TODO: whatever\nfn main() {}\n");
 
     let error = lint(fixture.root(), &args(&["src"])).expect_err("a bad nested pattern must fail the load");
@@ -547,7 +701,7 @@ fn a_broken_regex_in_a_nested_lint_table_is_an_error_naming_that_file() {
     assert!(message.contains("lint.key_pattern"), "{message}");
     assert!(message.contains("([unclosed"), "{message}");
     assert!(
-        message.contains("nested") && message.contains(".uncommentrc.toml"),
+        message.contains("nested") && message.contains(".uncomment.toml"),
         "the file carrying the broken pattern must be the one named: {message}"
     );
 }
@@ -557,16 +711,13 @@ fn a_nested_config_that_cannot_be_loaded_fails_the_lint_run() {
     // Reading the table through `ConfigManager` means lint sees the same rejection every other
     // command sees, including from a directory below the one it was invoked in.
     let fixture = Fixture::enabled("feat/nested");
-    fixture.write(
-        "src/nested/.uncommentrc.toml",
-        "[global]\nremove_todos = 'not a bool'\n",
-    );
+    fixture.write("src/nested/.uncomment.toml", "[global]\nremove_todos = 'not a bool'\n");
     fixture.write("src/nested/b.rs", "// TODO: whatever\nfn main() {}\n");
 
     let error = lint(fixture.root(), &args(&["src"])).expect_err("a rejected config must stop the run");
     let message = format!("{error:#}");
     assert!(
-        message.contains("nested") && message.contains(".uncommentrc.toml"),
+        message.contains("nested") && message.contains(".uncomment.toml"),
         "{message}"
     );
 }
@@ -581,7 +732,7 @@ fn one_config_file_serves_both_the_lint_table_and_the_removal_settings() {
     );
     fixture.write("src/a.rs", "// TODO: no key\nfn main() {}\n");
 
-    let config = uncomment::config::Config::from_file(fixture.root().join(".uncommentrc.toml"))
+    let config = uncomment::config::Config::from_file(fixture.root().join(".uncomment.toml"))
         .expect("one file must serve both readers");
     assert!(config.global.remove_todos);
     assert_eq!(rules(&fixture.lint(&["src"])), vec!["todo-missing-key"]);
