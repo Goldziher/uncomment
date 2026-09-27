@@ -30,6 +30,10 @@ pub const DEFAULT_CANONICAL_TAG: &str = "TODO";
 
 /// Matched against a comment's text from the tag onwards, so the leading `^\s*` absorbs nothing more
 /// than the gap between the comment delimiter and the tag.
+///
+/// The tags are spelled in the canonical casing and the key half is anchored to upper case
+/// deliberately: when `case_sensitive_tags` is false a miscased *tag* is reconciled before this runs
+/// (see [`LintConfig::extract_key`]), while a miscased *key* stays no key at all.
 pub const DEFAULT_KEY_PATTERN: &str = r"^\s*(?:TODO|FIXME|HACK|XXX)\((?<key>[A-Z][A-Z0-9]+-\d+)\)\s*:";
 
 /// Matched against the current branch name. Deliberately unanchored: Armis branches are
@@ -59,7 +63,8 @@ impl Severity {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Rule {
-    /// A non-canonical tag (`FIXME`/`HACK`/`XXX`) that should read as the canonical one.
+    /// A tag not written as configured: a different spelling (`FIXME`/`HACK`/`XXX`), or the
+    /// canonical spelling in the wrong casing (`todo`, `Todo`).
     TagNotCanonical,
     /// A tag comment carrying no issue key.
     TodoMissingKey,
@@ -130,6 +135,9 @@ pub struct LintTable {
     pub canonical_tag: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub case_sensitive_tags: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub key_pattern: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -151,6 +159,7 @@ impl LintTable {
             enabled: self.enabled.or(base.enabled),
             tags: self.tags.clone().or_else(|| base.tags.clone()),
             canonical_tag: self.canonical_tag.clone().or_else(|| base.canonical_tag.clone()),
+            case_sensitive_tags: self.case_sensitive_tags.or(base.case_sensitive_tags),
             key_pattern: self.key_pattern.clone().or_else(|| base.key_pattern.clone()),
             current_issue_from_branch: self
                 .current_issue_from_branch
@@ -186,12 +195,24 @@ impl LintTable {
     }
 }
 
+/// How a tag as written in a comment relates to the configured canonical tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TagSpelling {
+    /// Written exactly as `canonical_tag`.
+    Canonical,
+    /// The canonical tag, written with different casing.
+    CanonicalMiscased,
+    /// A different tag, whatever its casing.
+    NotCanonical,
+}
+
 /// A validated `[lint]` table with its regexes compiled.
 #[derive(Debug)]
 pub struct LintConfig {
     pub enabled: bool,
     pub tags: Vec<String>,
     pub canonical_tag: String,
+    pub case_sensitive_tags: bool,
     pub key_pattern: Regex,
     pub branch_pattern: Regex,
     /// Locates configured tags inside a comment's text; derived from `tags`, never configured
@@ -214,6 +235,8 @@ impl LintConfig {
             None => String::new(),
         };
 
+        let case_sensitive_tags = table.case_sensitive_tags.unwrap_or(false);
+
         let tags: Vec<String> = table
             .tags
             .clone()
@@ -223,6 +246,21 @@ impl LintConfig {
         }
         if let Some(blank) = tags.iter().find(|tag| tag.trim().is_empty()) {
             bail!("lint.tags{} contains a blank tag {blank:?}", where_from());
+        }
+        // Two tags that differ only in casing are one tag once casing stops mattering, and which of
+        // the two `--fix` should write is unanswerable. Judged here rather than in
+        // `LintTable::validate` because the answer depends on the layered `case_sensitive_tags`,
+        // which a table naming only `tags` does not carry.
+        if !case_sensitive_tags {
+            for (index, tag) in tags.iter().enumerate() {
+                if let Some(other) = tags[index + 1..].iter().find(|later| later.eq_ignore_ascii_case(tag)) {
+                    bail!(
+                        "lint.tags{} lists {tag:?} and {other:?}, which differ only in casing: with \
+                         lint.case_sensitive_tags = false they are the same tag",
+                        where_from()
+                    );
+                }
+            }
         }
 
         let canonical_tag = table
@@ -252,7 +290,13 @@ impl LintConfig {
             &where_from(),
         )?;
 
-        let mut alternation = String::from(r"\b(?:");
+        let mut alternation = String::new();
+        // Casing is a `tag-not-canonical` defect, not a reason to miss the tag — so `fixme` and
+        // `Todo` are found and then reported, rather than silently not being tags at all.
+        if !case_sensitive_tags {
+            alternation.push_str("(?i)");
+        }
+        alternation.push_str(r"\b(?:");
         // Longest first so `TODO` cannot claim the prefix of a longer configured tag.
         let mut ordered = tags.clone();
         ordered.sort_by(|a, b| b.len().cmp(&a.len()).then(a.cmp(b)));
@@ -275,12 +319,38 @@ impl LintConfig {
             enabled: table.enabled.unwrap_or(false),
             tags,
             canonical_tag,
+            case_sensitive_tags,
             key_pattern,
             branch_pattern,
             tag_pattern,
             severities,
             source,
         })
+    }
+
+    /// How `tag`, as written in a comment, relates to [`Self::canonical_tag`].
+    pub fn classify_tag(&self, tag: &str) -> TagSpelling {
+        if tag == self.canonical_tag {
+            TagSpelling::Canonical
+        } else if tag.eq_ignore_ascii_case(&self.canonical_tag) {
+            TagSpelling::CanonicalMiscased
+        } else {
+            TagSpelling::NotCanonical
+        }
+    }
+
+    /// The `tag-not-canonical` message for a tag written as `tag`.
+    ///
+    /// The rule covers two defects — a tag spelled differently from the canonical one, and the
+    /// canonical tag spelled with the wrong casing — and they need different wording: "`TODO` should
+    /// be written as `TODO`" states nothing at all.
+    pub fn tag_not_canonical_message(&self, tag: &str) -> String {
+        match self.classify_tag(tag) {
+            TagSpelling::CanonicalMiscased => {
+                format!("`{tag}` is `{}` written with the wrong casing", self.canonical_tag)
+            }
+            _ => format!("`{tag}` should be written as `{}`", self.canonical_tag),
+        }
     }
 
     pub fn severity(&self, rule: Rule) -> Severity {
@@ -295,13 +365,58 @@ impl LintConfig {
     ///
     /// Prefers the `key` capture group, falls back to the first group and then to the whole match,
     /// so a pattern written without a named group still works.
+    ///
+    /// When casing does not decide what is a tag, a miscased tag must not hide the key behind it:
+    /// `# todo(AMVP-1):` carries a key and reporting `todo-missing-key` for it would be wrong. But
+    /// `key_pattern` is a user-supplied regex that spells the tags out itself, and it is opaque —
+    /// there is no way to relax only the half that names the tag. Compiling the whole of it with
+    /// `(?i)` would relax the key half too, silently accepting `todo(amvp-1)`. So the *haystack* is
+    /// normalised instead: the tag token is rewritten to the casing the pattern expects and every
+    /// other byte, the key included, is left exactly as written.
     pub fn extract_key<'t>(&self, haystack: &'t str) -> Option<&'t str> {
+        if let Some(range) = self.key_range(haystack) {
+            return haystack.get(range);
+        }
+        if self.case_sensitive_tags {
+            return None;
+        }
+
+        let respelled = self.tag_respelled_as_configured(haystack)?;
+        let range = self.key_range(&respelled)?;
+        // Sliced out of the original: `tag_respelled_as_configured` only ever replaces the tag token
+        // with a same-length spelling, so the two strings share every offset.
+        haystack.get(range)
+    }
+
+    /// Byte range of the key inside `haystack`, by the same group preference as [`Self::extract_key`].
+    fn key_range(&self, haystack: &str) -> Option<std::ops::Range<usize>> {
         let captures = self.key_pattern.captures(haystack)?;
         captures
             .name("key")
             .or_else(|| captures.get(1))
             .or_else(|| captures.get(0))
-            .map(|m| m.as_str())
+            .map(|matched| matched.range())
+    }
+
+    /// `haystack` with its first tag occurrence respelled as the configured tag it matches.
+    ///
+    /// `None` when there is nothing to do or when the rewrite would shift any other byte — the
+    /// caller slices the original string at the rewritten one's offsets, so a length change would
+    /// silently return the wrong text. Casing a tag is length-preserving for every ASCII tag; the
+    /// guard is there for the Unicode ones, where a case fold can change the byte count.
+    fn tag_respelled_as_configured(&self, haystack: &str) -> Option<String> {
+        let found = self.tag_pattern.find(haystack)?;
+        let written = found.as_str();
+        let configured = self.tags.iter().find(|tag| tag.eq_ignore_ascii_case(written))?;
+        if configured == written || configured.len() != written.len() {
+            return None;
+        }
+
+        let mut respelled = String::with_capacity(haystack.len());
+        respelled.push_str(&haystack[..found.start()]);
+        respelled.push_str(configured);
+        respelled.push_str(&haystack[found.end()..]);
+        Some(respelled)
     }
 }
 
@@ -524,6 +639,151 @@ todo-self-reference = "off"
         assert!(!config.tag_pattern.is_match("TXDO: x"));
     }
 
+    // --- tag casing ------------------------------------------------------------------------------
+
+    #[test]
+    fn tags_are_matched_regardless_of_casing_by_default() {
+        let config = table("[lint]\nenabled = true\n").unwrap();
+        assert!(!config.case_sensitive_tags, "case-insensitive is the default");
+
+        for written in ["TODO", "todo", "Todo", "ToDo", "FIXME", "fixme", "Fixme", "hack", "xXx"] {
+            assert!(config.tag_pattern.is_match(&format!("// {written}: x")), "{written}");
+        }
+
+        // Word boundaries still hold, so a longer word is not a tag in either casing.
+        assert!(!config.tag_pattern.is_match("// TODOS are tracked in Jira"));
+        assert!(!config.tag_pattern.is_match("// todos are tracked in Jira"));
+    }
+
+    #[test]
+    fn case_sensitive_tags_restores_literal_matching() {
+        let config = table("[lint]\nenabled = true\ncase_sensitive_tags = true\n").unwrap();
+        assert!(config.case_sensitive_tags);
+        assert!(config.tag_pattern.is_match("// TODO: x"));
+        for written in ["todo", "Todo", "fixme", "xXx"] {
+            assert!(!config.tag_pattern.is_match(&format!("// {written}: x")), "{written}");
+        }
+    }
+
+    #[test]
+    fn a_miscased_tag_is_classified_apart_from_a_differently_spelled_one() {
+        let config = table("[lint]\nenabled = true\n").unwrap();
+        assert_eq!(config.classify_tag("TODO"), TagSpelling::Canonical);
+        assert_eq!(config.classify_tag("todo"), TagSpelling::CanonicalMiscased);
+        assert_eq!(config.classify_tag("Todo"), TagSpelling::CanonicalMiscased);
+        assert_eq!(config.classify_tag("FIXME"), TagSpelling::NotCanonical);
+        assert_eq!(config.classify_tag("fixme"), TagSpelling::NotCanonical);
+    }
+
+    #[test]
+    fn a_casing_only_violation_does_not_read_as_a_tautology() {
+        let config = table("[lint]\nenabled = true\n").unwrap();
+
+        // The defect is the casing, so the message cannot be "`TODO` should be written as `TODO`".
+        let miscased = config.tag_not_canonical_message("todo");
+        assert!(miscased.contains("casing"), "{miscased}");
+        assert!(miscased.contains("`todo`") && miscased.contains("`TODO`"), "{miscased}");
+
+        // A differently spelled tag keeps the wording it has always had.
+        assert_eq!(
+            config.tag_not_canonical_message("FIXME"),
+            "`FIXME` should be written as `TODO`"
+        );
+        assert_eq!(
+            config.tag_not_canonical_message("fixme"),
+            "`fixme` should be written as `TODO`"
+        );
+    }
+
+    #[test]
+    fn a_miscased_tag_does_not_hide_its_key_but_a_miscased_key_is_still_rejected() {
+        let config = table("[lint]\nenabled = true\n").unwrap();
+
+        // The tag half of `key_pattern` has to tolerate the casing the tag was written in …
+        assert_eq!(config.extract_key("todo(AMVP-1): x"), Some("AMVP-1"));
+        assert_eq!(config.extract_key("Todo(AMVP-1): x"), Some("AMVP-1"));
+        assert_eq!(config.extract_key("fixme(PPSC-42): x"), Some("PPSC-42"));
+
+        // … while the key half must not, or `todo(amvp-123)` silently counts as keyed.
+        assert_eq!(config.extract_key("todo(amvp-1): x"), None);
+        assert_eq!(config.extract_key("TODO(amvp-1): x"), None);
+        assert_eq!(config.extract_key("fixme(ppsc-42): x"), None);
+    }
+
+    #[test]
+    fn case_sensitive_tags_keeps_the_key_pattern_exactly_as_strict_as_it_is_written() {
+        let config = table("[lint]\nenabled = true\ncase_sensitive_tags = true\n").unwrap();
+        assert_eq!(config.extract_key("TODO(AMVP-1): x"), Some("AMVP-1"));
+        assert_eq!(config.extract_key("todo(AMVP-1): x"), None);
+    }
+
+    #[test]
+    fn tags_differing_only_in_casing_are_rejected_unless_matching_is_case_sensitive() {
+        let error = table("[lint]\nenabled = true\ntags = ['TODO', 'todo']\n").unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("lint.tags"), "{message}");
+        assert!(message.contains("casing"), "{message}");
+
+        // With literal matching the two really are separate tags, so the pair is legitimate.
+        let config = table("[lint]\nenabled = true\ntags = ['TODO', 'todo']\ncase_sensitive_tags = true\n").unwrap();
+        assert_eq!(config.tags, vec!["TODO", "todo"]);
+    }
+
+    #[test]
+    fn a_canonical_tag_that_only_differs_from_tags_in_casing_is_still_rejected() {
+        // Case-insensitive *matching* does not make the two spellings interchangeable in the
+        // configuration: `--fix` writes `canonical_tag` verbatim, so it has to be in `tags` verbatim.
+        let error = table("[lint]\nenabled = true\ntags = ['TODO']\ncanonical_tag = 'todo'\n").unwrap_err();
+        assert!(format!("{error:#}").contains("lint.canonical_tag"));
+    }
+
+    #[test]
+    fn case_sensitive_tags_layers_key_by_key_and_absent_is_not_false() {
+        let temp = repo();
+        let root = temp.path();
+        fs::create_dir_all(root.join("nested")).unwrap();
+
+        fs::write(
+            root.join(".uncomment.toml"),
+            "[lint]\nenabled = true\ncase_sensitive_tags = true\n",
+        )
+        .unwrap();
+        // Does not name `case_sensitive_tags`, so the outer `true` has to survive — and `['NOTE',
+        // 'note']` is only a legal pair of tags because it did.
+        fs::write(
+            root.join("nested/.uncomment.toml"),
+            "[lint]\ntags = ['NOTE', 'note']\ncanonical_tag = 'NOTE'\n",
+        )
+        .unwrap();
+
+        assert!(resolve(root, "a.rs").unwrap().case_sensitive_tags);
+        let below = resolve(root, "nested/b.rs").unwrap();
+        assert!(
+            below.case_sensitive_tags,
+            "an absent key must inherit, not reset to the default"
+        );
+        assert_eq!(below.tags, vec!["NOTE", "note"]);
+
+        // And a nested table that names it explicitly wins.
+        fs::write(
+            root.join("nested/.uncomment.toml"),
+            "[lint]\ncase_sensitive_tags = false\n",
+        )
+        .unwrap();
+        assert!(!resolve(root, "nested/b.rs").unwrap().case_sensitive_tags);
+    }
+
+    #[test]
+    fn a_table_naming_only_case_sensitive_tags_is_valid_on_its_own() {
+        let table: LintTable = toml::from_str("case_sensitive_tags = true\n").unwrap();
+        assert!(table.validate().is_ok());
+        assert_eq!(table.case_sensitive_tags, Some(true));
+
+        // And a typo in it is refused like any other key.
+        let error = toml::from_str::<LintTable>("case_sensitive_tag = true\n").unwrap_err();
+        assert!(error.to_string().contains("case_sensitive_tag"), "{error}");
+    }
+
     #[test]
     fn a_nested_table_overrides_only_the_keys_it_names() {
         let temp = repo();
@@ -531,12 +791,12 @@ todo-self-reference = "off"
         fs::create_dir_all(root.join("nested/deeper")).unwrap();
 
         fs::write(
-            root.join(".uncommentrc.toml"),
+            root.join(".uncomment.toml"),
             "[lint]\nenabled = true\ntags = ['TODO']\n\n[lint.rules]\ntag-not-canonical = 'warn'\n",
         )
         .unwrap();
         fs::write(
-            root.join("nested/.uncommentrc.toml"),
+            root.join("nested/.uncomment.toml"),
             "[lint]\ntags = ['NOTE']\ncanonical_tag = 'NOTE'\n",
         )
         .unwrap();
@@ -562,8 +822,8 @@ todo-self-reference = "off"
         let root = temp.path();
         fs::create_dir_all(root.join("nested")).unwrap();
 
-        fs::write(root.join(".uncommentrc.toml"), "[lint]\nenabled = true\n").unwrap();
-        fs::write(root.join("nested/.uncommentrc.toml"), "[global]\nremove_todos = true\n").unwrap();
+        fs::write(root.join(".uncomment.toml"), "[lint]\nenabled = true\n").unwrap();
+        fs::write(root.join("nested/.uncomment.toml"), "[global]\nremove_todos = true\n").unwrap();
 
         assert!(resolve(root, "nested/b.rs").unwrap().enabled);
     }
@@ -575,7 +835,7 @@ todo-self-reference = "off"
         let repo = outside.join("repo");
         fs::create_dir_all(repo.join(".git")).unwrap();
 
-        fs::write(outside.join(".uncommentrc.toml"), "[lint]\nenabled = true\n").unwrap();
+        fs::write(outside.join(".uncomment.toml"), "[lint]\nenabled = true\n").unwrap();
 
         assert!(
             !resolve(&repo, "a.rs").unwrap().enabled,
@@ -588,8 +848,8 @@ todo-self-reference = "off"
         let temp = repo();
         let root = temp.path();
         fs::create_dir_all(root.join("nested")).unwrap();
-        fs::write(root.join(".uncommentrc.toml"), "[lint]\nenabled = false\n").unwrap();
-        fs::write(root.join("nested/.uncommentrc.toml"), "[lint]\ntags = ['XXX']\n").unwrap();
+        fs::write(root.join(".uncomment.toml"), "[lint]\nenabled = false\n").unwrap();
+        fs::write(root.join("nested/.uncomment.toml"), "[lint]\ntags = ['XXX']\n").unwrap();
 
         let forced = root.join("forced.toml");
         fs::write(
@@ -612,7 +872,7 @@ todo-self-reference = "off"
         let temp = repo();
         let root = temp.path();
         fs::write(
-            root.join(".uncommentrc.toml"),
+            root.join(".uncomment.toml"),
             "[lint]\nenabled = true\nkey_pattern = '([unclosed'\n",
         )
         .unwrap();
@@ -622,7 +882,7 @@ todo-self-reference = "off"
         let error = ConfigManager::new(root).unwrap_err();
         let message = format!("{error:#}");
         assert!(message.contains("lint.key_pattern"), "{message}");
-        assert!(message.contains(".uncommentrc.toml"), "{message}");
+        assert!(message.contains(".uncomment.toml"), "{message}");
     }
 
     #[test]
@@ -630,9 +890,9 @@ todo-self-reference = "off"
         let temp = repo();
         let root = temp.path();
         fs::create_dir_all(root.join("nested")).unwrap();
-        fs::write(root.join(".uncommentrc.toml"), "[lint]\nenabled = true\n").unwrap();
+        fs::write(root.join(".uncomment.toml"), "[lint]\nenabled = true\n").unwrap();
         fs::write(
-            root.join("nested/.uncommentrc.toml"),
+            root.join("nested/.uncomment.toml"),
             "[lint]\nkey_pattern = '([unclosed'\n",
         )
         .unwrap();
