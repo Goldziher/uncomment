@@ -71,6 +71,20 @@ This changelog is generated from git tags and commit history.
   so every other language is unaffected. Verified against 85 real Helm `.tpl` files: 48 modified, 256
   comments removed, zero empty actions, and a second pass is a no-op.
 
+- Starlark docstrings are documentation. A `.bzl` module or macro docstring — which Stardoc publishes
+  — is now reported by `scan`, preserved by a default run, removed by `--remove-doc` and markable with
+  `keep`, which writes the marker on the line above so the docstring's own bytes are untouched.
+  Previously a Starlark docstring was never collected at all, so no subcommand could see it and
+  `--remove-doc` silently did nothing to a `.bzl` file.
+
+  Starlark declares `string` as its doc-comment kind, the same pair Python declares, and shares
+  `PythonHandler` for the half that matters: telling a docstring `string` node from any other string
+  literal. The two halves only work together — the kind alone would hand every string in a `BUILD`
+  file to the doc-comment machinery, and a string outside docstring position is rejected rather than
+  collected. Verified against 420 real Bazel files (120 `.bzl` plus 300 `BUILD`/`MODULE.bazel`): 25
+  docstrings found across 17 files, every one preserved by a default run, and not one byte outside a
+  scanned comment span moved.
+
 ### Changed
 
 - Word tags are matched without regard to case. `# todo`, `# Todo` and `# TODO` are now all
