@@ -3,7 +3,8 @@
 //! A marker only works if it lands somewhere the rest of the tool actually reads it, and there are
 //! two shapes. A line comment takes ` ~keep` appended to its own text. A block, doc or docstring
 //! comment takes a standalone marker line directly above it, at its own indentation, written with
-//! the language's plain line-comment token. Which applies is not a matter of taste:
+//! the language's plain line-comment token — or, for a language that has no line form at all, with
+//! its block pair (`/* ~keep */`). Which applies is not a matter of taste:
 //!
 //! - A Python docstring is a `string` node whose bytes *are* `__doc__` at runtime, so editing it
 //!   in-body changes what the program reports about itself.
@@ -186,16 +187,8 @@ pub fn run(args: &KeepArgs) -> Result<()> {
 
     for (&file, comments) in &selected {
         let work = &inventory[file];
-        let outcome = apply_markers(
-            &work.content,
-            &work.path,
-            &work.comments,
-            comments,
-            work.syntax,
-            &mut processor,
-            &work.config,
-        )
-        .with_context(|| format!("Failed to apply markers to {}", work.path.display()))?;
+        let outcome = apply_markers(work, comments, &mut processor)
+            .with_context(|| format!("Failed to apply markers to {}", work.path.display()))?;
 
         summary.marked += outcome.marked();
         summary.already_marked += outcome.already_marked.len();
@@ -539,16 +532,17 @@ struct Candidate {
 /// dropped and is reported unmarkable. The loop repeats until every remaining marker holds, which
 /// terminates because each round either restores a candidate (possible once per candidate) or discards
 /// at least one.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn apply_markers(
-    content: &str,
-    path: &Path,
-    comments: &[InspectedComment],
-    selected: &BTreeSet<usize>,
-    syntax: MarkerSyntax<'_>,
-    processor: &mut Processor,
-    config: &ResolvedConfig,
-) -> Result<MarkOutcome> {
+fn apply_markers(work: &FileWork, selected: &BTreeSet<usize>, processor: &mut Processor) -> Result<MarkOutcome> {
+    let FileWork {
+        path,
+        content,
+        comments,
+        config,
+        syntax,
+        ..
+    } = work;
+    let (content, comments, syntax) = (content.as_str(), comments.as_slice(), *syntax);
+
     let strict = marker_only_config(config);
     let protected = marker_protection(processor, content, path, &strict)?;
     let line_ending = dominant_line_ending(content);
@@ -1143,9 +1137,19 @@ mod tests {
             .map(|(index, _)| index)
             .collect();
 
-        let outcome = apply_markers(content, &path, &comments, &selected, syntax, &mut processor, &config)
-            .expect("apply markers");
-        (outcome.content.clone(), outcome, comments)
+        // Built by hand rather than through `FileWork::read`, which reads from disk: these fixtures
+        // are in-memory. `ids` is not consulted by `apply_markers`, so it stays empty.
+        let work = FileWork {
+            path,
+            content: content.to_string(),
+            comments,
+            config,
+            syntax,
+            ids: Vec::new(),
+        };
+
+        let outcome = apply_markers(&work, &selected, &mut processor).expect("apply markers");
+        (outcome.content.clone(), outcome, work.comments)
     }
 
     fn mark_removable(content: &str, file_name: &str) -> String {
