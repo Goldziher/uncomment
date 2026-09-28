@@ -1,4 +1,4 @@
-name: uncomment
+name: uncomment-cli
 description: >-
   Lint tag comments (TODO/FIXME/HACK/XXX) or remove comments from source code with uncomment —
   a tree-sitter-accurate CLI with zero runtime network access.
