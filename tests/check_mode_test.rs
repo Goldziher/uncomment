@@ -499,6 +499,33 @@ fn changed_only_checks_only_files_changed_against_the_base() {
 }
 
 #[test]
+fn changed_only_also_reaches_into_uncommitted_and_untracked_work() {
+    let fixture = Fixture::with_repository();
+    fixture.write("src/old.js", "const old = 1;\n");
+    fixture.commit_all("base");
+    fixture.git(&["checkout", "-q", "-b", "feat"]);
+
+    // Nothing below is committed: `base...HEAD` would be empty, so `--changed-only` has only the
+    // working tree and the index to tell it what changed.
+    fixture.write("src/old.js", "// unstaged edit\nconst old = 1;\n");
+    fixture.write("src/staged.js", "// staged addition\nconst s = 1;\n");
+    fixture.git(&["add", "src/staged.js"]);
+    fixture.write("src/untracked.js", "// untracked addition\nconst u = 1;\n");
+
+    let output = fixture.run(&["--check", "--changed-only", "--base", "main", "src"]);
+
+    assert_eq!(code(&output), EXIT_REMOVABLE, "{}", stderr(&output));
+    assert_eq!(
+        finding_lines(&output),
+        vec![
+            "src/old.js:1:1: // unstaged edit".to_string(),
+            "src/staged.js:1:1: // staged addition".to_string(),
+            "src/untracked.js:1:1: // untracked addition".to_string(),
+        ]
+    );
+}
+
+#[test]
 fn changed_only_passes_when_the_branch_touched_only_clean_files() {
     let fixture = Fixture::with_repository();
     fixture.write("src/old.js", "// pre-existing\nconst old = 1;\n");
@@ -580,6 +607,33 @@ fn changed_lines_passes_when_the_branch_edits_only_code_near_legacy_comments() {
 
     let line_scoped = fixture.run(&["--check", "--changed-lines", "--base", "main", "src"]);
     assert_eq!(code(&line_scoped), EXIT_CLEAN, "{}", stdout(&line_scoped));
+}
+
+#[test]
+fn changed_lines_also_reaches_into_uncommitted_and_untracked_work() {
+    let fixture = legacy_repository();
+
+    // Nothing below is committed: `--changed-lines --base main` has only the working tree and the
+    // index to tell it what changed, same as `--changed-only`.
+    fixture.write(
+        "src/legacy.js",
+        "// legacy one\nconst a = 1;\n// unstaged addition\n// legacy two\nconst b = 2;\n",
+    );
+    fixture.write("src/staged.js", "// staged addition\nconst s = 1;\n");
+    fixture.git(&["add", "src/staged.js"]);
+    fixture.write("src/untracked.js", "// untracked addition\nconst u = 1;\n");
+
+    let output = fixture.run(&["--check", "--changed-lines", "--base", "main", "src"]);
+
+    assert_eq!(code(&output), EXIT_REMOVABLE, "{}", stderr(&output));
+    assert_eq!(
+        finding_lines(&output),
+        vec![
+            "src/legacy.js:3:1: // unstaged addition".to_string(),
+            "src/staged.js:1:1: // staged addition".to_string(),
+            "src/untracked.js:1:1: // untracked addition".to_string(),
+        ]
+    );
 }
 
 #[test]
