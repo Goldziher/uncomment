@@ -66,19 +66,33 @@ pub enum Rule {
     /// A tag not written as configured: a different spelling (`FIXME`/`HACK`/`XXX`), or the
     /// canonical spelling in the wrong casing (`todo`, `Todo`).
     TagNotCanonical,
-    /// A tag comment carrying no issue key.
+    /// A tag comment carrying no issue key at all — not in a group, not spelled out nearby.
     TodoMissingKey,
+    /// An issue key was found, but not upper case: `TODO(amvp-12):`.
+    TodoKeyNotUpperCase,
+    /// A key was found near the tag, but the tag is not written as `TAG(KEY):` around it — a bare
+    /// key in the surrounding text, a `[KEY]` bracket, a tag wrapped in its own `(...)`, or a
+    /// leftover fragment such as `(TODO(AMVP-1):):`.
+    TagFormNotCanonical,
     /// A tag comment naming the issue the current change is being made under.
     TodoSelfReference,
 }
 
 impl Rule {
-    pub const ALL: [Rule; 3] = [Rule::TagNotCanonical, Rule::TodoMissingKey, Rule::TodoSelfReference];
+    pub const ALL: [Rule; 5] = [
+        Rule::TagNotCanonical,
+        Rule::TodoMissingKey,
+        Rule::TodoKeyNotUpperCase,
+        Rule::TagFormNotCanonical,
+        Rule::TodoSelfReference,
+    ];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Rule::TagNotCanonical => "tag-not-canonical",
             Rule::TodoMissingKey => "todo-missing-key",
+            Rule::TodoKeyNotUpperCase => "todo-key-not-upper-case",
+            Rule::TagFormNotCanonical => "tag-form-not-canonical",
             Rule::TodoSelfReference => "todo-self-reference",
         }
     }
@@ -87,7 +101,9 @@ impl Rule {
         match self {
             Rule::TagNotCanonical => 0,
             Rule::TodoMissingKey => 1,
-            Rule::TodoSelfReference => 2,
+            Rule::TodoKeyNotUpperCase => 2,
+            Rule::TagFormNotCanonical => 3,
+            Rule::TodoSelfReference => 4,
         }
     }
 }
@@ -103,6 +119,12 @@ pub struct RuleTable {
     #[serde(rename = "todo-missing-key", skip_serializing_if = "Option::is_none")]
     pub todo_missing_key: Option<Severity>,
 
+    #[serde(rename = "todo-key-not-upper-case", skip_serializing_if = "Option::is_none")]
+    pub todo_key_not_upper_case: Option<Severity>,
+
+    #[serde(rename = "tag-form-not-canonical", skip_serializing_if = "Option::is_none")]
+    pub tag_form_not_canonical: Option<Severity>,
+
     #[serde(rename = "todo-self-reference", skip_serializing_if = "Option::is_none")]
     pub todo_self_reference: Option<Severity>,
 }
@@ -113,6 +135,8 @@ impl RuleTable {
         RuleTable {
             tag_not_canonical: self.tag_not_canonical.or(base.tag_not_canonical),
             todo_missing_key: self.todo_missing_key.or(base.todo_missing_key),
+            todo_key_not_upper_case: self.todo_key_not_upper_case.or(base.todo_key_not_upper_case),
+            tag_form_not_canonical: self.tag_form_not_canonical.or(base.tag_form_not_canonical),
             todo_self_reference: self.todo_self_reference.or(base.todo_self_reference),
         }
     }
@@ -218,6 +242,10 @@ pub struct LintConfig {
     pub canonical_tag: String,
     pub case_sensitive_tags: bool,
     pub key_pattern: Regex,
+    /// `key_pattern`, matched case-insensitively in both its tag and key halves. Used only to
+    /// *detect* a key written in lower case inside the canonical `TAG(KEY):` group — never to accept
+    /// one, so a miscased key is still reported and normalized rather than silently passing.
+    key_pattern_ci: Regex,
     pub branch_pattern: Regex,
     /// Locates configured tags inside a comment's text; derived from `tags`, never configured
     /// directly.
@@ -226,7 +254,7 @@ pub struct LintConfig {
     /// describes an interface to its readers, and a tag word in it — `{"uuid": XXX}`, "returns the
     /// TODO list" — is far more often part of that description than tracked work.
     pub include_doc_comments: bool,
-    severities: [Severity; 3],
+    severities: [Severity; 5],
     /// The config file this came from, for error messages. `None` for the built-in defaults.
     pub source: Option<PathBuf>,
 }
@@ -284,11 +312,9 @@ impl LintConfig {
             );
         }
 
-        let key_pattern = compile(
-            table.key_pattern.as_deref().unwrap_or(DEFAULT_KEY_PATTERN),
-            "lint.key_pattern",
-            &where_from(),
-        )?;
+        let key_pattern_source = table.key_pattern.as_deref().unwrap_or(DEFAULT_KEY_PATTERN);
+        let key_pattern = compile(key_pattern_source, "lint.key_pattern", &where_from())?;
+        let key_pattern_ci = compile(&format!("(?i){key_pattern_source}"), "lint.key_pattern", &where_from())?;
         let branch_pattern = compile(
             table
                 .current_issue_from_branch
@@ -320,6 +346,8 @@ impl LintConfig {
         let severities = [
             table.rules.tag_not_canonical.unwrap_or(Severity::Error),
             table.rules.todo_missing_key.unwrap_or(Severity::Error),
+            table.rules.todo_key_not_upper_case.unwrap_or(Severity::Error),
+            table.rules.tag_form_not_canonical.unwrap_or(Severity::Error),
             table.rules.todo_self_reference.unwrap_or(Severity::Error),
         ];
 
@@ -329,6 +357,7 @@ impl LintConfig {
             canonical_tag,
             case_sensitive_tags,
             key_pattern,
+            key_pattern_ci,
             branch_pattern,
             tag_pattern,
             include_doc_comments: table.include_doc_comments.unwrap_or(false),
@@ -395,6 +424,37 @@ impl LintConfig {
         // Sliced out of the original: `tag_respelled_as_configured` only ever replaces the tag token
         // with a same-length spelling, so the two strings share every offset.
         haystack.get(range)
+    }
+
+    /// [`Self::extract_key`], but a key written in lower case is detected too — paired with the byte
+    /// range it occupies in `haystack`, so a caller can normalize it in place.
+    ///
+    /// Still detection only: a lower-case key is returned exactly as written, not upper-cased here,
+    /// so the caller can tell the two apart and report the miscased one rather than silently
+    /// accepting it.
+    pub fn extract_key_relaxed<'t>(&self, haystack: &'t str) -> Option<(&'t str, std::ops::Range<usize>)> {
+        if let Some(range) = self.key_range(haystack) {
+            return Some((&haystack[range.clone()], range));
+        }
+        if !self.case_sensitive_tags
+            && let Some(respelled) = self.tag_respelled_as_configured(haystack)
+            && let Some(range) = self.key_range(&respelled)
+        {
+            return Some((&haystack[range.clone()], range));
+        }
+        let range = self.key_range_ci(haystack)?;
+        Some((&haystack[range.clone()], range))
+    }
+
+    /// Byte range of the key inside `haystack`, matching `key_pattern` case-insensitively in both its
+    /// tag and key halves — used only to detect a lower-case key, never to accept one.
+    fn key_range_ci(&self, haystack: &str) -> Option<std::ops::Range<usize>> {
+        let captures = self.key_pattern_ci.captures(haystack)?;
+        captures
+            .name("key")
+            .or_else(|| captures.get(1))
+            .or_else(|| captures.get(0))
+            .map(|matched| matched.range())
     }
 
     /// Byte range of the key inside `haystack`, by the same group preference as [`Self::extract_key`].

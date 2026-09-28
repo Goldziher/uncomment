@@ -14,9 +14,22 @@ This changelog is generated from git tags and commit history.
   `# Line contains TODO`, placeholders such as `?tenant_id=XXX`, and tag words in backticks or quotes
   are no longer reported, and `--fix` no longer rewrites them. A tag written as a bare trailing word
   (`# remove later TODO`) is no longer reported either, since it cannot be told apart from prose.
+- `uncomment lint` and `--fix` normalize a tag and its key consistently instead of mangling either.
+  Everything upper-cases: `# (todo): rename` fixes to `# TODO(AMVP-99): rename` rather than leaving a
+  stray `(...)` and a doubled key, `TODO(amvp-12):` is recognised as keyed (reported distinctly, as
+  `todo-key-not-upper-case`, rather than `todo-missing-key`) and recased to `TODO(AMVP-12):`, and a
+  key written as bare text — `TODO AMVP-12: x`, `TODO: AMVP-12 x`, `TODO [AMVP-12] x` — is reused and
+  moved into the canonical `TODO(AMVP-12):` group instead of a second key being inserted from
+  `--todo-key`. A leftover from an earlier, careless rewrite (`(TODO(AMVP-1):):`) is now flagged, as
+  `tag-form-not-canonical`, and cleaned up. `--fix` remains idempotent: a second run changes nothing.
+- The "keep a comment" tip printed after a run now names the file's own comment syntax (`#`, `--`,
+  `/* */`, ...) instead of always saying "a `//` line".
 
 ### Added
 
+- Two `[lint]` rules: `todo-key-not-upper-case` (a key was found but is not upper case) and
+  `tag-form-not-canonical` (a key was found near the tag, but not in the canonical `TAG(KEY):` shape
+  around it). Both are configurable under `[lint.rules]` like the others, and `--fix` handles both.
 - `include_doc_comments` under `[lint]`, default `false`. Docstrings and doc comments (`///`, `//!`,
   `/** */`, Python docstrings) are no longer linted unless it is set. A plain comment that a handler
   classifies as documentation only by position, like Go's comment above a `func`, still is, and so

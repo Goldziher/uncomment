@@ -233,17 +233,18 @@ fn a_miscased_tag_still_self_references_because_its_key_is_found() {
 }
 
 #[test]
-fn a_miscased_key_is_not_accepted_as_a_key() {
+fn a_miscased_key_is_recognised_and_reported_distinctly_not_as_missing() {
     let fixture = Fixture::enabled("feat/casing");
     fixture.write("src/a.py", "# todo(proj-1): a\nvalue = 1\n");
 
     let outcome = fixture.lint(&["src"]);
-    assert_eq!(
-        rules(&outcome),
-        vec!["tag-not-canonical", "todo-missing-key"],
-        "loosening the tag half of key_pattern must not loosen the key half"
-    );
-    assert_eq!(outcome.violations[1].key, None);
+    // Loosening the tag half of key_pattern must not silently accept the key half: a lower-case key
+    // is still wrong, but it is a key — reported as `todo-key-not-upper-case`, not `todo-missing-key`.
+    assert_eq!(rules(&outcome), vec!["tag-not-canonical", "todo-key-not-upper-case"]);
+    assert_eq!(outcome.violations[1].key.as_deref(), Some("proj-1"));
+
+    fixture.lint(&["src", "--fix"]);
+    assert_eq!(fixture.read("src/a.py"), "# TODO(PROJ-1): a\nvalue = 1\n");
 }
 
 #[test]
@@ -508,6 +509,78 @@ fn todo_key_supplies_the_key_that_cannot_be_invented() {
 
     // And the result is clean, so the fix is idempotent.
     assert!(fixture.lint(&["src"]).violations.is_empty());
+}
+
+// --- tag/key normalization (FIX_NORMALIZE_SPEC.md) ----------------------------------------------
+
+#[test]
+fn fix_normalizes_every_spec_row_in_one_pass_and_flags_the_leftover() {
+    let fixture = Fixture::enabled("feat/normalize");
+    let source = "\
+# (todo): rename
+# TODO(amvp-12): b
+# Todo AMVP-12: c
+# TODO AMVP-12: x
+# TODO [AMVP-12] y
+# TODO: AMVP-12 z
+# (TODO(AMVP-1):): leftover
+";
+    fixture.write("src/a.py", source);
+
+    let outcome = fixture.lint(&["src", "--fix", "--todo-key", "AMVP-99"]);
+    assert_eq!(
+        fixture.read("src/a.py"),
+        "\
+# TODO(AMVP-99): rename
+# TODO(AMVP-12): b
+# TODO(AMVP-12): c
+# TODO(AMVP-12): x
+# TODO(AMVP-12): y
+# TODO(AMVP-12): z
+# TODO(AMVP-1): leftover
+"
+    );
+    // --todo-key supplies only the one key genuinely missing (row 1); every other row reuses the key
+    // already in its own text, so AMVP-99 appears exactly once in the fixed file.
+    assert_eq!(fixture.read("src/a.py").matches("AMVP-99").count(), 1);
+    assert!(outcome.violations.iter().all(|v| v.fixed), "{:?}", outcome.violations);
+
+    // Second pass over the fixed file changes nothing at all.
+    let second = fixture.lint(&["src", "--fix", "--todo-key", "AMVP-99"]);
+    assert_eq!(second.summary.fixed, 0);
+    assert!(second.violations.is_empty(), "{:?}", second.violations);
+}
+
+#[test]
+fn a_lowercase_key_is_reported_distinctly_from_a_missing_one() {
+    let fixture = Fixture::enabled("feat/normalize");
+    fixture.write("src/a.rs", "// TODO(amvp-12): rework\nfn main() {}\n");
+
+    let outcome = fixture.lint(&["src"]);
+    assert_eq!(rules(&outcome), vec!["todo-key-not-upper-case"]);
+    assert!(
+        outcome.violations[0].message.contains("amvp-12"),
+        "{}",
+        outcome.violations[0].message
+    );
+
+    fixture.lint(&["src", "--fix"]);
+    assert_eq!(fixture.read("src/a.rs"), "// TODO(AMVP-12): rework\nfn main() {}\n");
+}
+
+#[test]
+fn normalization_reaches_a_tag_inside_a_jsx_expression_container() {
+    let fixture = Fixture::enabled("feat/normalize");
+    fixture.write(
+        "src/a.jsx",
+        "const x = (\n  <div>\n    {/* TODO AMVP-12: explain this node */}\n    <span />\n  </div>\n);\n",
+    );
+
+    fixture.lint(&["src", "--fix"]);
+    assert_eq!(
+        fixture.read("src/a.jsx"),
+        "const x = (\n  <div>\n    {/* TODO(AMVP-12): explain this node */}\n    <span />\n  </div>\n);\n"
+    );
 }
 
 // --- lint removes nothing -----------------------------------------------------------------------
