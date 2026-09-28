@@ -4,10 +4,17 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
-## [Unreleased]
+## [v3.10.0] - 2026-09-28
 
 ### Added
 
+- An official composite GitHub Action, `uses: Goldziher/uncomment@v3.10.0`. It installs the release
+  binary for the runner's OS and architecture, verifies it against the release's published sha256
+  checksums, caches it by version, OS and architecture, and runs `uncomment lint .` or any other
+  arguments. Violations from `lint` and `--check` show up as inline pull request annotations through
+  a problem matcher. `changed-only`, `changed-lines` and `staged` inputs scope a run to a pull
+  request's changes (the base defaults to the pull request's base SHA), and `install-only` just puts
+  `uncomment` on `PATH`.
 - Two `[lint]` rules: `todo-key-not-upper-case` (a key was found but is not upper case) and
   `tag-form-not-canonical` (a key was found near the tag, but not in the canonical `TAG(KEY):` shape
   around it). Both are configurable under `[lint.rules]` like the others, and `--fix` handles both.
@@ -30,6 +37,12 @@ This changelog is generated from git tags and commit history.
 
 ### Fixed
 
+- Every tree-sitter grammar is compiled into the binary again, as the README has always said.
+  Earlier builds downloaded a prebuilt grammar bundle into the platform cache directory
+  (`~/Library/Caches/tree-sitter-language-pack` on macOS, `~/.cache/tree-sitter-language-pack` on
+  Linux) on first use, so every fresh CI runner fetched it again and an offline machine could not
+  parse at all. uncomment now makes no network access at runtime and writes no cache; the binary is
+  larger for it.
 - `uncomment lint` treats a tag word as a tag only in tag position: opening its comment or a
   trailing comment segment (`# noqa: T201  # TODO: fix`), or, spelled exactly as in `tags`,
   introducing text (`- TODO: x`, `TODO(`) or opening a clause (`# Note: TODO later`). Prose such as
