@@ -20,7 +20,9 @@ fi
 if [ "$STAGED" = "true" ]; then
   parsed_args+=(--staged)
 fi
-if [ -n "$BASE" ]; then
+# --base only means something to --changed-only/--changed-lines, and clap rejects it next to
+# --staged; BASE is auto-filled on every pull_request event, so gate it on the scoping flags.
+if [ -n "$BASE" ] && [ "$STAGED" != "true" ] && { [ "$CHANGED_ONLY" = "true" ] || [ "$CHANGED_LINES" = "true" ]; }; then
   parsed_args+=(--base "$BASE")
 fi
 
