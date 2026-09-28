@@ -43,9 +43,47 @@ fn shows_preservation_hint_on_stderr_when_comments_removed() {
 
     let output = run(&file, &["--dry-run"]);
     let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("a `//` line"),
+        "expected the JS comment token, got: {stderr}"
+    );
 
     assert!(stderr.contains("~keep"), "expected preservation hint, got: {stderr}");
     assert!(stderr.contains("--ignore"), "expected --ignore guidance, got: {stderr}");
+}
+
+#[test]
+fn the_preservation_hint_names_the_files_own_line_comment_token() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("sample.py");
+    fs::write(&file, "# strip me\nvalue = 1\n").unwrap();
+
+    let output = run(&file, &["--dry-run"]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        stderr.contains("a `#` line"),
+        "expected the Python comment token, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("a `//` line"),
+        "must not default to `//` for a `#` language: {stderr}"
+    );
+}
+
+#[test]
+fn the_preservation_hint_uses_a_block_marker_for_a_line_comment_less_language() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("sample.css");
+    fs::write(&file, "/* strip me */\na { color: red; }\n").unwrap();
+
+    let output = run(&file, &["--dry-run"]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        stderr.contains("a `/* ~keep */` line"),
+        "expected CSS's block marker, got: {stderr}"
+    );
 }
 
 #[test]

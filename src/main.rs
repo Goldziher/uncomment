@@ -201,12 +201,18 @@ fn main() -> Result<()> {
     output_writer.print_summary(total_files, modified_files, comments_removed_total);
 
     if comments_removed_total > 0 && !cli.args.quiet {
+        let marker_line = results
+            .iter()
+            .find(|processed_file| processed_file.modified)
+            .and_then(|processed_file| registry.detect_language(&processed_file.path))
+            .map_or_else(|| "comment".to_string(), marker_line_hint);
         anstream::eprintln!();
         anstream::eprintln!(
             "{}",
-            ui::dim(
-                "Tip: to keep a comment, add `~keep` to it, or to a `//` line just above it — TODO, FIXME and doc comments are kept by default."
-            )
+            ui::dim(format!(
+                "Tip: to keep a comment, add `~keep` to it, or to a `{marker_line}` line just above it — TODO, \
+                 FIXME and doc comments are kept by default."
+            ))
         );
         anstream::eprintln!(
             "{}",
@@ -242,6 +248,20 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// What to put inside the backticks of the "keep a comment" tip's second clause, for `language`'s
+/// own comment syntax: the plain line token when it has one (`#`, `--`, ...), else its block pair
+/// with the marker already inside it (`/* ~keep */`), since a bare open delimiter alone would not
+/// read as a complete line.
+fn marker_line_hint(language: &uncomment::languages::LanguageConfig) -> String {
+    match language.line_comment_token() {
+        Some(token) => token.to_string(),
+        None => match language.block_comment_delimiters() {
+            Some((open, close)) => format!("{open} ~keep {close}"),
+            None => "comment".to_string(),
+        },
+    }
 }
 
 fn collect_files(
