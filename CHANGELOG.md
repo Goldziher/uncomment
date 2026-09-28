@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## Unreleased
+
+### Fixed
+
+- `uncomment lint` treats a tag word as a tag only in tag position: opening its comment or a
+  trailing comment segment (`# noqa: T201  # TODO: fix`), or, spelled exactly as in `tags`,
+  introducing text (`- TODO: x`, `TODO(`) or opening a clause (`# Note: TODO later`). Prose such as
+  `# Line contains TODO`, placeholders such as `?tenant_id=XXX`, and tag words in backticks or quotes
+  are no longer reported, and `--fix` no longer rewrites them. A tag written as a bare trailing word
+  (`# remove later TODO`) is no longer reported either, since it cannot be told apart from prose.
+
+### Added
+
+- `include_doc_comments` under `[lint]`, default `false`. Docstrings and doc comments (`///`, `//!`,
+  `/** */`, `##`, Python docstrings) are no longer linted unless it is set; a plain comment that a
+  handler classifies as documentation only by position, like Go's comment above a `func`, still is.
+  The key layers key by key like every other `[lint]` key.
+
 ## [v3.9.0] - 2026-09-27
 
 ### Added
