@@ -41,20 +41,20 @@ if [ "${CACHE_HIT:-}" != "true" ]; then
     echo "Checksum OK (sha256): ${actual}"
 
     case "$EXT" in
-      tar.gz)
-        tar -xzf "$ASSET" -C "$BIN_DIR"
-        ;;
-      zip)
-        if command -v unzip >/dev/null 2>&1; then
-          unzip -q -o "$ASSET" -d "$BIN_DIR"
-        else
-          python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$ASSET" "$BIN_DIR"
-        fi
-        ;;
-      *)
-        echo "::error::Unknown archive extension: ${EXT}"
-        exit 1
-        ;;
+    tar.gz)
+      tar -xzf "$ASSET" -C "$BIN_DIR"
+      ;;
+    zip)
+      if command -v unzip >/dev/null 2>&1; then
+        unzip -q -o "$ASSET" -d "$BIN_DIR"
+      else
+        python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$ASSET" "$BIN_DIR"
+      fi
+      ;;
+    *)
+      echo "::error::Unknown archive extension: ${EXT}"
+      exit 1
+      ;;
     esac
   )
 

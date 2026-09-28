@@ -25,14 +25,7 @@ homepage = "https://github.com/Goldziher/uncomment"
 # ship: cargo discovers config starting at wherever a build runs, so `cargo install`/`cargo publish`
 # building this crate from its own extracted, filtered package need it present there too, not just
 # in this checkout.
-include = [
-    "/src/**/*.rs",
-    "/Cargo.toml",
-    "/README.md",
-    "/LICENSE",
-    "/CHANGELOG.md",
-    "/.cargo/config.toml",
-]
+include = ["/src/**/*.rs", "/Cargo.toml", "/README.md", "/LICENSE", "/CHANGELOG.md", "/.cargo/config.toml"]
 
 # ~keep cargo-binstall metadata: fetch prebuilt archives from GitHub releases.
 # ~keep archive-suffix resolves to .tar.gz on unix and .zip on windows, matching our release assets.
