@@ -85,6 +85,7 @@ cyclomatic_complexity_max = 30
 "src/rules/preservation.rs" = ["lazy-ignore"]
 "tests/linting_directives_simple_test.rs" = ["lazy-ignore"]
 "tests/output_reporting_test.rs" = ["lazy-ignore"]
+"tests/check_mode_test.rs" = ["lazy-ignore"]
 
 [lint.markdown.rumdl]
 disable = ["MD033", "MD041"]

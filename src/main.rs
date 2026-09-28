@@ -1,13 +1,17 @@
 use anyhow::{Context, Result};
+use clap::CommandFactory;
 use clap::Parser;
 use glob::glob;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use uncomment::changes::ChangeScope;
+use uncomment::check;
 use uncomment::cli::{Cli, Commands};
 use uncomment::config::{self, ConfigManager, ExcludeSet};
 use uncomment::languages::LanguageRegistry;
 use uncomment::languages::registry::warn_languages_without_a_grammar;
+use uncomment::paths::{absolute_normalized, find_repo_root, to_slash};
 use uncomment::processor::{self, OutputWriter};
 use uncomment::ui;
 
@@ -47,7 +51,55 @@ fn main() -> Result<()> {
         };
     }
 
-    let options = cli.args.processing_options();
+    // The change-scope flags are shared with `lint`, where they need no `--check`, so clap cannot
+    // express the requirement on the struct itself.
+    if cli.check.scope.is_active() && !cli.check.check {
+        Cli::command()
+            .error(
+                clap::error::ErrorKind::MissingRequiredArgument,
+                "--changed-only narrows a check, so it requires --check",
+            )
+            .exit();
+    }
+
+    // Under `--check` a failure to run is exit 2, never 1, so a gate can tell "found comments" from
+    // "could not look" — the latter must not be mistaken for either verdict.
+    match run(&cli) {
+        Ok(check::EXIT_CLEAN) => Ok(()),
+        Ok(code) => std::process::exit(code),
+        Err(error) if cli.check.check => {
+            anstream::eprintln!("{} {error:#}", ui::danger("error:"));
+            std::process::exit(check::EXIT_ERROR);
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// What processing one file came to.
+enum FileResult {
+    Processed(processor::ProcessedFile),
+    /// Not UTF-8 text, so there are no comments to judge. Only `--check` distinguishes this.
+    Skipped(PathBuf),
+    /// Already reported on stderr.
+    Failed,
+}
+
+/// Whether `error` is a file that is not valid UTF-8, which `read_to_string` reports as
+/// `InvalidData`.
+fn is_not_utf8(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        cause
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.kind() == std::io::ErrorKind::InvalidData)
+    })
+}
+
+/// The removal run, or under `--check` the gate. Returns the process exit code.
+fn run(cli: &Cli) -> Result<i32> {
+    let checking = cli.check.check;
+    let mut options = cli.args.processing_options();
+    // `--check` writes nothing whatever else was passed; `--dry-run` alongside it is redundant.
+    options.dry_run |= checking;
 
     if cli.args.paths.is_empty() {
         anstream::eprintln!(
@@ -55,7 +107,7 @@ fn main() -> Result<()> {
             ui::danger("error:"),
             ui::accent("uncomment --help")
         );
-        std::process::exit(1);
+        return Ok(if checking { check::EXIT_ERROR } else { 1 });
     }
 
     let current_dir = std::env::current_dir().context("Failed to get current directory")?;
@@ -64,7 +116,7 @@ fn main() -> Result<()> {
         let config = config::Config::from_file(config_path)
             .with_context(|| format!("Failed to load config file: {}", config_path.display()))?;
 
-        ConfigManager::from_single_config(current_dir, config)?
+        ConfigManager::from_single_config(current_dir.clone(), config)?
     } else {
         ConfigManager::new(&current_dir).context("Failed to initialize configuration manager")?
     };
@@ -78,11 +130,30 @@ fn main() -> Result<()> {
     let excludes = config_manager.exclude_set(&cli.args.exclude)?;
 
     let mut unsupported_report = UnsupportedFilesReport::default();
-    let files = collect_files(&cli.args.paths, &options, &registry, &excludes, &mut unsupported_report)?;
+    let mut files = collect_files(&cli.args.paths, &options, &registry, &excludes, &mut unsupported_report)?;
 
-    print_unsupported_files_report(&unsupported_report, cli.args.verbose);
+    // A pre-commit hook hands over every staged file, most of them not source; under `--check` that
+    // is expected, not news.
+    if !checking || cli.args.verbose {
+        print_unsupported_files_report(&unsupported_report, cli.args.verbose);
+    }
+
+    let mut notes = Vec::new();
+    if let Some(scope) = ChangeScope::resolve(&cli.check.scope, find_repo_root(&current_dir).as_deref())? {
+        let before = files.len();
+        files.retain(|file| scope.contains_file(&absolute_normalized(&current_dir, file)));
+        notes.push(scope.note(files.len(), before));
+    }
 
     if files.is_empty() {
+        if checking {
+            let outcome = check::Outcome {
+                notes,
+                ..check::Outcome::default()
+            };
+            check::report(&outcome, cli.check.format, cli.args.quiet)?;
+            return Ok(outcome.exit_code());
+        }
         anstream::eprintln!(
             "{} No supported files found to process in the specified paths.",
             ui::warn("!")
@@ -94,7 +165,7 @@ fn main() -> Result<()> {
                 ui::dim("Tip: Use --no-gitignore to process files ignored by git.")
             );
         }
-        return Ok(());
+        return Ok(0);
     }
 
     let num_threads = if cli.args.threads == 0 {
@@ -103,7 +174,7 @@ fn main() -> Result<()> {
         cli.args.threads
     };
 
-    if cli.args.verbose && num_threads > 1 {
+    if cli.args.verbose && num_threads > 1 && !checking {
         anstream::println!(
             "{} {}",
             ui::dim(ui::BULLET),
@@ -116,13 +187,6 @@ fn main() -> Result<()> {
         .build_global()
         .context("Failed to initialize thread pool")?;
 
-    let output_writer = Arc::new(OutputWriter::new(
-        options.dry_run,
-        cli.args.verbose,
-        options.show_diff,
-        cli.args.quiet,
-    ));
-
     let total_files = files.len();
 
     let progress = if total_files >= ui::PROGRESS_MIN_FILES && !cli.args.verbose {
@@ -131,13 +195,14 @@ fn main() -> Result<()> {
         indicatif::ProgressBar::hidden()
     };
 
-    let process_file = |file_path: &PathBuf| -> Option<processor::ProcessedFile> {
+    let process_file = |file_path: &PathBuf| -> FileResult {
         let mut proc = processor::Processor::new_with_config(&config_manager);
         let result = match proc.process_file_with_config(file_path, &config_manager, Some(&options)) {
             Ok(mut pf) => {
                 pf.modified = pf.original_content != pf.processed_content;
-                Some(pf)
+                FileResult::Processed(pf)
             }
+            Err(e) if checking && is_not_utf8(&e) => FileResult::Skipped(file_path.clone()),
             Err(e) => {
                 progress.suspend(|| {
                     anstream::eprintln!("{} processing {}: {e}", ui::danger("error"), ui::path(file_path));
@@ -145,23 +210,23 @@ fn main() -> Result<()> {
                         anstream::eprintln!("  {}", ui::dim(format!("Full error: {e:?}")));
                     }
                 });
-                None
+                FileResult::Failed
             }
         };
         progress.inc(1);
         result
     };
 
-    let results: Vec<processor::ProcessedFile> = if num_threads == 1 {
-        files.iter().filter_map(process_file).collect()
+    let outcomes: Vec<FileResult> = if num_threads == 1 {
+        files.iter().map(process_file).collect()
     } else {
-        files.par_iter().filter_map(process_file).collect()
+        files.par_iter().map(process_file).collect()
     };
 
     progress.finish_and_clear();
 
-    // A config below the invocation directory is only read during the per-file pass, from a
-    // call that cannot return an error, so it is recorded instead. It has already been printed;
+    // A config below the invocation directory is only read during the per-file pass, from a call
+    // that cannot return an error, so it is recorded instead. It has already been printed;
     // what is left is to not act on results computed under built-in defaults the user never
     // asked for. Checked before the write loop so nothing is rewritten.
     if config_manager.deferred_config_error().is_some() {
@@ -169,15 +234,49 @@ fn main() -> Result<()> {
             "{} configuration was rejected, so no file was modified.",
             ui::danger("error:")
         );
-        std::process::exit(1);
+        return Ok(if checking { check::EXIT_ERROR } else { 1 });
     }
+
+    let mut results = Vec::with_capacity(outcomes.len());
+    let mut uninspectable = 0usize;
+    for outcome in outcomes {
+        match outcome {
+            FileResult::Processed(processed) => results.push(processed),
+            FileResult::Skipped(path) => notes.push(format!(
+                "skipped {}: not UTF-8 text",
+                to_slash(&check::display_path(&current_dir, &path))
+            )),
+            FileResult::Failed => uninspectable += 1,
+        }
+    }
+
+    if checking {
+        let mut outcome = check::Outcome::from_results(&current_dir, &results);
+        outcome.notes = notes;
+        outcome.uninspectable = uninspectable;
+        check::report(&outcome, cli.check.format, cli.args.quiet)?;
+        return Ok(outcome.exit_code());
+    }
+
+    report_removal(cli, &options, total_files, &results)?;
+    Ok(0)
+}
+
+/// Write the processed files and print what the removal run did.
+fn report_removal(
+    cli: &Cli,
+    options: &processor::ProcessingOptions,
+    total_files: usize,
+    results: &[processor::ProcessedFile],
+) -> Result<()> {
+    let output_writer = OutputWriter::new(options.dry_run, cli.args.verbose, options.show_diff, cli.args.quiet);
 
     let mut modified_files = 0usize;
     let mut comments_removed_total = 0usize;
     let mut important_removal_count = 0usize;
     let mut important_removal_samples: Vec<ImportantRemovalSample> = Vec::new();
 
-    for processed_file in &results {
+    for processed_file in results {
         if processed_file.modified {
             modified_files += 1;
             comments_removed_total += processed_file.comments_removed;

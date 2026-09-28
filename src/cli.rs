@@ -12,6 +12,9 @@ const AFTER_LONG_HELP: &str = "Examples:
   uncomment scan src/ --only removable  Inventory the comments a run would remove
   uncomment keep src/ --all-removable  Mark every removable comment with ~keep
   uncomment lint src/                  Check TODO/FIXME tags, removing nothing
+  uncomment --check src/               Exit 1 if any comment would be removed
+  uncomment --check --changed-only --base origin/main .
+                                       Gate only the files a branch changed
 
 Preserved by default: TODO, FIXME, HACK, XXX, NOSONAR, the ~keep marker, doc
 comments, and common linting directives (eslint-disable, noqa, @ts-ignore, ...).
@@ -35,6 +38,9 @@ pub struct Cli {
 
     #[command(flatten)]
     pub args: ProcessArgs,
+
+    #[command(flatten)]
+    pub check: crate::check::CheckArgs,
 }
 
 #[derive(Subcommand, Debug)]
