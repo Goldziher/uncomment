@@ -1011,6 +1011,68 @@ fn changed_only_never_reaches_into_a_gitignored_untracked_file() {
     assert!(changed.violations.is_empty(), "{:?}", changed.violations);
 }
 
+#[test]
+fn changed_lines_limits_the_run_to_lines_changed_against_the_base() {
+    let fixture = Fixture::enabled("placeholder");
+    let root = fixture.root();
+    fs::remove_dir_all(root.join(".git")).expect("drop the hand-written .git");
+    git(root, &["init", "-b", "main"]);
+    git(root, &["config", "user.email", "lint@example.com"]);
+    git(root, &["config", "user.name", "Lint Fixture"]);
+
+    fixture.write("src/old.rs", "// TODO: pre-existing\nfn main() {}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-m", "base"]);
+
+    git(root, &["checkout", "-b", "feat/new"]);
+    fixture.write("src/old.rs", "// TODO: pre-existing\nfn main() {}\n// TODO: added\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-m", "change"]);
+
+    let files = fixture.lint(&["src", "--changed-only", "--base", "main"]);
+    assert_eq!(files.violations.len(), 2, "{:?}", files.violations);
+
+    let lines = fixture.lint(&["src", "--changed-lines", "--base", "main"]);
+    assert_eq!(lines.violations.len(), 1, "{:?}", lines.violations);
+    assert_eq!(lines.violations[0].line, 3);
+    assert_eq!(lines.exit_code(), 1);
+}
+
+#[test]
+fn changed_lines_also_reaches_into_uncommitted_and_untracked_work() {
+    let fixture = Fixture::enabled("placeholder");
+    let root = fixture.root();
+    fs::remove_dir_all(root.join(".git")).expect("drop the hand-written .git");
+    git(root, &["init", "-b", "main"]);
+    git(root, &["config", "user.email", "lint@example.com"]);
+    git(root, &["config", "user.name", "Lint Fixture"]);
+
+    fixture.write("src/old.rs", "fn main() {}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-m", "base"]);
+    git(root, &["checkout", "-b", "feat/uncommitted"]);
+
+    // As in `changed_only_includes_staged_unstaged_and_untracked_work`: nothing is committed on this
+    // branch, so only the working tree and the index can tell `--changed-lines` what changed.
+    fixture.write("src/old.rs", "fn main() {\n    // TODO: unstaged edit\n}\n");
+    fixture.write("src/staged.rs", "// TODO: staged edit\n");
+    git(root, &["add", "src/staged.rs"]);
+    fixture.write("src/untracked.rs", "// TODO: never added\n");
+
+    let changed = fixture.lint(&["src", "--changed-lines", "--base", "main"]);
+    let mut paths: Vec<String> = changed
+        .violations
+        .iter()
+        .map(|violation| violation.path.to_string_lossy().replace('\\', "/"))
+        .collect();
+    paths.sort();
+    assert_eq!(
+        paths,
+        vec!["src/old.rs", "src/staged.rs", "src/untracked.rs"],
+        "{changed:?}"
+    );
+}
+
 fn git(root: &Path, argv: &[&str]) {
     let status = Command::new("git")
         .arg("-C")

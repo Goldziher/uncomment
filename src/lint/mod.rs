@@ -220,7 +220,8 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
     let excludes = config_manager.exclude_set(&args.process.exclude)?;
     let mut files = collect_files(&base, &args.process.paths, respect_gitignore, &registry, &excludes)?;
 
-    if let Some(scope) = ChangeScope::resolve(&args.scope, repo_root.as_deref())? {
+    let scope = ChangeScope::resolve(&args.scope, repo_root.as_deref())?;
+    if let Some(scope) = &scope {
         let before = files.len();
         files.retain(|file| scope.contains_file(&absolute_normalized(&base, file)));
         notes.push(scope.note(files.len(), before));
@@ -319,6 +320,16 @@ pub fn lint(base: &Path, args: &LintArgs) -> Result<Outcome> {
                 notes.push(format!("{}: {error}", to_slash(&path)));
             }
         }
+    }
+
+    if let Some(scope) = scope.as_ref().filter(|scope| scope.is_per_line()) {
+        violations.retain(|violation| {
+            scope.touches(
+                &absolute_normalized(&base, &violation.path),
+                violation.line,
+                violation.line,
+            )
+        });
     }
 
     violations.sort_by(|a, b| {

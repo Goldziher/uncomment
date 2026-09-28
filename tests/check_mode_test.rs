@@ -410,7 +410,7 @@ fn changed_only_requires_check() {
     let output = fixture.run(&["--changed-only", "a.js"]);
 
     assert_eq!(code(&output), EXIT_ERROR);
-    assert!(stderr(&output).contains("requires --check"), "{}", stderr(&output));
+    assert!(stderr(&output).contains("require --check"), "{}", stderr(&output));
     assert_eq!(fixture.read("a.js"), "// gone\n", "a usage error must write nothing");
 }
 
@@ -520,4 +520,131 @@ fn an_unknown_base_ref_is_an_error_not_a_pass() {
 
     assert_eq!(code(&output), EXIT_ERROR, "{}", stderr(&output));
     assert!(stderr(&output).contains("no-such-ref"), "{}", stderr(&output));
+}
+
+// --- --changed-lines and --staged ---------------------------------------------------------------
+
+const LEGACY_JS: &str = "// legacy one\nconst a = 1;\n// legacy two\nconst b = 2;\n";
+
+/// `main` holds a legacy file full of removable comments, and the test continues on branch `feat`.
+fn legacy_repository() -> Fixture {
+    let fixture = Fixture::with_repository();
+    fixture.write("src/legacy.js", LEGACY_JS);
+    fixture.commit_all("base");
+    fixture.git(&["checkout", "-q", "-b", "feat"]);
+    fixture
+}
+
+#[test]
+fn changed_lines_reports_only_comments_on_lines_the_branch_touched() {
+    let fixture = legacy_repository();
+    fixture.write(
+        "src/legacy.js",
+        "// legacy one\nconst a = 1;\n// added by the branch\n// legacy two\nconst b = 3; // trailing on an edited line\n",
+    );
+    fixture.commit_all("change");
+
+    let output = fixture.run(&["--check", "--changed-lines", "--base", "main", "src"]);
+
+    assert_eq!(code(&output), EXIT_REMOVABLE, "{}", stderr(&output));
+    assert_eq!(
+        finding_lines(&output),
+        vec![
+            "src/legacy.js:3:1: // added by the branch".to_string(),
+            "src/legacy.js:5:14: // trailing on an edited line".to_string(),
+        ]
+    );
+    let notes = stderr(&output);
+    assert!(
+        notes.contains("--changed-lines against main: 1 of 1 file(s) changed"),
+        "{notes}"
+    );
+    assert!(
+        notes.contains("2 removable comment(s) outside the changed lines not reported"),
+        "{notes}"
+    );
+}
+
+#[test]
+fn changed_lines_passes_when_the_branch_edits_only_code_near_legacy_comments() {
+    let fixture = legacy_repository();
+    fixture.write("src/legacy.js", &LEGACY_JS.replace("const a = 1;", "const a = 10;"));
+    fixture.commit_all("change");
+
+    let file_scoped = fixture.run(&["--check", "--changed-only", "--base", "main", "src"]);
+    assert_eq!(
+        code(&file_scoped),
+        EXIT_REMOVABLE,
+        "file scope still sees the legacy comments"
+    );
+
+    let line_scoped = fixture.run(&["--check", "--changed-lines", "--base", "main", "src"]);
+    assert_eq!(code(&line_scoped), EXIT_CLEAN, "{}", stdout(&line_scoped));
+}
+
+#[test]
+fn staged_checks_only_what_the_next_commit_changes() {
+    let fixture = legacy_repository();
+    fixture.write("src/staged.js", "// staged comment\nconst s = 1;\n");
+    fixture.write("src/unstaged.js", "// not staged, not checked\n");
+    fixture.write("src/legacy.js", &format!("{LEGACY_JS}// staged into legacy\n"));
+    fixture.git(&["add", "src/staged.js", "src/legacy.js"]);
+
+    let files = fixture.run(&["--check", "--staged", "src"]);
+    assert_eq!(code(&files), EXIT_REMOVABLE);
+    assert_eq!(
+        finding_lines(&files),
+        vec![
+            "src/legacy.js:1:1: // legacy one".to_string(),
+            "src/legacy.js:3:1: // legacy two".to_string(),
+            "src/legacy.js:5:1: // staged into legacy".to_string(),
+            "src/staged.js:1:1: // staged comment".to_string(),
+        ]
+    );
+    assert!(
+        stderr(&files).contains("--staged against the index: 2 of 3 file(s) changed"),
+        "{}",
+        stderr(&files)
+    );
+
+    let lines = fixture.run(&["--check", "--staged", "--changed-lines", "src"]);
+    assert_eq!(
+        finding_lines(&lines),
+        vec![
+            "src/legacy.js:5:1: // staged into legacy".to_string(),
+            "src/staged.js:1:1: // staged comment".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn staged_with_base_is_rejected() {
+    let fixture = legacy_repository();
+
+    let output = fixture.run(&["--check", "--staged", "--base", "main", "src"]);
+
+    assert_eq!(code(&output), EXIT_ERROR);
+    assert!(stderr(&output).contains("cannot be used with"), "{}", stderr(&output));
+}
+
+#[test]
+fn changed_lines_json_counts_only_reported_comments() {
+    let fixture = legacy_repository();
+    fixture.write("src/legacy.js", &format!("{LEGACY_JS}// new\n"));
+    fixture.commit_all("change");
+
+    let output = fixture.run(&[
+        "--check",
+        "--changed-lines",
+        "--base",
+        "main",
+        "--format",
+        "json",
+        "src",
+    ]);
+
+    let document: serde_json::Value = serde_json::from_slice(&output.stdout).expect("stdout is one JSON document");
+    assert_eq!(document["summary"]["violations"], 1);
+    assert_eq!(document["summary"]["files_with_violations"], 1);
+    assert_eq!(document["violations"][0]["line"], 5);
 }

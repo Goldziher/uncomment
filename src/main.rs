@@ -57,7 +57,7 @@ fn main() -> Result<()> {
         Cli::command()
             .error(
                 clap::error::ErrorKind::MissingRequiredArgument,
-                "--changed-only narrows a check, so it requires --check",
+                "--changed-only, --changed-lines and --staged narrow a check, so they require --check",
             )
             .exit();
     }
@@ -139,7 +139,8 @@ fn run(cli: &Cli) -> Result<i32> {
     }
 
     let mut notes = Vec::new();
-    if let Some(scope) = ChangeScope::resolve(&cli.check.scope, find_repo_root(&current_dir).as_deref())? {
+    let scope = ChangeScope::resolve(&cli.check.scope, find_repo_root(&current_dir).as_deref())?;
+    if let Some(scope) = &scope {
         let before = files.len();
         files.retain(|file| scope.contains_file(&absolute_normalized(&current_dir, file)));
         notes.push(scope.note(files.len(), before));
@@ -251,14 +252,15 @@ fn run(cli: &Cli) -> Result<i32> {
     }
 
     if checking {
-        let mut outcome = check::Outcome::from_results(&current_dir, &results);
+        let mut outcome = check::Outcome::from_results(&current_dir, &results, scope.as_ref());
+        notes.append(&mut outcome.notes);
         outcome.notes = notes;
         outcome.uninspectable = uninspectable;
         check::report(&outcome, cli.check.format, cli.args.quiet)?;
         return Ok(outcome.exit_code());
     }
 
-    report_removal(cli, &options, total_files, &results)?;
+    report_removal(cli, &options, total_files, &results, &registry)?;
     Ok(0)
 }
 
@@ -268,6 +270,7 @@ fn report_removal(
     options: &processor::ProcessingOptions,
     total_files: usize,
     results: &[processor::ProcessedFile],
+    registry: &LanguageRegistry,
 ) -> Result<()> {
     let output_writer = OutputWriter::new(options.dry_run, cli.args.verbose, options.show_diff, cli.args.quiet);
 

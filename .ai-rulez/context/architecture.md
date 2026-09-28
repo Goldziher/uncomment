@@ -28,7 +28,7 @@ uncomment is a Rust CLI tool for AST-based comment removal from source code, dis
 - `lint/` — `uncomment lint`: tag rules, their config, and the findings they produce
 - `edit.rs` — Applying many byte-range edits to one file in a single pass
 - `git.rs` — Reading the current branch and the issue key embedded in it
-- `changes.rs` — `--changed-only`/`--base`: the files a branch changed, for `lint` and `--check`
+- `changes.rs` — `--changed-only`/`--changed-lines`/`--staged`/`--base`: the files and lines a branch or the index changed, for `lint` and `--check`
 - `paths.rs` — Lexical path helpers shared by config resolution and the inventory commands
 - `ui.rs` — Terminal presentation: colors, symbols, structured output
 

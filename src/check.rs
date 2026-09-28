@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
-use crate::changes::ChangeScopeArgs;
+use crate::changes::{ChangeScope, ChangeScopeArgs};
 use crate::lint::OutputFormat;
 use crate::paths::{absolute_normalized, repo_relative, to_slash};
 use crate::processor::ProcessedFile;
@@ -84,27 +84,40 @@ pub struct Outcome {
 impl Outcome {
     /// Collect the violations out of the processed files, sorted by path, line and column.
     ///
-    /// `base` is the directory printed paths are made relative to.
-    pub fn from_results(base: &Path, results: &[ProcessedFile]) -> Self {
+    /// `base` is the directory printed paths are made relative to. A per-line `scope` drops every
+    /// comment on a line the diff did not touch, and says how many it dropped.
+    pub fn from_results(base: &Path, results: &[ProcessedFile], scope: Option<&ChangeScope>) -> Self {
         let mut outcome = Self {
             files_checked: results.len(),
             ..Self::default()
         };
+        let mut out_of_scope = 0usize;
         for processed in results {
-            if processed.removed_comments.is_empty() {
-                continue;
-            }
-            outcome.files_with_violations += 1;
+            let absolute = absolute_normalized(base, &processed.path);
             let path = display_path(base, &processed.path);
-            outcome
-                .violations
-                .extend(processed.removed_comments.iter().map(|comment| Violation {
+            let before = outcome.violations.len();
+            for comment in &processed.removed_comments {
+                let (line, end_line) = (comment.start_row + 1, comment.end_row + 1);
+                if scope.is_some_and(|scope| !scope.touches(&absolute, line, end_line)) {
+                    out_of_scope += 1;
+                    continue;
+                }
+                outcome.violations.push(Violation {
                     path: path.clone(),
-                    line: comment.start_row + 1,
+                    line,
                     column: comment.start_column + 1,
-                    end_line: comment.end_row + 1,
+                    end_line,
                     excerpt: comment.preview.clone(),
-                }));
+                });
+            }
+            if outcome.violations.len() > before {
+                outcome.files_with_violations += 1;
+            }
+        }
+        if out_of_scope > 0 {
+            outcome.notes.push(format!(
+                "{out_of_scope} removable comment(s) outside the changed lines not reported"
+            ));
         }
         outcome.violations.sort_by(|a, b| {
             a.path
@@ -269,7 +282,7 @@ mod tests {
             processed("/repo/clean.rs", &[]),
         ];
 
-        let outcome = Outcome::from_results(base, &results);
+        let outcome = Outcome::from_results(base, &results, None);
 
         let positions: Vec<(String, usize, usize)> = outcome
             .violations
@@ -291,7 +304,7 @@ mod tests {
 
     #[test]
     fn an_uninspectable_file_outranks_violations_in_the_exit_code() {
-        let mut outcome = Outcome::from_results(Path::new("/repo"), &[processed("/repo/a.rs", &[(0, 0)])]);
+        let mut outcome = Outcome::from_results(Path::new("/repo"), &[processed("/repo/a.rs", &[(0, 0)])], None);
         assert_eq!(outcome.exit_code(), EXIT_REMOVABLE);
 
         outcome.uninspectable = 1;
@@ -301,7 +314,7 @@ mod tests {
             "an incomplete check must not read as a verdict"
         );
 
-        let clean = Outcome::from_results(Path::new("/repo"), &[processed("/repo/a.rs", &[])]);
+        let clean = Outcome::from_results(Path::new("/repo"), &[processed("/repo/a.rs", &[])], None);
         assert_eq!(clean.exit_code(), EXIT_CLEAN);
     }
 
