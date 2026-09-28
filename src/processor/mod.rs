@@ -167,6 +167,7 @@ impl Processor {
             .iter()
             .map(|comment| RemovedComment {
                 start_row: comment.start_row,
+                start_column: comment.start_byte - line_start(content.as_bytes(), comment.start_byte),
                 end_row: comment.end_row,
                 is_documentation: comment.is_documentation,
                 preview: first_line_preview(comment.content(content)),
@@ -673,6 +674,8 @@ pub struct ProcessedFile {
 pub struct RemovedComment {
     /// 0-based first line of the comment.
     pub start_row: usize,
+    /// 0-based byte offset of the comment's first byte within its first line.
+    pub start_column: usize,
     /// 0-based last line of the comment.
     pub end_row: usize,
     /// Whether the comment was classified as documentation.
@@ -729,6 +732,11 @@ fn trailing_horizontal_whitespace(bytes: &[u8]) -> usize {
         .rev()
         .take_while(|byte| matches!(byte, b' ' | b'\t'))
         .count()
+}
+
+/// Byte offset of the start of the line `offset` falls on.
+fn line_start(bytes: &[u8], offset: usize) -> usize {
+    memchr::memrchr(b'\n', &bytes[..offset]).map_or(0, |pos| pos + 1)
 }
 
 /// The whole source line that `offset` falls on.
