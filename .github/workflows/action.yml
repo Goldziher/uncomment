@@ -1,0 +1,106 @@
+name: Action
+
+# Exercises action.yml itself (uses: ./) rather than the CLI. Pinned to the last published
+# release, 3.9.0, because the action's own `version` input can't yet default to a tag that
+# doesn't exist until this branch is released as 3.10.0.
+on:
+  pull_request:
+    paths:
+      - "action.yml"
+      - "problem-matcher.json"
+      - "scripts/gh-action-*.sh"
+      - ".github/workflows/action.yml"
+  push:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - "problem-matcher.json"
+      - "scripts/gh-action-*.sh"
+      - ".github/workflows/action.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UNCOMMENT_ACTION_TEST_VERSION: "3.9.0"
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every OS the release workflow ships a binary for, plus the free-for-public-repos Linux
+        # arm64 runner — cheap to add and the only arm64 case that isn't macOS.
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Write fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tmp/clean tmp/violate
+          # Lint is opt-in; enable it repo-wide so `uncomment lint` has rules to apply. Config
+          # discovery walks up from the working directory, so this has to sit at the repo root
+          # (the action `cd`s into working-directory, ".", before running).
+          printf '[lint]\nenabled = true\n' > .uncomment.toml
+          # A TODO with no issue key is a lint violation (todo-missing-key); a plain TODO with a
+          # key is not.
+          printf '# TODO(GH-1): tracked\nvalue = 1\n' > tmp/clean/good.py
+          printf '# TODO: no key\nvalue = 1\n' > tmp/violate/bad.py
+
+      - name: Install only
+        id: install-only
+        uses: ./
+        with:
+          version: ${{ env.UNCOMMENT_ACTION_TEST_VERSION }}
+          install-only: "true"
+
+      - name: Assert install-only installed the pinned version and ran nothing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.install-only.outputs.version }}" != "$UNCOMMENT_ACTION_TEST_VERSION" ]; then
+            echo "::error::expected output version $UNCOMMENT_ACTION_TEST_VERSION, got '${{ steps.install-only.outputs.version }}'"
+            exit 1
+          fi
+          got="$(uncomment --version)"
+          case "$got" in
+            *"$UNCOMMENT_ACTION_TEST_VERSION"*) ;;
+            *)
+              echo "::error::expected uncomment --version to mention $UNCOMMENT_ACTION_TEST_VERSION, got: $got"
+              exit 1
+              ;;
+          esac
+
+      - name: Lint a clean fixture (expected to pass)
+        uses: ./
+        with:
+          version: ${{ env.UNCOMMENT_ACTION_TEST_VERSION }}
+          args: "lint tmp/clean"
+
+      - name: Lint a violating fixture (expected to fail)
+        id: lint-violation
+        continue-on-error: true
+        uses: ./
+        with:
+          version: ${{ env.UNCOMMENT_ACTION_TEST_VERSION }}
+          args: "lint tmp/violate"
+
+      - name: Assert the violating fixture failed the gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.lint-violation.outcome }}" != "failure" ]; then
+            echo "::error::expected the lint step against tmp/violate to fail, got '${{ steps.lint-violation.outcome }}'"
+            exit 1
+          fi
+          echo "Confirmed: the violating fixture failed the gate as expected."
