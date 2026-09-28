@@ -12,7 +12,8 @@ uncomment is distributed across multiple package ecosystems. All distribution ch
 - **npm** (package: `uncomment-cli`): Binary wrapper in `npm-package/` that downloads pre-built binaries from GitHub Releases via `install.js`.
 - **PyPI** (package: `uncomment`): Binary wrapper in `pip-package/` with `uncomment/downloader.py` handling binary acquisition.
 - **Homebrew**: Formula in the `Goldziher/homebrew-tap` repo (`Formula/uncomment.rb`), regenerated from the release checksums by `scripts/update-homebrew-formula.sh` and pushed by the `publish_homebrew` job.
-- **GitHub Actions**: Cross-platform binary builds and release automation live in `.github/workflows/publish.yaml` (a native per-platform build matrix — goreleaser was removed in v3.1.0).
+- **GitHub Actions (release automation)**: Cross-platform binary builds and release automation live in `.github/workflows/publish.yaml` (a native per-platform build matrix — goreleaser was removed in v3.1.0).
+- **GitHub Action (consumer-facing)**: Root `action.yml` is a composite action (`Goldziher/uncomment@vX.Y.Z`) that downloads and checksum-verifies the release asset matching the runner's OS/arch, caches it with `actions/cache`, and runs `uncomment`/`uncomment lint`. Install logic lives in `scripts/gh-action-*.sh`; annotations come from `problem-matcher.json`. Tested by `.github/workflows/action.yml`.
 
 ## Release Workflow
 

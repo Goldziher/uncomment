@@ -2,14 +2,16 @@
 
 <img src="assets/banner.svg" alt="uncomment — strip the noise, keep the code" width="820">
 
-**Strip the noise. Keep the code.**
+**Strip the noise. Keep the code. Lint what's left.**
 
-uncomment removes comments from source code using tree-sitter's AST — so it is 100% accurate and
-**never** touches comment-like text inside strings. It keeps what matters by default (TODO/FIXME,
-docs, and linting directives) across **300+ languages**, with parallel processing and a safe dry-run
-mode.
+uncomment is a comment remover and a comment linter, both built on tree-sitter's AST — so both are
+100% accurate and **never** touch comment-like text inside strings. Removal keeps what matters by
+default (TODO/FIXME, docs, and linting directives) across **300+ languages**; linting checks that
+tag comments (TODO, FIXME, HACK, XXX) carry a real issue key instead of going stale. Either one can
+gate a commit or a pull request — scoped to a whole tree, to what a branch changed, or line by
+line — with parallel processing and a safe dry-run mode.
 
-AST-accurate&nbsp;·&nbsp;306 languages&nbsp;·&nbsp;zero false positives&nbsp;·&nbsp;smart preservation&nbsp;·&nbsp;parallel&nbsp;·&nbsp;dry-run
+AST-accurate&nbsp;·&nbsp;306 languages&nbsp;·&nbsp;zero false positives&nbsp;·&nbsp;tag-comment linting&nbsp;·&nbsp;changed-lines scoping&nbsp;·&nbsp;parallel&nbsp;·&nbsp;dry-run
 
 [![crates.io](https://img.shields.io/crates/v/uncomment?style=flat-square&color=2dd4bf)](https://crates.io/crates/uncomment)
 [![npm](https://img.shields.io/npm/v/uncomment-cli?style=flat-square&color=2dd4bf&label=npm)](https://www.npmjs.com/package/uncomment-cli)
@@ -18,7 +20,7 @@ AST-accurate&nbsp;·&nbsp;306 languages&nbsp;·&nbsp;zero false positives&nbsp;�
 [![License: MIT](https://img.shields.io/badge/License-MIT-2dd4bf?style=flat-square)](./LICENSE)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-2dd4bf?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/Goldziher)
 
-[Install](#installation)&nbsp;·&nbsp;[Features](#features)&nbsp;·&nbsp;[Usage](#usage)&nbsp;·&nbsp;[Configuration](#configuration)&nbsp;·&nbsp;[How it works](#how-it-works)&nbsp;·&nbsp;[Contributing](#contributing)
+[Install](#installation)&nbsp;·&nbsp;[Features](#features)&nbsp;·&nbsp;[Usage](#usage)&nbsp;·&nbsp;[Linting](#subcommands)&nbsp;·&nbsp;[GitHub Action](#github-action)&nbsp;·&nbsp;[Configuration](#configuration)&nbsp;·&nbsp;[How it works](#how-it-works)&nbsp;·&nbsp;[Contributing](#contributing)
 
 </div>
 
@@ -28,16 +30,22 @@ AST-accurate&nbsp;·&nbsp;306 languages&nbsp;·&nbsp;zero false positives&nbsp;�
 
 Regex-based comment strippers guess. They delete a `//` inside a string literal, mangle a URL in a
 docstring, or leave a linting directive your CI depends on. uncomment doesn't guess: it parses your
-code into a real syntax tree and removes only the nodes that are genuinely comments.
+code into a real syntax tree and acts only on the nodes that are genuinely comments.
 
 Originally built to clean up AI-generated code drowning in explanatory comments, it now works on
-anything with a tree-sitter grammar.
+anything with a tree-sitter grammar — and it grew a second job alongside the first. Deleting
+comments and keeping the ones that track work are the same problem seen from two sides: both need
+to know, precisely, which comments exist and what they say. `uncomment` removes; `uncomment lint`
+checks that a TODO or FIXME still points at a live issue key instead of quietly rotting; `uncomment
+--check` gates a commit or a pull request on either policy without writing anything.
 
 ## Features
 
 - **100% accurate** — tree-sitter AST parsing identifies comments structurally, not by pattern matching
-- **No false positives** — never removes comment-like content from strings
+- **No false positives** — never removes or misreads comment-like content inside strings
 - **Smart preservation** — keeps TODO/FIXME, docs, and language-specific linting directives by default
+- **Tag-comment linting** — `uncomment lint` checks TODO/FIXME/HACK/XXX for a canonical form and a real issue key, with `--fix` and a baseline for adopting it on an existing codebase
+- **Gate-ready** — `--check` and `lint` both exit non-zero on a violation, scoped to a whole tree, `--changed-only`/`--changed-lines` against a base ref, or `--staged`
 - **306 languages** — powered by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack), every grammar compiled into the binary
 - **Parallel** — multi-threaded processing that scales across cores
 - **Safe** — dry-run mode with line-by-line diffs previews every change before you write
@@ -596,23 +604,91 @@ Drop `--staged --changed-lines` to hold every staged file to the policy in full.
 <details>
 <summary><b>GitHub Actions</b></summary>
 
-`--changed-lines` diffs against the merge base, so the checkout needs the base branch's history:
+Use the [GitHub Action](#github-action) below instead of installing the CLI by hand — it downloads
+and caches a matching release binary and turns violations into inline PR annotations.
+
+</details>
+
+## GitHub Action
+
+`Goldziher/uncomment` ships a composite action that installs a release binary — cached, checksum-verified,
+no compilation — and runs it, with violations reported as inline PR annotations via a
+[problem matcher](https://docs.github.com/en/actions/using-workflows/adding-scripts#adding-a-problem-matcher).
+The binary is self-contained (every tree-sitter grammar is compiled in statically), so nothing about
+it touches the network beyond the one release download.
+
+```yaml
+- uses: Goldziher/uncomment@v3.10.0
+  with:
+    args: "lint ." # or "--check .", or plain removal args
+```
+
+**Lint an entire repository, failing the build on a violation:**
 
 ```yaml
 jobs:
-  uncomment:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: Goldziher/uncomment@v3.10.0
         with:
-          fetch-depth: 0
-      - run: cargo install uncomment
-      - run: uncomment --check --changed-lines --base origin/${{ github.base_ref }} .
+          args: "lint ."
 ```
 
-On a codebase that already follows the policy, `uncomment --check .` checks everything.
+**Lint (or check) only the lines a pull request changed:** `--changed-lines` diffs against the
+merge base, so the checkout needs history back to it — `fetch-depth: 0` is the simple way to
+guarantee that. The action passes the pull request's base SHA to `--base` for you.
 
-</details>
+```yaml
+on: pull_request
+
+jobs:
+  lint-changed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: Goldziher/uncomment@v3.10.0
+        with:
+          args: "lint ."
+          changed-lines: "true"
+```
+
+Set `changed-only: "true"` instead to scope by whole file rather than by line, or add
+`args: "--check ."` to gate removable comments instead of (or alongside, as a second step) tag
+lint.
+
+**Install only, and run uncomment yourself:**
+
+```yaml
+- uses: Goldziher/uncomment@v3.10.0
+  id: uncomment
+  with:
+    install-only: "true"
+- run: uncomment --version # ${{ steps.uncomment.outputs.version }} is also available
+```
+
+**Inputs** (all optional):
+
+| Input | Default | Description |
+| --- | --- | --- |
+| `version` | resolved from the tag the action is pinned to, else `latest` | uncomment version to install, with or without a leading `v` |
+| `args` | `lint .` | Arguments passed to `uncomment`, as one space-separated string |
+| `working-directory` | `.` | Directory to run uncomment in |
+| `install-only` | `false` | Install and put uncomment on `PATH`, but don't run it |
+| `changed-only` | `false` | Append `--changed-only` |
+| `changed-lines` | `false` | Append `--changed-lines` (implies `changed-only`) |
+| `staged` | `false` | Append `--staged` |
+| `base` | PR base SHA on `pull_request`, else uncomment's own default | Base ref/SHA for `--changed-only`/`--changed-lines` |
+| `token` | `${{ github.token }}` | Token used to resolve `latest` and download the release asset |
+
+**Outputs:** `version` (the version installed) and `path` (absolute path to the binary).
+
+The action is a plain composite action (no bundled JavaScript) that resolves the right release
+asset for the runner's OS/arch, verifies its published checksum, caches it with `actions/cache`
+keyed by version, OS and arch, and adds it to `PATH`.
 
 ## Performance
 
