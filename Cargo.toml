@@ -19,7 +19,20 @@ homepage = "https://github.com/Goldziher/uncomment"
 #
 # Paths are anchored with a leading slash: cargo matches these gitignore-style, so
 # a bare "README.md" would also pull in npm-package/README.md and pip-package/README.md.
-include = ["/src/**/*.rs", "/Cargo.toml", "/README.md", "/LICENSE", "/CHANGELOG.md"]
+#
+# `/.cargo/config.toml` sets TSLP_LANGUAGES/TSLP_LINK_MODE so tree-sitter-language-pack's grammars
+# compile statically into the binary instead of downloading at runtime — see that file. It has to
+# ship: cargo discovers config starting at wherever a build runs, so `cargo install`/`cargo publish`
+# building this crate from its own extracted, filtered package need it present there too, not just
+# in this checkout.
+include = [
+    "/src/**/*.rs",
+    "/Cargo.toml",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/.cargo/config.toml",
+]
 
 # ~keep cargo-binstall metadata: fetch prebuilt archives from GitHub releases.
 # ~keep archive-suffix resolves to .tar.gz on unix and .zip on windows, matching our release assets.

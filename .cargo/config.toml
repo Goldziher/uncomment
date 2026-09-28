@@ -1,0 +1,15 @@
+# `tree-sitter-language-pack` defaults to *dynamic* mode: with `TSLP_LANGUAGES` unset it compiles no
+# grammar at build time at all, and `tree_sitter_language_pack::get_language` falls back to
+# downloading a prebuilt bundle into the platform cache dir (`~/Library/Caches/tree-sitter-language-
+# pack` on macOS, `~/.cache/tree-sitter-language-pack` on Linux) and `dlopen`ing it on first use.
+#
+# README.md and .ai-rulez/ document the opposite invariant — every grammar compiled into the binary,
+# nothing fetched, built or cached at runtime — and the rest of the tool is built on it: no grammar
+# loader, no network access, a self-contained release asset. `TSLP_LANGUAGES` (every language this
+# registry names — see `LanguageRegistry::register_default_languages`) plus `TSLP_LINK_MODE=static`
+# is what actually makes that true, for `cargo build`, `cargo test`, `cargo install` and CI alike:
+# config discovery starts from wherever `cargo` runs, so this applies to any of them run from a
+# checkout or from a `cargo install`-extracted source tree.
+[env]
+TSLP_LANGUAGES = "bash,c,clojure,cpp,csharp,css,dart,dockerfile,elixir,elm,erlang,fish,fortran,go,gotmpl,groovy,haskell,hcl,html,ini,java,javascript,json,julia,kotlin,latex,lua,make,markdown,nix,objc,ocaml,perl,php,powershell,properties,proto,python,r,ruby,rust,scala,scss,sql,starlark,svelte,swift,toml,tsx,typescript,vue,xml,yaml,zig"
+TSLP_LINK_MODE = "static"

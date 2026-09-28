@@ -293,7 +293,11 @@ fn line_count(path: &Path) -> usize {
         return 0;
     }
     let newlines = content.iter().filter(|&&byte| byte == b'\n').count();
-    if content.ends_with(b"\n") { newlines } else { newlines + 1 }
+    if content.ends_with(b"\n") {
+        newlines
+    } else {
+        newlines + 1
+    }
 }
 
 /// Run `git diff` in `repo_root` with `args` after the source's own, returning its stdout.
@@ -307,7 +311,9 @@ fn git_diff(repo_root: &Path, source: &DiffSource, args: &[&str]) -> Result<Vec<
         .args(args)
         .arg(&diff_arg);
     let rendered = format!("git diff {} {diff_arg}", args.join(" "));
-    let output = command.output().with_context(|| format!("failed to run `{rendered}`"))?;
+    let output = command
+        .output()
+        .with_context(|| format!("failed to run `{rendered}`"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -349,7 +355,7 @@ fn changed_lines(repo_root: &Path, source: &DiffSource) -> Result<HashMap<PathBu
         for path in untracked_files(repo_root)? {
             let ranges = match line_count(&path) {
                 0 => Vec::new(),
-                count => vec![1..=count],
+                count => std::iter::once(1..=count).collect(),
             };
             files.insert(path, ranges);
         }
