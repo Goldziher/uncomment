@@ -412,6 +412,40 @@ jobs:
           gh release edit "$tag" --draft=false --repo "$GITHUB_REPOSITORY"
           echo "✓ Promoted $tag to a published release"
 
+  float_major_tag:
+    name: Float the major tag
+    needs: [meta, finalize_release]
+    # Consumers can use `uses: Goldziher/uncomment@v3`; point that tag at every stable release.
+    # Pre-releases keep their own version tag only, so `v3` never resolves to an rc.
+    if: >-
+      always() && needs.meta.result == 'success' && needs.finalize_release.result == 'success'
+      && !contains(needs.meta.outputs.version, '-rc') && !contains(needs.meta.outputs.version, '-beta')
+      && !contains(needs.meta.outputs.version, '-alpha')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move the major tag onto this release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.meta.outputs.tag }}"
+          major="${tag%%.*}"
+
+          # Dereference the (annotated) release tag to the commit the major tag should point at.
+          sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" --jq '.object.sha')"
+          if [ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" --jq '.object.type')" = "tag" ]; then
+            sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${sha}" --jq '.object.sha')"
+          fi
+
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${major}" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${major}" \
+              -F sha="$sha" -F force=true >/dev/null
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${major}" -f sha="$sha" >/dev/null
+          fi
+          echo "✓ ${major} now points at ${tag} (${sha})"
+
   verify-binstall:
     name: Verify cargo-binstall install
     needs: [meta, finalize_release]
