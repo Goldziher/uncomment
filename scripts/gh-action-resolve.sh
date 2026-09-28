@@ -6,11 +6,27 @@ set -euo pipefail
 
 repo="${REPOSITORY:-Goldziher/uncomment}"
 
+# Resolve a floating `latest` or major-only `v3` reference to the newest matching stable release.
+# A floating major tag carries no release assets of its own, so the assets always come from the
+# newest full `vN.x.y` release in that series. The releases API is newest-first; drafts,
+# pre-releases and the major-only tag itself are skipped.
+newest_release() {
+  local major="${1:-}" pattern
+  if [ -n "$major" ]; then
+    pattern="^v${major}\\.[0-9]+\\.[0-9]+$"
+  else
+    pattern='^v[0-9]+\.[0-9]+\.[0-9]+$'
+  fi
+  gh api "repos/${repo}/releases?per_page=100" \
+    --jq '.[] | select(.draft | not) | select(.prerelease | not) | .tag_name' |
+    grep -E "$pattern" | head -n 1
+}
+
 version="${VERSION_INPUT:-}"
 if [ -z "$version" ]; then
-  # A version tag such as `v3.10.0` when the action is pinned to a release; anything else
-  # (a branch, a SHA, a local `./` checkout) cannot be mapped to a release, so fall back.
-  if [[ "$ACTION_REF" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([+.-][0-9A-Za-z.]+)?$ ]]; then
+  # A full release tag (`v3.10.0`) or a floating major tag (`v3`) when the action is pinned to
+  # one; anything else (a branch, a SHA, a local `./` checkout) falls back to the newest release.
+  if [[ "$ACTION_REF" =~ ^v?[0-9]+(\.[0-9]+\.[0-9]+([+.-][0-9A-Za-z.]+)?)?$ ]]; then
     version="$ACTION_REF"
   else
     version="latest"
@@ -18,12 +34,19 @@ if [ -z "$version" ]; then
 fi
 
 if [ "$version" = "latest" ]; then
-  tag="$(gh api "repos/${repo}/releases/latest" -q .tag_name)"
+  tag="$(newest_release)"
+elif [[ "$version" =~ ^v?[0-9]+$ ]]; then
+  tag="$(newest_release "${version#v}")"
 else
   case "$version" in
   v*) tag="$version" ;;
   *) tag="v${version}" ;;
   esac
+fi
+
+if [ -z "$tag" ]; then
+  echo "::error::No published release found for version '${version}' in ${repo}"
+  exit 1
 fi
 
 case "$RUNNER_OS" in

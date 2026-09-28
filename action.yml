@@ -10,8 +10,8 @@ inputs:
   version:
     description: >-
       uncomment version to install, with or without a leading `v` (e.g. "3.9.0"). Defaults to the
-      version this action is pinned to via its tag (`github.action_ref`) when used as
-      `uses: Goldziher/uncomment@vX.Y.Z`, otherwise resolves the latest GitHub release.
+      tag this action is pinned to (`github.action_ref`) — a full release or a floating major tag
+      such as `v3`, which resolves to the newest 3.x release — otherwise the latest GitHub release.
     required: false
     default: ""
   args:
