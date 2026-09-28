@@ -114,6 +114,9 @@ uncomment . --exclude "playground/**" --exclude "thirdparty/**"
 
 # Process an entire tree with all CPU cores
 uncomment . -j 0
+
+# Fail (exit 1) if any comment would be removed, writing nothing
+uncomment --check src/
 ```
 
 Run `uncomment --help` for the full, grouped list of options.
@@ -320,6 +323,43 @@ uncomment keep src/ --all-removable
 
 **Why a marker line above for docstrings:** A Python docstring is the `string` node that becomes `__doc__` at runtime, so editing its bytes changes what the program reports about itself. A marker line written above the docstring is a plain comment that uncomment reads but the runtime ignores.
 
+### `uncomment --check` — fail when a comment would be removed
+
+Runs exactly as `--dry-run` does and writes nothing, but reports every comment the run would remove as a violation and exits non-zero, so the policy "every comment is either kept on purpose or gone" can gate a commit or a pull request. A comment passes when uncomment's own rules keep it: a `~keep` marker, a linting directive, a documentation comment, a configured preserve pattern, or TODO/FIXME while those are preserved.
+
+```bash
+# Everything under src/
+uncomment --check src/
+
+# Only files a branch changed, or only the lines it changed
+uncomment --check --changed-only --base origin/main .
+uncomment --check --changed-lines --base origin/main .
+
+# Only what the next commit changes, line by line (for a pre-commit hook)
+uncomment --check --staged --changed-lines .
+```
+
+Each violation is one line, sorted by path, then line:
+
+```text
+src/main.rs:2:5: // strip me
+src/main.rs:3:16: // trailing note
+✗ 2 removable comment(s) in 1 file(s) (1 file(s) checked)
+```
+
+**Exit codes:** `0` nothing would be removed, `1` something would, `2` the check could not be completed — bad arguments, a rejected config, a file that could not be read, or a failed `git diff` — so a broken gate never reads as a pass.
+
+**Flags:**
+
+- `--check` — report instead of rewrite; rejects `--diff`, and makes `--dry-run` redundant
+- `--format text|json` — output format; JSON has the same `violations` / `notes` / `summary` shape as `uncomment lint`
+- `--changed-only` — check only files changed against `--base` (default: `origin/HEAD`, else `main`)
+- `--changed-lines` — report only comments on lines the diff added or rewrote (implies `--changed-only`); this is what makes the gate adoptable on a codebase that already has comments, because editing a legacy file does not make its old comments your problem
+- `--staged` — diff the index against `HEAD` instead of `--base`
+- `--base REF` — base ref for `--changed-only` and `--changed-lines`
+
+Excluded paths and files of unsupported types are skipped without a word, so a hook can pass every staged file. `--quiet` prints only the summary. See [Git Hooks](#git-hooks) for a lefthook and a GitHub Actions setup.
+
 ### `uncomment lint` — tag comment linting
 
 Checks tag comments (TODO, FIXME, HACK, XXX) against the convention configured under `[lint]`: that the tag is canonical, that it carries an issue key, and that the key is not the issue the current branch is working on. Removes nothing, exits 1 on violations, and works as a pre-commit hook.
@@ -346,7 +386,10 @@ uncomment lint src/ --baseline .lint-baseline.json
 - `--changed-only` — lint only files changed against `--base`'s merge-base with `HEAD` (default:
   `origin/HEAD`, else `main`), comparing against the working tree — staged, unstaged and untracked
   (but not ignored) edits included, not just what has been committed
-- `--base REF` — base ref for `--changed-only`
+- `--changed-lines` — report only violations on lines changed against `--base` (implies
+  `--changed-only`, and the same working-tree comparison — an untracked file counts every line)
+- `--staged` — diff the index against `HEAD` instead of `--base`
+- `--base REF` — base ref for `--changed-only` and `--changed-lines`
 - `--baseline FILE` — treat violations recorded here as informational
 - `--write-baseline` — record every current violation in the baseline file and exit 0
 - `--format text|json` — output format (default: text)
@@ -522,6 +565,8 @@ repos:
       - id: uncomment
 ```
 
+Use `id: uncomment-check` instead to fail the commit on any comment a staged change adds that uncomment would remove, rewriting nothing.
+
 </details>
 
 <details>
@@ -534,6 +579,38 @@ pre-commit:
       run: uncomment {staged_files}
       stage_fixed: true
 ```
+
+To block the commit instead of rewriting the files, check them. `--changed-lines --staged` asks only about the lines the commit changes, so touching a legacy file does not fail on the comments already in it:
+
+```yaml
+pre-commit:
+  commands:
+    uncomment-check:
+      run: uncomment --check --staged --changed-lines {staged_files}
+```
+
+Drop `--staged --changed-lines` to hold every staged file to the policy in full.
+
+</details>
+
+<details>
+<summary><b>GitHub Actions</b></summary>
+
+`--changed-lines` diffs against the merge base, so the checkout needs the base branch's history:
+
+```yaml
+jobs:
+  uncomment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: cargo install uncomment
+      - run: uncomment --check --changed-lines --base origin/${{ github.base_ref }} .
+```
+
+On a codebase that already follows the policy, `uncomment --check .` checks everything.
 
 </details>
 

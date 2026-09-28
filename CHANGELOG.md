@@ -4,7 +4,29 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
-## Unreleased
+## [Unreleased]
+
+### Added
+
+- Two `[lint]` rules: `todo-key-not-upper-case` (a key was found but is not upper case) and
+  `tag-form-not-canonical` (a key was found near the tag, but not in the canonical `TAG(KEY):` shape
+  around it). Both are configurable under `[lint.rules]` like the others, and `--fix` handles both.
+- `include_doc_comments` under `[lint]`, default `false`. Docstrings and doc comments (`///`, `//!`,
+  `/** */`, Python docstrings) are no longer linted unless it is set. A plain comment that a handler
+  classifies as documentation only by position, like Go's comment above a `func`, still is, and so
+  is `## TODO:`, which in Python, YAML and shell is emphasis rather than Doxygen.
+  The key layers key by key like every other `[lint]` key.
+- `uncomment --check` turns the removal run into a gate. It runs as `--dry-run` does and writes
+  nothing, prints each comment the run would remove as `path:line:col: text` sorted by path and
+  line, and exits 1 when there is any, 0 when there is none, and 2 when the check could not be
+  completed — bad arguments, a rejected config, an unreadable file or a failed `git diff` — so a
+  broken gate never passes. `--format json` mirrors `uncomment lint`'s report shape. `--diff` is
+  rejected alongside it; `--dry-run` is accepted and redundant. Excluded and unsupported files are
+  skipped silently, so a pre-commit hook can hand over every staged file.
+- `--changed-only` and `--base` work with `--check`, and two flags join them on both `--check` and
+  `lint`: `--changed-lines` reports only what sits on lines the diff added or rewrote, which is what
+  makes a comment policy adoptable on a codebase that already has comments; `--staged` diffs the
+  index against `HEAD` instead of a base ref, for pre-commit hooks.
 
 ### Fixed
 
@@ -24,21 +46,11 @@ This changelog is generated from git tags and commit history.
   `tag-form-not-canonical`, and cleaned up. `--fix` remains idempotent: a second run changes nothing.
 - The "keep a comment" tip printed after a run now names the file's own comment syntax (`#`, `--`,
   `/* */`, ...) instead of always saying "a `//` line".
-- `uncomment lint --changed-only` compares `--base`'s merge-base with `HEAD` against the working
-  tree, not `base...HEAD` against a commit. Staged, unstaged and untracked (but not `.gitignore`d)
-  edits are now part of "changed" — a pre-commit hook or a CI step run before the final commit no
-  longer sees zero violations in the very lines it exists to catch.
-
-### Added
-
-- Two `[lint]` rules: `todo-key-not-upper-case` (a key was found but is not upper case) and
-  `tag-form-not-canonical` (a key was found near the tag, but not in the canonical `TAG(KEY):` shape
-  around it). Both are configurable under `[lint.rules]` like the others, and `--fix` handles both.
-- `include_doc_comments` under `[lint]`, default `false`. Docstrings and doc comments (`///`, `//!`,
-  `/** */`, Python docstrings) are no longer linted unless it is set. A plain comment that a handler
-  classifies as documentation only by position, like Go's comment above a `func`, still is, and so
-  is `## TODO:`, which in Python, YAML and shell is emphasis rather than Doxygen.
-  The key layers key by key like every other `[lint]` key.
+- `uncomment lint --changed-only` and `--changed-lines` compare `--base`'s merge-base with `HEAD`
+  against the working tree, not `base...HEAD` against a commit. Staged, unstaged and untracked (but
+  not `.gitignore`d) edits are now part of "changed" — for an untracked file, every line — so a
+  pre-commit hook or a CI step run before the final commit no longer sees zero violations in the very
+  lines it exists to catch. `--staged` is unaffected: it still diffs the index against `HEAD`.
 
 ## [v3.9.0] - 2026-09-27
 
