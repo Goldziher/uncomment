@@ -10,7 +10,7 @@
 
 use crate::edit::Edit;
 use crate::lint::config::{LintConfig, Rule, Severity};
-use crate::processor::InspectedComment;
+use crate::processor::{CommentKind, InspectedComment};
 
 /// The longest excerpt reported for one finding, in characters.
 const EXCERPT_LIMIT: usize = 120;
@@ -67,7 +67,7 @@ pub fn tag_sites(comment: &InspectedComment, config: &LintConfig) -> Vec<TagSite
         if claimed_line == Some(line_index) {
             continue;
         }
-        if !is_tag_site(text, matched.as_str(), matched.start(), config) {
+        if !is_tag_site(text, &matched, comment, config) {
             continue;
         }
         claimed_line = Some(line_index);
@@ -178,30 +178,152 @@ fn missing_key_edits(site: &TagSite, todo_key: Option<&str>) -> Vec<Edit> {
     vec![Edit::insert(site.end, format!("({key}){suffix}"))]
 }
 
-/// Whether a tag match is a tag at all, rather than the same word used as English.
+/// Characters that quote rather than decorate. A tag word right after one is being named, as in
+/// `# "TODO" is the canonical tag`, not used.
+const QUOTING_CHARS: [char; 3] = ['`', '"', '\''];
+
+/// Comment markers that open a trailing segment inside a comment's own text, as in
+/// `# noqa: T201  # TODO: fix T201` or ESLint's `// eslint-disable-line x -- TODO: y`. The parser
+/// sees one comment there; a reader sees a directive followed by a tag comment.
+const SEGMENT_MARKERS: [&str; 3] = ["#", "//", "--"];
+
+/// Punctuation that ends a clause, so a tag written straight after it starts a statement of its own:
+/// `handling - TODO: x`, `compatibility, TODO: x`, `it. TODO: x`, `[CP] TODO x`.
 ///
-/// A tag spelled exactly as configured is always one: `TODO` and `FIXME` in capitals are not words
-/// anybody writes by accident, so a mid-sentence "see also FIXME" is a deliberate reference and has
-/// always been reported as such.
+/// `=` and `/` are left out on purpose. `?tenant_id=XXX` is a placeholder in a URL, not a tag.
+const CLAUSE_BOUNDARIES: [char; 16] = [
+    '.', ',', ';', ':', '!', '?', '-', '\u{2013}', '\u{2014}', '(', ')', '[', ']', '{', '}', '$',
+];
+
+/// Dashes that separate a tag from its text, as in `# FIXME - x`.
+const DASHES: [char; 3] = ['-', '\u{2013}', '\u{2014}'];
+
+/// Whether a tag match is a tag at all, rather than the same word used in prose.
 ///
-/// A miscased one has to open its line. `todo`, `hack` and `xxx` *are* English, and matching them
-/// anywhere would turn "this is a hack to work around the upstream bug" into a violation whose fix
-/// rewrites the sentence. Measured on an 89k-file monorepo: 165 of the 183 miscased occurrences in
-/// code files were prose, so without this the case-insensitive pass would do an order of magnitude
-/// more damage than work.
-fn is_tag_site(text: &str, written: &str, offset: usize, config: &LintConfig) -> bool {
-    if config.tags.iter().any(|tag| tag == written) {
+/// A tag in *head position* is always one: the first word of its line of the comment, or the first
+/// word of a trailing segment another comment marker opens. Everything between that start and the
+/// tag must be delimiter or decoration — `//`, `#`, `/*`, a `*` block continuation, a `-` bullet —
+/// which a missing word character tests for every comment syntax at once, where an allowlist of
+/// punctuation would have to be kept in step with the language list.
+///
+/// Anywhere else the tag has to be spelled exactly as configured *and* written the way a tag is
+/// written: introducing its text (`pkt TODO: add`, `NOTE TODO(K-1):`, `insert TODO - remove`) or
+/// opening a clause (`handling - TODO fix`, `noBarrelFile: TODO remove`). What that rejects is the
+/// tag word used as a noun — `# Line contains TODO`, `# Invalid TODO tag`, `canonical TODO,` — the
+/// shape of every ruff rule description and every sentence about the convention itself. A miscased
+/// tag gets no mid-comment reading at all: `todo`, `hack` and `xxx` are English, and on an 89k-file
+/// monorepo 165 of the 183 miscased occurrences were prose.
+///
+/// In either position a quoted tag word is named rather than used: right after a quote, or inside a
+/// backtick span.
+fn is_tag_site(text: &str, matched: &regex::Match<'_>, comment: &InspectedComment, config: &LintConfig) -> bool {
+    let offset = matched.start();
+    let line_start = text[..offset].rfind('\n').map_or(0, |index| index + 1);
+    let mut before = &text[line_start..offset];
+    if line_start == 0 && comment.kind == CommentKind::Docstring {
+        before = without_string_opener(before);
+    }
+    let after_tag = &text[matched.end()..];
+    let rest_of_line = after_tag.split('\n').next().unwrap_or_default();
+    if is_quoted(before, rest_of_line) {
+        return false;
+    }
+
+    let segment = trailing_segment(before);
+    if segment.chars().all(|c| !is_word_char(c) && !QUOTING_CHARS.contains(&c)) {
         return true;
     }
 
-    // Everything between the line's start and the tag must be delimiter or decoration — `//`, `#`,
-    // `/*`, `*`, `"""`, a `-` bullet. Testing for the absence of a word character covers every
-    // comment syntax at once, where an allowlist of punctuation would have to be kept in step with
-    // the language list.
-    let line_start = text[..offset].rfind('\n').map_or(0, |index| index + 1);
-    !text[line_start..offset]
+    let spelled_as_configured = config.tags.iter().any(|tag| tag == matched.as_str());
+    spelled_as_configured && (introduces_text(after_tag) || opens_clause(segment, after_tag))
+}
+
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// Whether the tag between `before` and `rest_of_line` sits inside quotes: straight after a quote
+/// character, or inside a backtick code span on its line.
+fn is_quoted(before: &str, rest_of_line: &str) -> bool {
+    if before.chars().next_back().is_some_and(|c| QUOTING_CHARS.contains(&c)) {
+        return true;
+    }
+    open_code_span(before).is_some_and(|opener| backtick_runs(rest_of_line).any(|run| run == opener))
+}
+
+/// Length of the backtick run that opens a code span still unclosed at the end of `before`.
+///
+/// A span closes only on a run of the same length, as in Markdown, so a lone ```` ``` ```` mentioned
+/// in prose opens a span nothing closes rather than flipping the quoting of everything after it.
+fn open_code_span(before: &str) -> Option<usize> {
+    backtick_runs(before).fold(None, |open, run| match open {
+        Some(opener) if opener == run => None,
+        None => Some(run),
+        still_open => still_open,
+    })
+}
+
+fn backtick_runs(text: &str) -> impl Iterator<Item = usize> + '_ {
+    text.split(|c| c != '`').filter(|run| !run.is_empty()).map(str::len)
+}
+
+/// Whether the text after a tag is the tag's own text being introduced: a `:`, a `(…)` group, or a
+/// spaced dash, past any blanks.
+fn introduces_text(after_tag: &str) -> bool {
+    let rest = skip_blanks(after_tag);
+    if rest.starts_with([':', '(']) {
+        return true;
+    }
+    let mut chars = rest.chars();
+    rest.len() < after_tag.len()
+        && chars.next().is_some_and(|c| DASHES.contains(&c))
+        && chars.next().is_none_or(char::is_whitespace)
+}
+
+/// Whether the tag follows a clause boundary and is followed by a blank or the end of its line,
+/// which is how a tag opening a statement mid-comment reads — and how `{"uuid": XXX}`, a
+/// placeholder hugging its closing brace, does not.
+fn opens_clause(segment: &str, after_tag: &str) -> bool {
+    let boundary = segment
+        .trim_end()
         .chars()
-        .any(|c| c.is_alphanumeric() || c == '_')
+        .next_back()
+        .is_some_and(|c| CLAUSE_BOUNDARIES.contains(&c));
+    boundary && after_tag.chars().next().is_none_or(char::is_whitespace)
+}
+
+/// `before` from just past the last [`SEGMENT_MARKERS`] entry that follows whitespace, or all of it.
+///
+/// Requiring whitespace before the marker is what keeps `issue#123` and `https://x` from opening a
+/// segment.
+fn trailing_segment(before: &str) -> &str {
+    let mut segment_start = 0;
+    for (index, c) in before.char_indices() {
+        if !c.is_whitespace() {
+            continue;
+        }
+        let after_blank = index + c.len_utf8();
+        if let Some(marker) = SEGMENT_MARKERS
+            .iter()
+            .find(|marker| before[after_blank..].starts_with(*marker))
+        {
+            segment_start = after_blank + marker.len();
+        }
+    }
+    &before[segment_start..]
+}
+
+/// The first line of a docstring past its opening quotes and any `r`/`b`/`f`/`u` string prefix,
+/// which are the docstring's delimiter rather than a quotation of the tag.
+fn without_string_opener(before: &str) -> &str {
+    let unprefixed = before
+        .trim_start()
+        .trim_start_matches(|c: char| c.is_ascii_alphabetic());
+    if unprefixed.starts_with(['"', '\'']) {
+        unprefixed.trim_start_matches(['"', '\''])
+    } else {
+        before
+    }
 }
 
 /// Whether a `(…)` group opens immediately after the tag, ignoring horizontal whitespace.
@@ -246,7 +368,7 @@ fn excerpt_of(text: &str, offset: usize) -> String {
 #[cfg(test)]
 mod tests {
     use crate::lint::config::LintTable;
-    use crate::processor::{CommentKind, Verdict};
+    use crate::processor::Verdict;
 
     use super::*;
 
@@ -402,14 +524,153 @@ mod tests {
         }
     }
 
-    /// The canonical spelling is not an English word, so a deliberate mid-sentence reference to it
-    /// stays a tag. This is the pre-existing behaviour for every one of the 3,148 uppercase tag
-    /// occurrences in that monorepo, and narrowing it would be a regression.
+    /// Casing is no excuse either: a tag word used as a noun is being talked about, not used. Every
+    /// one of these was reported, with an unkeyed-TODO fix on offer, in a real monorepo.
     #[test]
-    fn a_canonically_spelled_tag_is_a_tag_anywhere_in_the_comment() {
-        let sites = tag_sites(&comment("// see also FIXME: the driver bug", 0), &config());
-        assert_eq!(sites.len(), 1);
-        assert_eq!(sites[0].tag, "FIXME");
+    fn a_canonically_spelled_tag_used_as_a_noun_is_prose_not_a_tag() {
+        for text in [
+            "# Line contains TODO",
+            "# Line contains FIXME, consider resolving the issue",
+            "# Line contains XXX",
+            "# Missing author in TODO",
+            "# Invalid TODO tag: `FIXME`",
+            "# [*] Invalid TODO capitalization: `Todo` should be `TODO`",
+            "# needs — canonical TODO, case-insensitive matching, a key pattern that accepts",
+            "# usage: /api/devices/daily/aggregations/column/_search?tenant_id=XXX&utc_offset=2",
+            "# usage: /api/devices/hourly/aggregations/table/_search?tenant_id=XXX",
+            "# returns {\"uuid\": XXX} for the next page",
+            "# Missing author in TODO; try: `# TODO(<author_name>): ...`",
+        ] {
+            assert!(
+                tag_sites(&comment(text, 0), &config()).is_empty(),
+                "prose should yield no tag site: {text:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_tag_word_in_backticks_or_quotes_is_quoted_not_a_tag() {
+        for text in [
+            "// `// TODO AMVP-...` markers — same model as ruff.toml per-file-ignores.",
+            "# `TODO` is the canonical tag",
+            "# \"FIXME\" is rewritten to TODO",
+            "// 'XXX' is a placeholder",
+            "# ``TODO`` in a double-backtick span",
+        ] {
+            assert!(
+                tag_sites(&comment(text, 0), &config()).is_empty(),
+                "a quoted tag word should yield no tag site: {text:?}"
+            );
+        }
+    }
+
+    /// Deliberate: a label before the tag does not make it prose. `// biome-ignore rule: TODO remove
+    /// this`, `* @deprecated TODO: x` and `# [CP] TODO: x` are how real tags are written mid-comment;
+    /// on a large monorepo a first-word-only rule lost 40 of them, and not one `Label: TODO` was prose.
+    #[test]
+    fn a_tag_after_a_label_or_clause_is_a_tag_because_real_tags_are_written_that_way() {
+        for (text, expected) in [
+            ("# Note: TODO later", "TODO"),
+            ("// see also FIXME: the driver bug", "FIXME"),
+            (
+                "// biome-ignore lint/performance/noBarrelFile: TODO remove this barrel file",
+                "TODO",
+            ),
+            (" * @deprecated TODO: do this generically", "TODO"),
+            ("# NOTE TODO: temporary fix", "TODO"),
+            ("# [12/2/23 WP] TODO figure out how this is happening", "TODO"),
+            ("# Socks Exceptions handling - TODO: Create new Failure Type", "TODO"),
+            ("# for backwards compatibility, TODO: delete after the rollout", "TODO"),
+            (
+                "# Deprecated! TODO - Remove after all terraforms use the per env one",
+                "TODO",
+            ),
+            ("# in case of insert TODO - remove when export uses status", "TODO"),
+            ("# Integrations (TODO: Change to GA)", "TODO"),
+            (
+                "# image_cluster=asset.get(\"cluster_name\"), TODO(sandu): SI-3573 use tags?",
+                "TODO",
+            ),
+            (
+                "// Removes ``` as Jira complains about it - TODO - replace with code block syntax",
+                "TODO",
+            ),
+        ] {
+            let sites = tag_sites(&comment(text, 0), &config());
+            assert_eq!(sites.len(), 1, "expected one site in {text:?}, got {sites:?}");
+            assert_eq!(sites[0].tag, expected, "{text:?}");
+        }
+    }
+
+    /// The mid-comment reading is for the configured spelling only; a miscased tag word has to open
+    /// its line or segment, because `hack` and `todo` are English.
+    #[test]
+    fn a_miscased_tag_after_a_label_is_still_prose() {
+        assert!(tag_sites(&comment("# Note: todo later", 0), &config()).is_empty());
+        assert!(tag_sites(&comment("# a quick hack: works", 0), &config()).is_empty());
+    }
+
+    #[test]
+    fn a_tag_in_tag_position_is_a_tag_in_every_written_form() {
+        for (text, expected) in [
+            ("# TODO: x", "TODO"),
+            ("# TODO(AMVP-1): x", "TODO"),
+            ("# TODO AMVP-1 x", "TODO"),
+            ("# FIXME - x", "FIXME"),
+            ("# XXX: x", "XXX"),
+            ("# HACK x", "HACK"),
+            ("#TODO: x", "TODO"),
+            ("// TODO x", "TODO"),
+            ("/* TODO x */", "TODO"),
+            ("/*TODO x*/", "TODO"),
+            ("# todo: x", "todo"),
+            ("# - TODO: a bulleted tag", "TODO"),
+            ("-- TODO: a SQL or Lua tag", "TODO"),
+            ("<!-- TODO: a markup tag -->", "TODO"),
+            ("// — TODO: after a dash", "TODO"),
+        ] {
+            let sites = tag_sites(&comment(text, 0), &config());
+            assert_eq!(sites.len(), 1, "expected one site in {text:?}, got {sites:?}");
+            assert_eq!(sites[0].tag, expected, "{text:?}");
+        }
+    }
+
+    /// `# noqa: T201  # TODO: fix T201` is one comment node to the parser, and the ruff idiom of
+    /// hanging a tag off a directive this way is how hundreds of real TODOs are written.
+    #[test]
+    fn a_tag_opening_a_trailing_comment_segment_is_a_tag() {
+        for (text, expected) in [
+            ("# noqa: T201  # TODO: fix T201", "TODO"),
+            ("# type: ignore[attr-defined]  # FIXME(AMVP-1): upstream stubs", "FIXME"),
+            ("# pylint: disable=broad-except # todo: narrow it", "todo"),
+            ("// eslint-disable-line no-console  // TODO remove", "TODO"),
+            ("// eslint-disable-next-line no-console -- TODO(AMVP-1): remove", "TODO"),
+        ] {
+            let sites = tag_sites(&comment(text, 0), &config());
+            assert_eq!(sites.len(), 1, "expected one site in {text:?}, got {sites:?}");
+            assert_eq!(sites[0].tag, expected, "{text:?}");
+        }
+    }
+
+    #[test]
+    fn a_marker_that_does_not_follow_whitespace_opens_no_segment() {
+        assert!(tag_sites(&comment("# see issue#TODO", 0), &config()).is_empty());
+        assert!(tag_sites(&comment("# url: https://x//TODO", 0), &config()).is_empty());
+    }
+
+    #[test]
+    fn fix_never_rewrites_a_tag_word_in_prose() {
+        for text in [
+            "# Line contains FIXME, consider resolving the issue",
+            "# Missing colon in TODO",
+            "# Invalid TODO tag: `FIXME`",
+        ] {
+            let findings = check(&comment(text, 0), &config(), None, Some("AMVP-9"));
+            assert!(
+                findings.is_empty(),
+                "prose must yield no finding and no edit: {text:?} -> {findings:?}"
+            );
+        }
     }
 
     #[test]
@@ -523,7 +784,7 @@ mod tests {
 
     #[test]
     fn a_multi_byte_comment_yields_char_boundary_offsets() {
-        let text = "// café — TODO: later";
+        let text = "// — TODO: café later";
         let sites = tag_sites(&comment(text, 0), &config());
         assert_eq!(sites.len(), 1);
         assert!(text.is_char_boundary(sites[0].start));
