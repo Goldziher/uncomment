@@ -220,13 +220,21 @@ const DASHES: [char; 3] = ['-', '\u{2013}', '\u{2014}'];
 ///
 /// In either position a quoted tag word is named rather than used: right after a quote, or inside a
 /// backtick span.
+/// The Doxygen doc-comment opener for `#`-comment languages. Preservation counts it as
+/// documentation, but in Python, YAML and shell `## TODO:` is an ordinary, emphasised comment, and
+/// a real monorepo writes it that way far more often than as Doxygen.
+const DOUBLE_HASH: &str = "##";
+
 /// Whether a comment is documentation by its syntax: a docstring, or a doc comment whose own
 /// delimiter or node kind says so. A plain `// TODO` that a handler files as documentation only
-/// because it sits directly above a declaration, as Go's does, stays in scope.
+/// because it sits directly above a declaration, as Go's does, stays in scope, and so does `##`.
 fn is_documentation(comment: &InspectedComment) -> bool {
     match comment.kind {
         CommentKind::Docstring => true,
-        CommentKind::Doc => is_documentation_syntax(&comment.node_type, &comment.text),
+        CommentKind::Doc => {
+            !comment.text.trim_start().starts_with(DOUBLE_HASH)
+                && is_documentation_syntax(&comment.node_type, &comment.text)
+        }
         CommentKind::Line | CommentKind::Block => false,
     }
 }
@@ -782,6 +790,18 @@ mod tests {
         let above_a_func = documented("// TODO: split this function", CommentKind::Doc, "comment");
         let sites = tag_sites(&above_a_func, &config());
         assert_eq!(sites.len(), 1, "{sites:?}");
+    }
+
+    #[test]
+    fn a_double_hash_comment_is_a_plain_comment_not_documentation() {
+        for text in [
+            "## TODO: command error handling",
+            "## TODO add support for removing these values.",
+        ] {
+            let hash_rule = documented(text, CommentKind::Doc, "comment");
+            let sites = tag_sites(&hash_rule, &config());
+            assert_eq!(sites.len(), 1, "expected one site in {text:?}, got {sites:?}");
+        }
     }
 
     #[test]

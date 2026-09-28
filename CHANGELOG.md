@@ -18,8 +18,9 @@ This changelog is generated from git tags and commit history.
 ### Added
 
 - `include_doc_comments` under `[lint]`, default `false`. Docstrings and doc comments (`///`, `//!`,
-  `/** */`, `##`, Python docstrings) are no longer linted unless it is set; a plain comment that a
-  handler classifies as documentation only by position, like Go's comment above a `func`, still is.
+  `/** */`, Python docstrings) are no longer linted unless it is set. A plain comment that a handler
+  classifies as documentation only by position, like Go's comment above a `func`, still is, and so
+  is `## TODO:`, which in Python, YAML and shell is emphasis rather than Doxygen.
   The key layers key by key like every other `[lint]` key.
 
 ## [v3.9.0] - 2026-09-27

@@ -191,12 +191,14 @@ fn fix_rewrites_tags_and_leaves_prose_byte_identical() {
 }
 
 /// A tag word in each documentation syntax, next to plain comments that must stay in scope — the
-/// Go one included, which its handler files as documentation only because it precedes a `func`.
+/// Go one included, which its handler files as documentation only because it precedes a `func`,
+/// and Python's `##`, which preservation reads as Doxygen.
 const DOCS_PY: &str = "\
 def fetch():
     \"\"\"Returns the TODO list; FIXME: stale after a sync.\"\"\"
     # TODO: plain comment inside the body
     return []
+## FIXME: emphasised, not Doxygen
 ";
 
 const DOCS_RS: &str = "\
@@ -229,6 +231,7 @@ fn doc_comments_and_docstrings_are_skipped_but_plain_comments_are_not() {
 
     let expected: BTreeSet<_> = [
         site("docs.py", 3, "TODO"),
+        site("docs.py", 5, "FIXME"),
         site("docs.rs", 3, "TODO"),
         site("docs.ts", 2, "TODO"),
         site("docs.go", 3, "TODO"),
@@ -249,6 +252,7 @@ fn include_doc_comments_reports_tags_in_documentation_too() {
     let expected: BTreeSet<_> = [
         site("docs.py", 2, "FIXME"),
         site("docs.py", 3, "TODO"),
+        site("docs.py", 5, "FIXME"),
         site("docs.rs", 1, "TODO"),
         site("docs.rs", 2, "FIXME"),
         site("docs.rs", 3, "TODO"),
@@ -276,7 +280,9 @@ fn fix_leaves_doc_comments_byte_identical_by_default() {
 
     assert_eq!(
         read(root, "docs.py"),
-        DOCS_PY.replace("# TODO: plain", "# TODO(AMVP-9): plain")
+        DOCS_PY
+            .replace("# TODO: plain", "# TODO(AMVP-9): plain")
+            .replace("## FIXME: emphasised", "## TODO(AMVP-9): emphasised")
     );
     assert_eq!(
         read(root, "docs.rs"),
