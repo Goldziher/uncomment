@@ -11,6 +11,7 @@
 use crate::edit::Edit;
 use crate::lint::config::{LintConfig, Rule, Severity};
 use crate::processor::{CommentKind, InspectedComment};
+use crate::rules::preservation::is_documentation_syntax;
 
 /// The longest excerpt reported for one finding, in characters.
 const EXCERPT_LIMIT: usize = 120;
@@ -58,6 +59,9 @@ impl Finding {
 /// `// TODO(K-1): drop this once FIXME above is gone` mentions `FIXME` in prose and must not be read
 /// as a second, unkeyed tag. A block comment with a tag on each of three lines is three sites.
 pub fn tag_sites(comment: &InspectedComment, config: &LintConfig) -> Vec<TagSite> {
+    if !config.include_doc_comments && is_documentation(comment) {
+        return Vec::new();
+    }
     let text = &comment.text;
     let mut sites = Vec::new();
     let mut claimed_line: Option<usize> = None;
@@ -216,6 +220,17 @@ const DASHES: [char; 3] = ['-', '\u{2013}', '\u{2014}'];
 ///
 /// In either position a quoted tag word is named rather than used: right after a quote, or inside a
 /// backtick span.
+/// Whether a comment is documentation by its syntax: a docstring, or a doc comment whose own
+/// delimiter or node kind says so. A plain `// TODO` that a handler files as documentation only
+/// because it sits directly above a declaration, as Go's does, stays in scope.
+fn is_documentation(comment: &InspectedComment) -> bool {
+    match comment.kind {
+        CommentKind::Docstring => true,
+        CommentKind::Doc => is_documentation_syntax(&comment.node_type, &comment.text),
+        CommentKind::Line | CommentKind::Block => false,
+    }
+}
+
 fn is_tag_site(text: &str, matched: &regex::Match<'_>, comment: &InspectedComment, config: &LintConfig) -> bool {
     let offset = matched.start();
     let line_start = text[..offset].rfind('\n').map_or(0, |index| index + 1);
@@ -671,6 +686,102 @@ mod tests {
                 "prose must yield no finding and no edit: {text:?} -> {findings:?}"
             );
         }
+    }
+
+    // --- documentation ---------------------------------------------------------------------------
+
+    fn documented(text: &str, kind: CommentKind, node_type: &str) -> InspectedComment {
+        InspectedComment {
+            kind,
+            node_type: node_type.to_string(),
+            is_documentation: true,
+            ..comment(text, 0)
+        }
+    }
+
+    fn with_doc_comments() -> LintConfig {
+        config_from("enabled = true\ninclude_doc_comments = true\n")
+    }
+
+    #[test]
+    fn doc_comments_and_docstrings_are_not_inspected_by_default() {
+        for doc in [
+            documented("\"\"\"TODO: Implement\"\"\"", CommentKind::Docstring, "string"),
+            documented(
+                "\"\"\"\n    Summary.\n\n    TODO: Change file name after deprecation\n    \"\"\"",
+                CommentKind::Docstring,
+                "string",
+            ),
+            documented("/// TODO: document the panics", CommentKind::Doc, "line_comment"),
+            documented("//! FIXME: crate docs", CommentKind::Doc, "line_comment"),
+            documented(
+                "/**\n * TODO: describe the return value\n */",
+                CommentKind::Doc,
+                "comment",
+            ),
+        ] {
+            assert!(
+                check(&doc, &config(), None, Some("AMVP-9")).is_empty(),
+                "documentation is out of scope by default: {:?}",
+                doc.text
+            );
+        }
+    }
+
+    #[test]
+    fn include_doc_comments_puts_documentation_back_in_scope() {
+        for (doc, expected) in [
+            (
+                documented("\"\"\"TODO: Implement\"\"\"", CommentKind::Docstring, "string"),
+                "TODO",
+            ),
+            (
+                documented("r'''FIXME: raw'''", CommentKind::Docstring, "string"),
+                "FIXME",
+            ),
+            (
+                documented(
+                    "\"\"\"\n    Summary.\n\n    TODO: rename\n    \"\"\"",
+                    CommentKind::Docstring,
+                    "string",
+                ),
+                "TODO",
+            ),
+            (
+                documented("/// TODO: document the panics", CommentKind::Doc, "line_comment"),
+                "TODO",
+            ),
+            (
+                documented("/**\n * HACK: works around it\n */", CommentKind::Doc, "comment"),
+                "HACK",
+            ),
+        ] {
+            let sites = tag_sites(&doc, &with_doc_comments());
+            assert_eq!(sites.len(), 1, "expected one site in {:?}, got {sites:?}", doc.text);
+            assert_eq!(sites[0].tag, expected);
+        }
+    }
+
+    #[test]
+    fn a_docstring_tag_still_needs_tag_position_when_doc_comments_are_included() {
+        for text in [
+            "\"\"\"{\"uuid\": XXX} will be returned (similar to the regular search).\"\"\"",
+            "\"\"\"Returns the TODO list of a tenant.\"\"\"",
+            "\"\"\"\n    Replaces the prefix, for example Firmware_XXX to firmware XXX.\n    \"\"\"",
+        ] {
+            let doc = documented(text, CommentKind::Docstring, "string");
+            assert!(tag_sites(&doc, &with_doc_comments()).is_empty(), "{text:?}");
+        }
+    }
+
+    /// A Go or Ruby handler calls any comment directly above a declaration documentation, by
+    /// position alone. `// TODO: x` above a `func` is still written as a plain comment, and is the
+    /// most common place a Go TODO sits, so only documentation *syntax* takes a comment out of scope.
+    #[test]
+    fn a_plain_comment_classified_as_documentation_only_by_position_is_still_inspected() {
+        let above_a_func = documented("// TODO: split this function", CommentKind::Doc, "comment");
+        let sites = tag_sites(&above_a_func, &config());
+        assert_eq!(sites.len(), 1, "{sites:?}");
     }
 
     #[test]

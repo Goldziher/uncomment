@@ -55,35 +55,7 @@ impl PreservationRule {
     }
 
     fn is_documentation_comment(&self, comment: &CommentInfo, content: &str) -> bool {
-        if comment.is_documentation {
-            return true;
-        }
-
-        let doc_patterns = [
-            "/**",
-            "///",
-            "//!",
-            "##",
-            "\"\"\"",
-            "doc_comment",
-            "documentation_comment",
-            "inner_doc_comment",
-            "outer_doc_comment",
-        ];
-
-        if doc_patterns.iter().any(|&pattern| comment.node_type.contains(pattern)) {
-            return true;
-        }
-
-        if comment.node_type == "string" {
-            let trimmed = content.trim();
-            if trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''") {
-                return true;
-            }
-        }
-
-        let trimmed = content.trim();
-        doc_patterns.iter().any(|&pattern| trimmed.starts_with(pattern))
+        comment.is_documentation || is_documentation_syntax(&comment.node_type, content)
     }
 
     fn is_file_header_comment(&self, comment: &CommentInfo, content: &str) -> bool {
@@ -334,6 +306,37 @@ impl PreservationRule {
         ]);
         rules
     }
+}
+
+/// Whether a comment is documentation by its own syntax — a doc node kind, a doc delimiter such as
+/// `///`, `/**` or `##`, or a docstring — leaving out any classification a grammar handler made
+/// from position alone, such as Go's "a comment directly above a declaration".
+pub fn is_documentation_syntax(node_type: &str, content: &str) -> bool {
+    let doc_patterns = [
+        "/**",
+        "///",
+        "//!",
+        "##",
+        "\"\"\"",
+        "doc_comment",
+        "documentation_comment",
+        "inner_doc_comment",
+        "outer_doc_comment",
+    ];
+
+    if doc_patterns.iter().any(|&pattern| node_type.contains(pattern)) {
+        return true;
+    }
+
+    if node_type == "string" {
+        let trimmed = content.trim();
+        if trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''") {
+            return true;
+        }
+    }
+
+    let trimmed = content.trim();
+    doc_patterns.iter().any(|&pattern| trimmed.starts_with(pattern))
 }
 
 #[cfg(test)]

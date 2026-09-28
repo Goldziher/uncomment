@@ -143,6 +143,9 @@ pub struct LintTable {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_issue_from_branch: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_doc_comments: Option<bool>,
+
     #[serde(default)]
     pub rules: RuleTable,
 }
@@ -165,6 +168,7 @@ impl LintTable {
                 .current_issue_from_branch
                 .clone()
                 .or_else(|| base.current_issue_from_branch.clone()),
+            include_doc_comments: self.include_doc_comments.or(base.include_doc_comments),
             rules: self.rules.layer_over(&base.rules),
         }
     }
@@ -218,6 +222,10 @@ pub struct LintConfig {
     /// Locates configured tags inside a comment's text; derived from `tags`, never configured
     /// directly.
     pub tag_pattern: Regex,
+    /// Whether doc comments and docstrings are inspected at all. Off by default: documentation
+    /// describes an interface to its readers, and a tag word in it — `{"uuid": XXX}`, "returns the
+    /// TODO list" — is far more often part of that description than tracked work.
+    pub include_doc_comments: bool,
     severities: [Severity; 3],
     /// The config file this came from, for error messages. `None` for the built-in defaults.
     pub source: Option<PathBuf>,
@@ -323,6 +331,7 @@ impl LintConfig {
             key_pattern,
             branch_pattern,
             tag_pattern,
+            include_doc_comments: table.include_doc_comments.unwrap_or(false),
             severities,
             source,
         })
@@ -782,6 +791,64 @@ todo-self-reference = "off"
         // And a typo in it is refused like any other key.
         let error = toml::from_str::<LintTable>("case_sensitive_tag = true\n").unwrap_err();
         assert!(error.to_string().contains("case_sensitive_tag"), "{error}");
+    }
+
+    // --- documentation ---------------------------------------------------------------------------
+
+    #[test]
+    fn doc_comments_are_out_of_scope_unless_include_doc_comments_is_set() {
+        assert!(!table("[lint]\nenabled = true\n").unwrap().include_doc_comments);
+        assert!(
+            table("[lint]\nenabled = true\ninclude_doc_comments = true\n")
+                .unwrap()
+                .include_doc_comments
+        );
+        assert!(
+            !table("[lint]\nenabled = true\ninclude_doc_comments = false\n")
+                .unwrap()
+                .include_doc_comments
+        );
+    }
+
+    #[test]
+    fn include_doc_comments_layers_key_by_key_and_absent_is_not_false() {
+        let temp = repo();
+        let root = temp.path();
+        fs::create_dir_all(root.join("nested")).unwrap();
+
+        fs::write(
+            root.join(".uncomment.toml"),
+            "[lint]\nenabled = true\ninclude_doc_comments = true\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("nested/.uncomment.toml"),
+            "[lint.rules]\ntag-not-canonical = 'off'\n",
+        )
+        .unwrap();
+
+        assert!(resolve(root, "a.rs").unwrap().include_doc_comments);
+        assert!(
+            resolve(root, "nested/b.rs").unwrap().include_doc_comments,
+            "an absent key must inherit, not reset to the default"
+        );
+
+        fs::write(
+            root.join("nested/.uncomment.toml"),
+            "[lint]\ninclude_doc_comments = false\n",
+        )
+        .unwrap();
+        assert!(!resolve(root, "nested/b.rs").unwrap().include_doc_comments);
+    }
+
+    #[test]
+    fn a_table_naming_only_include_doc_comments_is_valid_and_a_typo_in_it_is_not() {
+        let table: LintTable = toml::from_str("include_doc_comments = true\n").unwrap();
+        assert!(table.validate().is_ok());
+        assert_eq!(table.include_doc_comments, Some(true));
+
+        let error = toml::from_str::<LintTable>("include_doc_comment = true\n").unwrap_err();
+        assert!(error.to_string().contains("include_doc_comment"), "{error}");
     }
 
     #[test]

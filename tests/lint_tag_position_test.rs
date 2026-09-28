@@ -189,3 +189,97 @@ fn fix_rewrites_tags_and_leaves_prose_byte_identical() {
         "# TODO(AMVP-9): x\n# Line contains FIXME\nvalue = 1  # noqa: E501  # TODO(AMVP-9): y\n"
     );
 }
+
+/// A tag word in each documentation syntax, next to plain comments that must stay in scope — the
+/// Go one included, which its handler files as documentation only because it precedes a `func`.
+const DOCS_PY: &str = "\
+def fetch():
+    \"\"\"Returns the TODO list; FIXME: stale after a sync.\"\"\"
+    # TODO: plain comment inside the body
+    return []
+";
+
+const DOCS_RS: &str = "\
+/// TODO: document the error cases
+//! FIXME: crate docs
+// TODO: plain comment
+fn main() {}
+";
+
+const DOCS_TS: &str = "\
+/** TODO: describe the return value */
+export const run = () => 1; // TODO: plain comment
+";
+
+const DOCS_GO: &str = "\
+package main
+
+// TODO: split this function
+func main() {}
+";
+
+#[test]
+fn doc_comments_and_docstrings_are_skipped_but_plain_comments_are_not() {
+    let temp = fixture(ENABLED);
+    let root = temp.path();
+    write(root, "docs.py", DOCS_PY);
+    write(root, "docs.rs", DOCS_RS);
+    write(root, "docs.ts", DOCS_TS);
+    write(root, "docs.go", DOCS_GO);
+
+    let expected: BTreeSet<_> = [
+        site("docs.py", 3, "TODO"),
+        site("docs.rs", 3, "TODO"),
+        site("docs.ts", 2, "TODO"),
+        site("docs.go", 3, "TODO"),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(reported_sites(root), expected);
+}
+
+#[test]
+fn include_doc_comments_reports_tags_in_documentation_too() {
+    let temp = fixture("[lint]\nenabled = true\ninclude_doc_comments = true\n");
+    let root = temp.path();
+    write(root, "docs.py", DOCS_PY);
+    write(root, "docs.rs", DOCS_RS);
+    write(root, "docs.ts", DOCS_TS);
+
+    let expected: BTreeSet<_> = [
+        site("docs.py", 2, "FIXME"),
+        site("docs.py", 3, "TODO"),
+        site("docs.rs", 1, "TODO"),
+        site("docs.rs", 2, "FIXME"),
+        site("docs.rs", 3, "TODO"),
+        site("docs.ts", 1, "TODO"),
+        site("docs.ts", 2, "TODO"),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(reported_sites(root), expected);
+}
+
+#[test]
+fn fix_leaves_doc_comments_byte_identical_by_default() {
+    let temp = fixture(ENABLED);
+    let root = temp.path();
+    write(root, "docs.py", DOCS_PY);
+    write(root, "docs.rs", DOCS_RS);
+
+    let output = run(root, &["lint", "--fix", "--todo-key", FIX_KEY, "."]);
+    assert!(
+        output.status.success(),
+        "every violation is fixable: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    assert_eq!(
+        read(root, "docs.py"),
+        DOCS_PY.replace("# TODO: plain", "# TODO(AMVP-9): plain")
+    );
+    assert_eq!(
+        read(root, "docs.rs"),
+        DOCS_RS.replace("// TODO: plain", "// TODO(AMVP-9): plain")
+    );
+}
