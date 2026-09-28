@@ -24,6 +24,10 @@ This changelog is generated from git tags and commit history.
   `tag-form-not-canonical`, and cleaned up. `--fix` remains idempotent: a second run changes nothing.
 - The "keep a comment" tip printed after a run now names the file's own comment syntax (`#`, `--`,
   `/* */`, ...) instead of always saying "a `//` line".
+- `uncomment lint --changed-only` compares `--base`'s merge-base with `HEAD` against the working
+  tree, not `base...HEAD` against a commit. Staged, unstaged and untracked (but not `.gitignore`d)
+  edits are now part of "changed" — a pre-commit hook or a CI step run before the final commit no
+  longer sees zero violations in the very lines it exists to catch.
 
 ### Added
 

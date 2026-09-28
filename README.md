@@ -343,7 +343,9 @@ uncomment lint src/ --baseline .lint-baseline.json
 
 - `--fix` — rewrite what can be rewritten (canonical tag form, injecting `--todo-key` where missing)
 - `--todo-key KEY` — issue key to insert into tag comments that have none (with `--fix`)
-- `--changed-only` — lint only files changed against `--base` (default: `origin/HEAD`, else `main`)
+- `--changed-only` — lint only files changed against `--base`'s merge-base with `HEAD` (default:
+  `origin/HEAD`, else `main`), comparing against the working tree — staged, unstaged and untracked
+  (but not ignored) edits included, not just what has been committed
 - `--base REF` — base ref for `--changed-only`
 - `--baseline FILE` — treat violations recorded here as informational
 - `--write-baseline` — record every current violation in the baseline file and exit 0

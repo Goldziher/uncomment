@@ -564,27 +564,57 @@ fn git_common_dir(repo_root: &Path) -> Option<PathBuf> {
     }
 }
 
-/// Absolute paths of the files changed between `base` and `HEAD`.
+/// Absolute paths of the files changed between `base`'s merge-base with `HEAD` and the working
+/// tree — staged, unstaged and untracked (but not ignored) edits included.
+///
+/// Diffing `base...HEAD` — as this used to — compares two *commits*, so anything not yet committed
+/// on the branch is invisible to `--changed-only`: a hook or a CI step run before the final commit
+/// sees no violations in the very lines it exists to catch. Comparing the merge-base to the working
+/// tree instead is exactly what `git diff base...HEAD`'s notation promises but does not do; `git
+/// diff <merge-base>` (one ref, no `HEAD`) is git's own way of saying "against what's on disk".
 fn changed_files(repo_root: &Path, base: &str) -> Result<HashSet<PathBuf>> {
-    let range = format!("{base}...HEAD");
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(repo_root)
-        .args(["diff", "--name-only", &range])
-        .output()
-        .with_context(|| format!("failed to run `git diff --name-only {range}`"))?;
+    let merge_base = run_git(
+        repo_root,
+        &["merge-base", base, "HEAD"],
+        &format!("merge-base {base} HEAD"),
+    )?;
+    let merge_base = merge_base.trim();
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("`git diff --name-only {range}` failed: {}", stderr.trim());
-    }
+    let diffed = run_git(
+        repo_root,
+        &["diff", "--name-only", merge_base],
+        &format!("diff --name-only {merge_base}"),
+    )?;
+    let untracked = run_git(
+        repo_root,
+        &["ls-files", "--others", "--exclude-standard"],
+        "ls-files --others --exclude-standard",
+    )?;
 
-    Ok(String::from_utf8_lossy(&output.stdout)
+    Ok(diffed
         .lines()
+        .chain(untracked.lines())
         .map(str::trim)
         .filter(|line| !line.is_empty())
         .map(|line| absolute_normalized(repo_root, Path::new(line)))
         .collect())
+}
+
+/// Run a `git` subcommand in `repo_root` and return its stdout, or fail naming `description`.
+fn run_git(repo_root: &Path, args: &[&str], description: &str) -> Result<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo_root)
+        .args(args)
+        .output()
+        .with_context(|| format!("failed to run `git {description}`"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("`git {description}` failed: {}", stderr.trim());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
 /// The path a comment id is anchored at: repo-relative when there is a repository, else relative to

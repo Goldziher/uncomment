@@ -955,6 +955,62 @@ fn changed_only_limits_the_run_to_files_changed_against_the_base() {
     assert_eq!(explicit.violations.len(), 1);
 }
 
+#[test]
+fn changed_only_includes_staged_unstaged_and_untracked_work() {
+    let fixture = Fixture::enabled("placeholder");
+    let root = fixture.root();
+    fs::remove_dir_all(root.join(".git")).expect("drop the hand-written .git");
+    git(root, &["init", "-b", "main"]);
+    git(root, &["config", "user.email", "lint@example.com"]);
+    git(root, &["config", "user.name", "Lint Fixture"]);
+
+    fixture.write("src/old.rs", "fn main() {}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-m", "base"]);
+    git(root, &["checkout", "-b", "feat/uncommitted"]);
+
+    // Nothing has been committed on this branch, so `base...HEAD` is empty: every violation below
+    // exists only as uncommitted or untracked work.
+    fixture.write("src/old.rs", "// TODO: unstaged edit\nfn main() {}\n");
+    fixture.write("src/staged.rs", "// TODO: staged edit\n");
+    git(root, &["add", "src/staged.rs"]);
+    fixture.write("src/untracked.rs", "// TODO: never added\n");
+
+    let changed = fixture.lint(&["src", "--changed-only", "--base", "main"]);
+    let mut paths: Vec<String> = changed
+        .violations
+        .iter()
+        .map(|violation| violation.path.to_string_lossy().replace('\\', "/"))
+        .collect();
+    paths.sort();
+    assert_eq!(
+        paths,
+        vec!["src/old.rs", "src/staged.rs", "src/untracked.rs"],
+        "{changed:?}"
+    );
+}
+
+#[test]
+fn changed_only_never_reaches_into_a_gitignored_untracked_file() {
+    let fixture = Fixture::enabled("placeholder");
+    let root = fixture.root();
+    fs::remove_dir_all(root.join(".git")).expect("drop the hand-written .git");
+    git(root, &["init", "-b", "main"]);
+    git(root, &["config", "user.email", "lint@example.com"]);
+    git(root, &["config", "user.name", "Lint Fixture"]);
+
+    fixture.write(".gitignore", "src/ignored.rs\n");
+    fixture.write("src/old.rs", "fn main() {}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-m", "base"]);
+    git(root, &["checkout", "-b", "feat/uncommitted"]);
+
+    fixture.write("src/ignored.rs", "// TODO: should never be picked up\n");
+
+    let changed = fixture.lint(&["src", "--changed-only", "--base", "main"]);
+    assert!(changed.violations.is_empty(), "{:?}", changed.violations);
+}
+
 fn git(root: &Path, argv: &[&str]) {
     let status = Command::new("git")
         .arg("-C")
