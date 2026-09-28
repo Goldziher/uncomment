@@ -1,0 +1,118 @@
+name: uncomment
+description: >-
+  Lint tag comments (TODO/FIXME/HACK/XXX) or remove comments from source code with uncomment —
+  a tree-sitter-accurate CLI with zero runtime network access.
+author: Goldziher
+branding:
+  icon: message-square
+  color: green
+
+inputs:
+  version:
+    description: >-
+      uncomment version to install, with or without a leading `v` (e.g. "3.9.0"). Defaults to the
+      version this action is pinned to via its tag (`github.action_ref`) when used as
+      `uses: Goldziher/uncomment@vX.Y.Z`, otherwise resolves the latest GitHub release.
+    required: false
+    default: ""
+  args:
+    description: >-
+      Arguments to pass to uncomment, as a single space-separated string (e.g. "lint ." or
+      "--check --diff src/"). Ignored when install-only is true.
+    required: false
+    default: "lint ."
+  working-directory:
+    description: Directory to run uncomment in.
+    required: false
+    default: "."
+  install-only:
+    description: Install uncomment and put it on PATH, but do not run it.
+    required: false
+    default: "false"
+  changed-only:
+    description: >-
+      Append --changed-only, scoping the run to files changed against `base` (or its default).
+    required: false
+    default: "false"
+  changed-lines:
+    description: >-
+      Append --changed-lines, scoping the run to lines changed against `base` (or its default).
+      Implies changed-only.
+    required: false
+    default: "false"
+  staged:
+    description: Append --staged (diff the index against HEAD instead of base).
+    required: false
+    default: "false"
+  base:
+    description: >-
+      Base ref/SHA for --changed-only and --changed-lines. Defaults to the pull request's base SHA
+      on a pull_request event, otherwise left to uncomment's own default (origin's default branch,
+      else `main`).
+    required: false
+    default: ""
+  token:
+    description: >-
+      Token used to query the GitHub API and download release assets. Defaults to the workflow's
+      GITHUB_TOKEN, which is enough for a public repository.
+    required: false
+    default: ${{ github.token }}
+  repository:
+    description: "Advanced: override the owner/repo release assets are downloaded from."
+    required: false
+    default: "Goldziher/uncomment"
+
+outputs:
+  version:
+    description: The uncomment version that was installed (without the leading v).
+    value: ${{ steps.install.outputs.version }}
+  path:
+    description: Absolute path to the installed uncomment binary.
+    value: ${{ steps.install.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve version and release asset
+      id: resolve
+      shell: bash
+      env:
+        VERSION_INPUT: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+        REPOSITORY: ${{ inputs.repository }}
+        GH_TOKEN: ${{ inputs.token }}
+      run: bash "${{ github.action_path }}/scripts/gh-action-resolve.sh"
+
+    - name: Cache uncomment binary
+      id: cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ steps.resolve.outputs.bin-dir }}
+        key: uncomment-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Install uncomment
+      id: install
+      shell: bash
+      env:
+        CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+        REPO: ${{ steps.resolve.outputs.repo }}
+        TAG: ${{ steps.resolve.outputs.tag }}
+        ASSET: ${{ steps.resolve.outputs.asset }}
+        EXT: ${{ steps.resolve.outputs.ext }}
+        CHECKSUMS: ${{ steps.resolve.outputs.checksums }}
+        BIN_DIR: ${{ steps.resolve.outputs.bin-dir }}
+        GH_TOKEN: ${{ inputs.token }}
+      run: bash "${{ github.action_path }}/scripts/gh-action-install.sh"
+
+    - name: Run uncomment
+      if: inputs.install-only != 'true'
+      shell: bash
+      env:
+        ARGS: ${{ inputs.args }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        CHANGED_ONLY: ${{ inputs.changed-only }}
+        CHANGED_LINES: ${{ inputs.changed-lines }}
+        STAGED: ${{ inputs.staged }}
+        BASE: ${{ inputs.base || (github.event_name == 'pull_request' && github.event.pull_request.base.sha) || '' }}
+        MATCHER_PATH: ${{ github.action_path }}/problem-matcher.json
+      run: bash "${{ github.action_path }}/scripts/gh-action-run.sh"
