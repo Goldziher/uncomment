@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use crate::changes::{ChangeScope, ChangeScopeArgs};
+use crate::languages::registry::LanguageRegistry;
 use crate::lint::OutputFormat;
 use crate::paths::{absolute_normalized, repo_relative, to_slash};
 use crate::processor::ProcessedFile;
@@ -79,14 +80,24 @@ pub struct Outcome {
     pub files_with_violations: usize,
     /// Files that matched but could not be processed, so nothing about them is known.
     pub uninspectable: usize,
+    /// What to put inside the backticks of the "keep a comment" tip, in the first violating file's
+    /// own comment syntax. `None` when nothing violated, so no tip is due.
+    pub keep_marker_line_hint: Option<String>,
 }
 
 impl Outcome {
     /// Collect the violations out of the processed files, sorted by path, line and column.
     ///
     /// `base` is the directory printed paths are made relative to. A per-line `scope` drops every
-    /// comment on a line the diff did not touch, and says how many it dropped.
-    pub fn from_results(base: &Path, results: &[ProcessedFile], scope: Option<&ChangeScope>) -> Self {
+    /// comment on a line the diff did not touch, and says how many it dropped. `registry` names the
+    /// first violating file's own comment syntax for the "keep a comment" tip, the same as the
+    /// removal command's.
+    pub fn from_results(
+        base: &Path,
+        results: &[ProcessedFile],
+        scope: Option<&ChangeScope>,
+        registry: &LanguageRegistry,
+    ) -> Self {
         let mut outcome = Self {
             files_checked: results.len(),
             ..Self::default()
@@ -124,6 +135,13 @@ impl Outcome {
                 .cmp(&b.path)
                 .then(a.line.cmp(&b.line))
                 .then(a.column.cmp(&b.column))
+        });
+        outcome.keep_marker_line_hint = (!outcome.violations.is_empty()).then(|| {
+            results
+                .iter()
+                .find(|processed| !processed.removed_comments.is_empty())
+                .and_then(|processed| registry.detect_language(&processed.path))
+                .map_or_else(|| "comment".to_string(), |language| language.keep_marker_line_hint())
         });
         outcome
     }
@@ -209,9 +227,13 @@ fn report_text(outcome: &Outcome, quiet: bool) {
         ui::dim(detail)
     );
     if !outcome.violations.is_empty() && !quiet {
+        let marker_line = outcome.keep_marker_line_hint.as_deref().unwrap_or("//");
         anstream::eprintln!(
             "{}",
-            ui::dim("Tip: remove these comments, or keep one by adding `~keep` to it or to a `//` line just above it.")
+            ui::dim(format!(
+                "Tip: remove these comments, or keep one by adding `~keep` to it or to a `{marker_line}` line just \
+                 above it."
+            ))
         );
     }
 }
@@ -282,7 +304,7 @@ mod tests {
             processed("/repo/clean.rs", &[]),
         ];
 
-        let outcome = Outcome::from_results(base, &results, None);
+        let outcome = Outcome::from_results(base, &results, None, &LanguageRegistry::new());
 
         let positions: Vec<(String, usize, usize)> = outcome
             .violations
@@ -304,7 +326,12 @@ mod tests {
 
     #[test]
     fn an_uninspectable_file_outranks_violations_in_the_exit_code() {
-        let mut outcome = Outcome::from_results(Path::new("/repo"), &[processed("/repo/a.rs", &[(0, 0)])], None);
+        let mut outcome = Outcome::from_results(
+            Path::new("/repo"),
+            &[processed("/repo/a.rs", &[(0, 0)])],
+            None,
+            &LanguageRegistry::new(),
+        );
         assert_eq!(outcome.exit_code(), EXIT_REMOVABLE);
 
         outcome.uninspectable = 1;
@@ -314,7 +341,12 @@ mod tests {
             "an incomplete check must not read as a verdict"
         );
 
-        let clean = Outcome::from_results(Path::new("/repo"), &[processed("/repo/a.rs", &[])], None);
+        let clean = Outcome::from_results(
+            Path::new("/repo"),
+            &[processed("/repo/a.rs", &[])],
+            None,
+            &LanguageRegistry::new(),
+        );
         assert_eq!(clean.exit_code(), EXIT_CLEAN);
     }
 

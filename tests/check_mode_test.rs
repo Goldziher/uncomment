@@ -160,6 +160,21 @@ fn removable_comments_fail_the_check_and_are_listed_as_path_line_col() {
 }
 
 #[test]
+fn the_keep_tip_names_the_files_own_comment_syntax() {
+    let fixture = Fixture::new();
+    fixture.write("src/main.py", "def f():\n    # strip me\n    pass\n");
+
+    let output = fixture.run(&["--check", "src"]);
+
+    assert_eq!(code(&output), EXIT_REMOVABLE, "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("a `#` line just above it"),
+        "expected a `#` hint for a .py file: {}",
+        stderr(&output)
+    );
+}
+
+#[test]
 fn the_check_never_modifies_a_file() {
     let fixture = Fixture::new();
     fixture.write("src/main.rs", REMOVABLE_RS);

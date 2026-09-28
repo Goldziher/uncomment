@@ -252,7 +252,7 @@ fn run(cli: &Cli) -> Result<i32> {
     }
 
     if checking {
-        let mut outcome = check::Outcome::from_results(&current_dir, &results, scope.as_ref());
+        let mut outcome = check::Outcome::from_results(&current_dir, &results, scope.as_ref(), &registry);
         notes.append(&mut outcome.notes);
         outcome.notes = notes;
         outcome.uninspectable = uninspectable;
@@ -307,7 +307,7 @@ fn report_removal(
             .iter()
             .find(|processed_file| processed_file.modified)
             .and_then(|processed_file| registry.detect_language(&processed_file.path))
-            .map_or_else(|| "comment".to_string(), marker_line_hint);
+            .map_or_else(|| "comment".to_string(), |language| language.keep_marker_line_hint());
         anstream::eprintln!();
         anstream::eprintln!(
             "{}",
@@ -350,20 +350,6 @@ fn report_removal(
     }
 
     Ok(())
-}
-
-/// What to put inside the backticks of the "keep a comment" tip's second clause, for `language`'s
-/// own comment syntax: the plain line token when it has one (`#`, `--`, ...), else its block pair
-/// with the marker already inside it (`/* ~keep */`), since a bare open delimiter alone would not
-/// read as a complete line.
-fn marker_line_hint(language: &uncomment::languages::LanguageConfig) -> String {
-    match language.line_comment_token() {
-        Some(token) => token.to_string(),
-        None => match language.block_comment_delimiters() {
-            Some((open, close)) => format!("{open} ~keep {close}"),
-            None => "comment".to_string(),
-        },
-    }
 }
 
 fn collect_files(

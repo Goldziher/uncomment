@@ -192,6 +192,21 @@ impl LanguageConfig {
         }
     }
 
+    /// What to put inside the backticks of a "keep a comment" tip's second clause, in this
+    /// language's own comment syntax: the plain line token when it has one (`#`, `--`, ...), else
+    /// its block pair with the marker already inside it (`/* ~keep */`), since a bare open
+    /// delimiter alone would not read as a complete line.
+    #[must_use]
+    pub fn keep_marker_line_hint(&self) -> String {
+        match self.line_comment_token() {
+            Some(token) => token.to_string(),
+            None => match self.block_comment_delimiters() {
+                Some((open, close)) => format!("{open} ~keep {close}"),
+                None => "comment".to_string(),
+            },
+        }
+    }
+
     pub fn supports_extension(&self, extension: &str) -> bool {
         self.extensions
             .iter()
