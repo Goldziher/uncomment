@@ -618,10 +618,13 @@ The binary is self-contained (every tree-sitter grammar is compiled in staticall
 it touches the network beyond the one release download.
 
 ```yaml
-- uses: Goldziher/uncomment@v3.10.0
+- uses: Goldziher/uncomment@v3
   with:
     args: "lint ." # or "--check .", or plain removal args
 ```
+
+`@v3` is a floating tag that tracks the newest 3.x release; pin an exact release (`@v3.10.1`)
+where reproducibility matters.
 
 **Lint an entire repository, failing the build on a violation:**
 
@@ -631,7 +634,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: Goldziher/uncomment@v3.10.0
+      - uses: Goldziher/uncomment@v3
         with:
           args: "lint ."
 ```
@@ -650,7 +653,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: Goldziher/uncomment@v3.10.0
+      - uses: Goldziher/uncomment@v3
         with:
           args: "lint ."
           changed-lines: "true"
@@ -663,7 +666,7 @@ lint.
 **Install only, and run uncomment yourself:**
 
 ```yaml
-- uses: Goldziher/uncomment@v3.10.0
+- uses: Goldziher/uncomment@v3
   id: uncomment
   with:
     install-only: "true"
@@ -674,7 +677,7 @@ lint.
 
 | Input | Default | Description |
 | --- | --- | --- |
-| `version` | resolved from the tag the action is pinned to, else `latest` | uncomment version to install, with or without a leading `v` |
+| `version` | resolved from the tag the action is pinned to (`@v3` resolves the newest 3.x release), else `latest` | uncomment version to install, with or without a leading `v` |
 | `args` | `lint .` | Arguments passed to `uncomment`, as one space-separated string |
 | `working-directory` | `.` | Directory to run uncomment in |
 | `install-only` | `false` | Install and put uncomment on `PATH`, but don't run it |
