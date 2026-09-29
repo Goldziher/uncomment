@@ -73,6 +73,8 @@ GEMINI.md
 
 # BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
 .ai-rulez/.generated-manifest.json
+.opencode/agents/
+.opencode/skills/
 # END ai-rulez
 
 poly.local.toml
