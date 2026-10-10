@@ -278,7 +278,12 @@ impl Cli {
             (template, Some(info))
         };
 
-        std::fs::write(output, template)
+        // Prepended here rather than baked into each template so every `init` path carries it: the
+        // directive is a comment Taplo and the VS Code TOML extension read to attach the published
+        // schema to the file, which is what gives a generated config completion and validation.
+        let contents = format!("#:schema {}\n{template}", crate::config::SCHEMA_URL);
+
+        std::fs::write(output, contents)
             .with_context(|| format!("Failed to write configuration file to {}", output.display()))?;
 
         use crate::ui;

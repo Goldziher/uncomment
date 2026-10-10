@@ -483,6 +483,17 @@ CLI flags are one-directional: `--remove-doc` sets `remove_docs = true` but an u
 
 Every table rejects unknown keys, and a project config that does not parse stops the run instead of degrading to built-in defaults — so a typo such as `enable` for `enabled` in `[lint]` fails every subcommand, not just `lint`.
 
+A JSON Schema for the file is published at [`schema/uncomment.schema.json`](https://github.com/Goldziher/uncomment/blob/main/schema/uncomment.schema.json). `uncomment init` writes a `#:schema` directive at the top of every config it generates, which is what [Taplo](https://taplo.tamasfe.dev/) and the editors built on it read to complete and validate the file as you type. Add the same line to a hand-written config:
+
+```toml
+#:schema https://raw.githubusercontent.com/Goldziher/uncomment/main/schema/uncomment.schema.json
+
+[global]
+remove_todos = true
+```
+
+The directive is a comment rather than data, so uncomment itself never sees it. A `$schema` key, by contrast, is rejected as an unknown key, like any other.
+
 ```toml
 [global]
 remove_todos = false

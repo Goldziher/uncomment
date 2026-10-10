@@ -2,6 +2,12 @@
 
 This directory contains example configuration files for `uncomment`.
 
+A JSON Schema for every setting is published at
+[`schema/uncomment.schema.json`](../schema/uncomment.schema.json); add a
+`#:schema https://raw.githubusercontent.com/Goldziher/uncomment/main/schema/uncomment.schema.json`
+line to a config to have Taplo and the editors built on it validate and complete it. `uncomment init`
+writes that line for you.
+
 ## Files
 
 ### `builtin_languages.toml`

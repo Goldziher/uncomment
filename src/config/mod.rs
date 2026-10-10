@@ -19,6 +19,11 @@ use std::sync::Once;
 /// The config file name `uncomment init` writes and discovery prefers.
 pub const CONFIG_FILE_NAME: &str = ".uncomment.toml";
 
+/// The published JSON Schema for a config file. `uncomment init` writes it as a `#:schema` directive
+/// at the top of every generated config, so an editor that reads the directive — Taplo, and the
+/// TOML extension built on it — validates and completes `.uncomment.toml` as it is written.
+pub const SCHEMA_URL: &str = "https://raw.githubusercontent.com/Goldziher/uncomment/main/schema/uncomment.schema.json";
+
 /// Every name discovery accepts, highest precedence first. The two after [`CONFIG_FILE_NAME`] are
 /// deprecated: they are still read, so no existing config stops being honoured, and reading one
 /// emits [`LEGACY_NAME_NOTICE`] once per run.

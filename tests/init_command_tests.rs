@@ -19,6 +19,7 @@ fn test_init_command_basic() {
     assert!(output_path.exists());
 
     let content = fs::read_to_string(&output_path).unwrap();
+    assert!(content.starts_with("#:schema https://raw.githubusercontent.com/Goldziher/uncomment/"));
     assert!(content.contains("[global]"));
     assert!(content.contains("remove_todos = false"));
     assert!(content.contains("preserve_patterns = [\"HACK\", \"WORKAROUND\", \"NOTE\"]"));

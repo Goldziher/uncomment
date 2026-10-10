@@ -1,0 +1,254 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/Goldziher/uncomment/main/schema/uncomment.schema.json",
+  "title": "uncomment configuration",
+  "description": "Configuration for uncomment, read from `.uncomment.toml`. Every key is optional: a config file states only what it overrides, and a key it omits is inherited from the next config outward or the built-in default. Unknown keys are rejected.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "$ref": "#/definitions/global"
+    },
+    "languages": {
+      "description": "Per-language overrides. The table key is arbitrary; the `name` field selects the grammar, as a built-in name or a tree-sitter-language-pack name.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/language"
+      }
+    },
+    "patterns": {
+      "description": "Settings applied to the files matching a path glob. `*` does not cross `/` and `**` does; the glob is anchored at the directory holding this config file, and the last matching key wins.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/pattern"
+      }
+    },
+    "lint": {
+      "$ref": "#/definitions/lint"
+    }
+  },
+  "definitions": {
+    "global": {
+      "title": "Global settings",
+      "description": "Settings applied to every file a run collects.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "remove_todos": {
+          "type": "boolean",
+          "default": false,
+          "description": "Remove TODO comments."
+        },
+        "remove_fixme": {
+          "type": "boolean",
+          "default": false,
+          "description": "Remove FIXME comments."
+        },
+        "remove_docs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Remove documentation comments, including Python docstrings."
+        },
+        "preserve_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra substrings that mark a comment as preserved. Matched as a case-sensitive substring, not a regular expression, anywhere in the comment."
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Path globs no subcommand collects a file from. Anchored at the directory holding this config file."
+        },
+        "use_default_ignores": {
+          "type": "boolean",
+          "default": true,
+          "description": "Preserve the built-in linting directives (eslint-disable, noqa, @ts-ignore, and the rest). Setting this to false drops the whole set."
+        },
+        "respect_gitignore": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip paths matched by a .gitignore file."
+        },
+        "traverse_git_repos": {
+          "type": "boolean",
+          "default": false,
+          "description": "Descend into nested git repositories rather than stopping at their root."
+        }
+      }
+    },
+    "language": {
+      "title": "Language override",
+      "description": "An override of a built-in language, or the registration of any other compiled-in grammar. The section must claim at least one file, through `extensions` or `filenames`, and must name at least one `comment_nodes` kind.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "extensions", "comment_nodes"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The grammar to use, as a built-in name or a tree-sitter-language-pack name. Looked up lowercased; a name matching neither is reported and the section is inert."
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "File extensions this language claims. A leading dot is optional."
+        },
+        "filenames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Whole filenames this language claims, matched case-sensitively before any extension rule. An entry ending in `.*` claims every name starting with the part before the `*`; the only way to reach an extensionless file such as `BUILD`."
+        },
+        "comment_nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "tree-sitter node kinds that are comments — `line_comment`, `block_comment`, `comment`. These are node kinds from the grammar, not literal delimiters."
+        },
+        "doc_comment_nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "tree-sitter node kinds that are documentation comments. Python records a docstring as `string`."
+        },
+        "preserve_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra preserved substrings for this language."
+        },
+        "remove_todos": {
+          "type": "boolean",
+          "description": "Override the global `remove_todos` for this language."
+        },
+        "remove_fixme": {
+          "type": "boolean",
+          "description": "Override the global `remove_fixme` for this language."
+        },
+        "remove_docs": {
+          "type": "boolean",
+          "description": "Override the global `remove_docs` for this language."
+        },
+        "use_default_ignores": {
+          "type": "boolean",
+          "description": "Override the global `use_default_ignores` for this language."
+        }
+      }
+    },
+    "pattern": {
+      "title": "Pattern settings",
+      "description": "Settings applied to the files matching `[patterns.\"<glob>\"]`.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "remove_todos": {
+          "type": "boolean"
+        },
+        "remove_fixme": {
+          "type": "boolean"
+        },
+        "remove_docs": {
+          "type": "boolean"
+        },
+        "preserve_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Omit the key to inherit the patterns in force, set `[]` to clear them, or list patterns to extend them."
+        },
+        "use_default_ignores": {
+          "type": "boolean"
+        }
+      }
+    },
+    "lint": {
+      "title": "Lint settings",
+      "description": "Tag linting for `uncomment lint`. Inert until `enabled` is true. A nested `[lint]` amends the table above it key by key rather than replacing it.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Turn tag linting on."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Tag words to look for. Defaults to TODO, FIXME, HACK and XXX."
+        },
+        "canonical_tag": {
+          "type": "string",
+          "description": "The tag `--fix` normalizes to. Defaults to TODO and must be one of `tags`."
+        },
+        "case_sensitive_tags": {
+          "type": "boolean",
+          "default": false,
+          "description": "Match tags case-sensitively. A miscased tag is reported as `tag-not-canonical` when this is false."
+        },
+        "key_pattern": {
+          "type": "string",
+          "description": "Regular expression that extracts an issue key from a comment's text. Prefer a named `key` capture group; the first group is the fallback."
+        },
+        "current_issue_from_branch": {
+          "type": "string",
+          "description": "Regular expression that extracts the key of the issue the current branch works on. Its first group is the key."
+        },
+        "include_doc_comments": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also lint documentation comments and docstrings, which are out of scope by default."
+        },
+        "rules": {
+          "$ref": "#/definitions/lintRules"
+        }
+      }
+    },
+    "lintRules": {
+      "title": "Lint rule severities",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tag-not-canonical": {
+          "$ref": "#/definitions/severity"
+        },
+        "todo-missing-key": {
+          "$ref": "#/definitions/severity"
+        },
+        "todo-key-not-upper-case": {
+          "$ref": "#/definitions/severity"
+        },
+        "tag-form-not-canonical": {
+          "$ref": "#/definitions/severity"
+        },
+        "todo-self-reference": {
+          "$ref": "#/definitions/severity"
+        }
+      }
+    },
+    "severity": {
+      "title": "Rule severity",
+      "description": "`error` fails the run, `warn` reports without failing it, and `off` skips the rule entirely.",
+      "enum": ["error", "warn", "off"]
+    }
+  }
+}
