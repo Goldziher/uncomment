@@ -70,13 +70,13 @@ rayon = "1.12.0"
 regex = "1.13"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-toml = "1.1.6"
-tree-sitter = "0.27.0"
-tree-sitter-language-pack = "1.20.0"
+toml = "1.1.8"
+tree-sitter = "0.27.1"
+tree-sitter-language-pack = "1.21.1"
 walkdir = "2.5"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.189"
+libc = "0.2.190"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
