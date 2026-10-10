@@ -1,5 +1,11 @@
 ---
-priority: high
+type: Decision
+title: Cross Platform Distribution
+x-ai-rulez:
+  kind: rule
+  id: cross-platform-distribution
+  metadata:
+    priority: high
 ---
 
 # Cross-Platform Distribution

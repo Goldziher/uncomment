@@ -1,5 +1,11 @@
 ---
-priority: high
+type: Decision
+title: Version Synchronization
+x-ai-rulez:
+  kind: rule
+  id: version-synchronization
+  metadata:
+    priority: high
 ---
 
 # Version Synchronization

@@ -1,5 +1,11 @@
 ---
-priority: critical
+type: Decision
+title: Tree Sitter Ast Parsing
+x-ai-rulez:
+  kind: rule
+  id: tree-sitter-ast-parsing
+  metadata:
+    priority: critical
 ---
 
 # Tree-Sitter AST Parsing

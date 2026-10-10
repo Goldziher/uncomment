@@ -1,5 +1,11 @@
 ---
-priority: high
+type: Concept
+title: Development Setup
+x-ai-rulez:
+  kind: context
+  id: development-setup
+  metadata:
+    priority: high
 ---
 
 # Development Setup

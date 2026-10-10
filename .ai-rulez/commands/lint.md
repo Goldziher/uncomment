@@ -1,8 +1,15 @@
 ---
-priority: high
-aliases: [l]
-usage: "/lint"
-description: "Run all linters and formatters"
+type: Reference
+title: Lint
+description: Run all linters and formatters
+x-ai-rulez:
+  kind: command
+  id: lint
+  metadata:
+    priority: high
+    aliases:
+      - l
+    usage: /lint
 ---
 
 # Lint

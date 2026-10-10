@@ -1,8 +1,15 @@
 ---
-priority: high
-aliases: [f]
-usage: "/fix"
-description: "Auto-fix formatting and linting issues"
+type: Reference
+title: Fix
+description: Auto-fix formatting and linting issues
+x-ai-rulez:
+  kind: command
+  id: fix
+  metadata:
+    priority: high
+    aliases:
+      - f
+    usage: /fix
 ---
 
 # Fix

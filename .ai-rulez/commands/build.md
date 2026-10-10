@@ -1,8 +1,15 @@
 ---
-priority: high
-aliases: [b]
-usage: "/build"
-description: "Build the project and report any errors"
+type: Reference
+title: Build
+description: Build the project and report any errors
+x-ai-rulez:
+  kind: command
+  id: build
+  metadata:
+    priority: high
+    aliases:
+      - b
+    usage: /build
 ---
 
 # Build

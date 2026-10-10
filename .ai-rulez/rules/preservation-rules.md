@@ -1,5 +1,11 @@
 ---
-priority: high
+type: Decision
+title: Preservation Rules
+x-ai-rulez:
+  kind: rule
+  id: preservation-rules
+  metadata:
+    priority: high
 ---
 
 # Comment Preservation Rules

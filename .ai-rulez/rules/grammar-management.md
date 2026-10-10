@@ -1,5 +1,11 @@
 ---
-priority: high
+type: Decision
+title: Grammar Management
+x-ai-rulez:
+  kind: rule
+  id: grammar-management
+  metadata:
+    priority: high
 ---
 
 # Grammar Management

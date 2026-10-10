@@ -88,7 +88,7 @@ cyclomatic_complexity_max = 30
 "tests/check_mode_test.rs" = ["lazy-ignore"]
 
 [lint.markdown.rumdl]
-disable = ["MD033", "MD041"]
+disable = ["MD025", "MD033", "MD041"]
 
 [hooks]
 stages = ["pre-commit"]
