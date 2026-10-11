@@ -20,7 +20,7 @@ if (!fs.existsSync(executable)) {
       "uncomment: the native binary is missing.",
       "",
       "It is downloaded by this package's postinstall step. Reinstall to retry:",
-      "  npm install --global uncomment-cli",
+      "  pnpm add -g uncomment-cli",
       "",
       "If the install ran with --ignore-scripts, the binary was never fetched.",
     ].join("\n"),

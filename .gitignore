@@ -38,7 +38,6 @@ perf.data.old
 # Dependencies
 vendor/
 npm-package/node_modules/
-npm-package/pnpm-lock.yaml
 npm-package/package-lock.json
 pip-package/uncomment/__pycache__/
 

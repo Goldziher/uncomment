@@ -58,7 +58,7 @@ checks that a TODO or FIXME still points at a live issue key instead of quietly 
 | ------- | ------- |
 | Homebrew (macOS/Linux) | `brew tap goldziher/tap && brew install uncomment` |
 | Cargo (Rust) | `cargo install uncomment` |
-| npm (Node.js) | `npm install -g uncomment-cli` |
+| npm (Node.js) | `pnpm add -g uncomment-cli` |
 | pip (Python) | `pip install uncomment` |
 
 Prefer prebuilt binaries? [`cargo binstall uncomment`](https://github.com/cargo-bins/cargo-binstall) downloads a
@@ -67,7 +67,7 @@ release archive instead of compiling from source.
 Run without installing:
 
 ```bash
-npx -y uncomment-cli@latest .
+pnpm dlx uncomment-cli@latest .
 uvx uncomment .
 ```
 

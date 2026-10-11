@@ -71,7 +71,7 @@ Release candidates use `vX.Y.Z-rc.1` for Git/npm and `X.Y.Zrc1` for PyPI.
 ### Publishing
 
 - **Cargo**: `cargo publish`
-- **npm**: `cd npm-package && npm publish` (use `--tag beta` for RCs)
+- **npm**: `cd npm-package && pnpm publish` (use `--tag beta` for RCs)
 - **PyPI**:
 
   ```bash
@@ -86,5 +86,5 @@ Pushing the tag triggers `.github/workflows/release.yml`, which builds signed bi
 
 ### After Publishing
 
-- Verify installs: `cargo install uncomment`, `npm view uncomment-cli`, `pip index versions uncomment`
+- Verify installs: `cargo install uncomment`, `pnpm view uncomment-cli`, `pip index versions uncomment`
 - Announce the release and update any downstream docs if needed

@@ -16,7 +16,7 @@ A blazing fast Rust-based command-line tool that removes comments from your sour
 ## Installation
 
 ```bash
-npm install -g uncomment-cli
+pnpm add -g uncomment-cli
 ```
 
 The postinstall step downloads the pre-compiled binary for your platform and verifies
