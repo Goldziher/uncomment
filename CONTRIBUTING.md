@@ -100,3 +100,36 @@ verifies checksums, and uploads the complete distribution as
 promoted. The archive preserves the native plugin archives and marketplace
 directory layout. Plugin
 versions follow `[package].version` in `Cargo.toml`; release tags must agree.
+
+## Plugin registry publishing prerequisites
+
+The generated packages are `@goldziher/opencode-uncomment` for OpenCode and Pi,
+and `uncomment-hermes-plugin` for Hermes. Their public registry endpoints currently
+return 404; these are planned publishing identities, not available registry installs.
+Use the Git/local plugin paths until their first successful publication. The existing
+`uncomment-cli` npm and `uncomment` PyPI wrappers are separate packages, and their
+publisher permissions do not establish ownership of the new plugin names.
+
+Before the next patch release, an authorized maintainer must confirm control of the
+npm scope/package and the PyPI project name. npm configures trusted publishers from
+an existing package's settings; bootstrap an absent package through a separately
+approved maintainer publication. Then configure npm's GitHub trusted publisher for
+owner `Goldziher`, repository `uncomment`, workflow `publish.yaml`, with no environment
+claim (the npm job declares none), and allow direct publishing. See the
+[npm trusted publisher instructions](https://docs.npmjs.com/trusted-publishers/).
+
+For PyPI, configure `uncomment-hermes-plugin` with owner `Goldziher`, repository
+`uncomment`, workflow `publish.yaml`, environment `pypi`. An absent project can use a
+[pending trusted publisher](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
+Account ownership and these external publisher settings have not been verified by
+this repository's local tests.
+
+The two registry jobs validate release versions and native/public exports before
+checking whether a version already exists. Node 24 packs and checks OpenCode/Pi
+resources; the Hermes job builds a wheel and checks its PEP 440 metadata and every
+bundled file. Shared OIDC publishers handle idempotent versions. A three-job report
+requires success from GitHub plugin assets, npm and PyPI. The registry jobs run
+after release promotion; the report fails if any distribution job fails or is
+skipped.
+This work creates no release: the missing-path CLI fix remains unreleased and needs
+the next patch version; published 3.10.3 keeps the documented inspection-count guard.
