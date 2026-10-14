@@ -6,15 +6,19 @@ build-backend = 'hatchling.build'
 name = 'uncomment-hermes-plugin'
 version = '3.10.3'
 description = 'Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately.'
+license = 'MIT'
 requires-python = '>=3.11'
 keywords = ['comments', 'tree-sitter', 'code-cleanup', 'linting']
+
+[project.readme]
+content-type = 'text/markdown'
+text = "# uncomment Hermes plugin\n\nInventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately.\n\nInstall this package in the same Python environment as Hermes Agent:\n\n```sh\npython -m pip install uncomment-hermes-plugin\n```\n\nEnable the plugin through Hermes Agent's plugin configuration. Available registrations depend on the plugin's authored Hermes adapter.\n"
 
 [project.entry-points]
 [project.entry-points.'hermes_agent.plugins']
 uncomment = 'uncomment_hermes_plugin'
 
 [project.urls]
-Homepage = ''
 Repository = 'https://github.com/Goldziher/uncomment'
 
 [tool]
