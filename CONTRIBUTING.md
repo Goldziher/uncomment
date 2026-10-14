@@ -95,5 +95,8 @@ must remain byte-for-byte current. Public skills are copied only from native
 Agent Skills output; ownership checks preserve unowned files and reject symlinks.
 
 The release workflow packages Agent Plugins archives and a Cursor team marketplace,
-verifies checksums, and uploads them before the release can be promoted. Plugin
+verifies checksums, and uploads the complete distribution as
+`uncomment-plugins-VERSION.tar.gz` with its checksum before the release can be
+promoted. The archive preserves the native plugin archives and marketplace
+directory layout. Plugin
 versions follow `[package].version` in `Cargo.toml`; release tags must agree.

@@ -406,11 +406,18 @@ jobs:
         with:
           tag: ${{ needs.meta.outputs.tag }}
           cursor-marketplace: "true"
-      - name: Upload verified plugin assets
+      - name: Archive and upload the complete verified plugin distribution
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.meta.outputs.tag }}
-        run: gh release upload "$RELEASE_TAG" dist/plugin/* --clobber --repo "$GITHUB_REPOSITORY"
+          RELEASE_VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_VERSION"
+          archive="uncomment-plugins-${RELEASE_VERSION}.tar.gz"
+          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -cf - -C dist/plugin . | gzip -n > "dist/$archive"
+          (cd dist && sha256sum "$archive" > "$archive.sha256")
+          gh release upload "$RELEASE_TAG" "dist/$archive" "dist/$archive.sha256" --clobber --repo "$GITHUB_REPOSITORY"
 
   finalize_release:
     name: Publish GitHub release
