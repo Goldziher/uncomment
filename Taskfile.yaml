@@ -75,7 +75,7 @@ tasks:
       - ai-rulez -C plugin/.ai-rulez validate --strict --no-local
       - ai-rulez lock --recursive --check
       - ai-rulez generate --no-local --strict-config --check
-      - ai-rulez -C plugin/.ai-rulez verify --plugin
+      - ai-rulez verify --plugin
       - python3 scripts/sync_plugin_version.py --check
       - python3 scripts/sync_public_skills.py --check
 
@@ -84,7 +84,7 @@ tasks:
     cmds:
       - python3 scripts/sync_plugin_version.py
       - ai-rulez -C plugin/.ai-rulez lock --content-only
-      - ai-rulez -C plugin/.ai-rulez generate --plugin --no-local
+      - ai-rulez generate --plugin --no-local --strict-config
       - python3 scripts/sync_public_skills.py
       - ai-rulez lock --content-only
       - ai-rulez generate --no-local
