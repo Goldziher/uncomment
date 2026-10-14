@@ -12,11 +12,11 @@ x-ai-rulez:
     usage: /fix
 ---
 
-# Fix
+## Fix
 
 Automatically fix formatting and linting issues.
 
-## Steps
+### Steps
 
 1. Run `cargo fmt --all` to auto-format all Rust code
 2. Run `cargo clippy --fix --allow-dirty --allow-staged` to auto-fix clippy warnings where possible

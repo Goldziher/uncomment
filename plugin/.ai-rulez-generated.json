@@ -1,0 +1,209 @@
+{
+  "schema_version": "v1",
+  "source_hash": "blake3:ae46a09e039c77c54e729803aa1659a4c57d30dd8d348c69b66be5ab3179b618",
+  "outputs": {
+    ".agents/plugins/marketplace.json": {
+      "content_hash": "blake3:353a4164ac5dc1a5450a17ece017c2afc1419015b2baec4bafc32bc22c971891",
+      "mode": "0644"
+    },
+    ".claude-plugin/marketplace.json": {
+      "content_hash": "blake3:7064ef655cf829b065343a4ceddf68b2c55a9ad0387c5e39b4793c7985794204",
+      "mode": "0644"
+    },
+    ".claude-plugin/plugin.json": {
+      "content_hash": "blake3:53404dc5d30e9bfe364e5be09dd751700e8402a4e2e35cadd659ac2801f8604e",
+      "mode": "0644"
+    },
+    ".codex-plugin/plugin.json": {
+      "content_hash": "blake3:008dde702bb06d0d4b2abd810ff4dfb1c013b72bc5d5a5f4468b33b7d0943666",
+      "mode": "0644"
+    },
+    ".cursor-plugin/marketplace.json": {
+      "content_hash": "blake3:adeaa5490fc46cac43694df481e5c1ab6bdb7bd7387002f2791c93b5c7bee3e8",
+      "mode": "0644"
+    },
+    ".cursor-plugin/plugin.json": {
+      "content_hash": "blake3:450d7d2fdf07764a8785122a6e6af8f4bcedb399239720e3d683ff3e304bf724",
+      "mode": "0644"
+    },
+    ".cursor-plugin/skills/uncomment/SKILL.md": {
+      "content_hash": "blake3:201d65fcc15f52bee54f91cacda8a700f81fe7a1a2043f5c6b52f43ab55db180",
+      "mode": "0644"
+    },
+    ".cursor-plugin/skills/uncomment/index.md": {
+      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "mode": "0644"
+    },
+    ".cursor-plugin/skills/uncomment/references/configuration.md": {
+      "content_hash": "blake3:ff5a20cc917540f9afd622ab89d697c603c90a3bbccc6240082b43bca9bf06c6",
+      "mode": "0644"
+    },
+    ".cursor-plugin/skills/uncomment/references/library.md": {
+      "content_hash": "blake3:c2b7c3bed8e321e5c3e141562df4cc9908f270936bd0dd786bbbdbb9f263394c",
+      "mode": "0644"
+    },
+    ".factory-plugin/plugin.json": {
+      "content_hash": "blake3:8c621d26180368b1aa18e614b877a7f86c0dd1b9698bbe1c38b3ec41015fc7e8",
+      "mode": "0644"
+    },
+    ".github/plugin/marketplace.json": {
+      "content_hash": "blake3:6ab3e1146de8a63fdc69ec9ca278811e2a237b549914c398bf45c9a3177976a4",
+      "mode": "0644"
+    },
+    ".hermes/package/pyproject.toml": {
+      "content_hash": "blake3:adc6242cea6569709300aedecabfd7ae95dff2a982553d3b63949d87ef7e3e6d",
+      "mode": "0644"
+    },
+    ".hermes/package/src/uncomment_hermes_plugin/__init__.py": {
+      "content_hash": "blake3:108dedcbe5c8f5d5ef009226493fbc1177125be18fe519ed65e26bc396133b3e",
+      "mode": "0644"
+    },
+    ".hermes/package/src/uncomment_hermes_plugin/hermes.py": {
+      "content_hash": "blake3:f0861e3a09f285cd65f5c91452dbe9269b3364f36d138b56dab9f1e5f972ba27",
+      "mode": "0644"
+    },
+    ".hermes/package/src/uncomment_hermes_plugin/plugin.yaml": {
+      "content_hash": "blake3:20e0b299446a1cfac7ee50082875cec45c5a478c43c2a80a5b32a50a81cba8ce",
+      "mode": "0644"
+    },
+    ".hermes/package/src/uncomment_hermes_plugin/skills/uncomment/SKILL.md": {
+      "content_hash": "blake3:201d65fcc15f52bee54f91cacda8a700f81fe7a1a2043f5c6b52f43ab55db180",
+      "mode": "0644"
+    },
+    ".hermes/package/src/uncomment_hermes_plugin/skills/uncomment/index.md": {
+      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "mode": "0644"
+    },
+    ".hermes/package/src/uncomment_hermes_plugin/skills/uncomment/references/configuration.md": {
+      "content_hash": "blake3:ff5a20cc917540f9afd622ab89d697c603c90a3bbccc6240082b43bca9bf06c6",
+      "mode": "0644"
+    },
+    ".hermes/package/src/uncomment_hermes_plugin/skills/uncomment/references/library.md": {
+      "content_hash": "blake3:c2b7c3bed8e321e5c3e141562df4cc9908f270936bd0dd786bbbdbb9f263394c",
+      "mode": "0644"
+    },
+    ".hermes/plugins/uncomment/__init__.py": {
+      "content_hash": "blake3:108dedcbe5c8f5d5ef009226493fbc1177125be18fe519ed65e26bc396133b3e",
+      "mode": "0644"
+    },
+    ".hermes/plugins/uncomment/hermes.py": {
+      "content_hash": "blake3:f0861e3a09f285cd65f5c91452dbe9269b3364f36d138b56dab9f1e5f972ba27",
+      "mode": "0644"
+    },
+    ".hermes/plugins/uncomment/plugin.yaml": {
+      "content_hash": "blake3:20e0b299446a1cfac7ee50082875cec45c5a478c43c2a80a5b32a50a81cba8ce",
+      "mode": "0644"
+    },
+    ".hermes/plugins/uncomment/skills/uncomment/SKILL.md": {
+      "content_hash": "blake3:201d65fcc15f52bee54f91cacda8a700f81fe7a1a2043f5c6b52f43ab55db180",
+      "mode": "0644"
+    },
+    ".hermes/plugins/uncomment/skills/uncomment/index.md": {
+      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "mode": "0644"
+    },
+    ".hermes/plugins/uncomment/skills/uncomment/references/configuration.md": {
+      "content_hash": "blake3:ff5a20cc917540f9afd622ab89d697c603c90a3bbccc6240082b43bca9bf06c6",
+      "mode": "0644"
+    },
+    ".hermes/plugins/uncomment/skills/uncomment/references/library.md": {
+      "content_hash": "blake3:c2b7c3bed8e321e5c3e141562df4cc9908f270936bd0dd786bbbdbb9f263394c",
+      "mode": "0644"
+    },
+    ".opencode/ai-rulez-bundle.json": {
+      "content_hash": "blake3:755ac2f032d9713bbe62edbc93bcdb6101c32dea2dab1f7ef6a2e44ea76bd9eb",
+      "mode": "0644"
+    },
+    ".opencode/ai-rulez-content.js": {
+      "content_hash": "blake3:011ec20caa671eb4bd4e886b09e15f720a786de4bf747419efd0690889fc5549",
+      "mode": "0644"
+    },
+    ".opencode/plugins/uncomment.js": {
+      "content_hash": "blake3:8e7b7fe306eb825bd4f49d153d774fa79d04c409011b70ba04103d61704ebec0",
+      "mode": "0644"
+    },
+    ".opencode/skills/uncomment/SKILL.md": {
+      "content_hash": "blake3:201d65fcc15f52bee54f91cacda8a700f81fe7a1a2043f5c6b52f43ab55db180",
+      "mode": "0644"
+    },
+    ".opencode/skills/uncomment/index.md": {
+      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "mode": "0644"
+    },
+    ".opencode/skills/uncomment/references/configuration.md": {
+      "content_hash": "blake3:ff5a20cc917540f9afd622ab89d697c603c90a3bbccc6240082b43bca9bf06c6",
+      "mode": "0644"
+    },
+    ".opencode/skills/uncomment/references/library.md": {
+      "content_hash": "blake3:c2b7c3bed8e321e5c3e141562df4cc9908f270936bd0dd786bbbdbb9f263394c",
+      "mode": "0644"
+    },
+    ".pi/skills/uncomment/SKILL.md": {
+      "content_hash": "blake3:201d65fcc15f52bee54f91cacda8a700f81fe7a1a2043f5c6b52f43ab55db180",
+      "mode": "0644"
+    },
+    ".pi/skills/uncomment/index.md": {
+      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "mode": "0644"
+    },
+    ".pi/skills/uncomment/references/configuration.md": {
+      "content_hash": "blake3:ff5a20cc917540f9afd622ab89d697c603c90a3bbccc6240082b43bca9bf06c6",
+      "mode": "0644"
+    },
+    ".pi/skills/uncomment/references/library.md": {
+      "content_hash": "blake3:c2b7c3bed8e321e5c3e141562df4cc9908f270936bd0dd786bbbdbb9f263394c",
+      "mode": "0644"
+    },
+    "gemini-extension.json": {
+      "content_hash": "blake3:be4577d2565de62f965c23a885c99886040bbda480eace9350e814fb9d75c497",
+      "mode": "0644"
+    },
+    "kimi.plugin.json": {
+      "content_hash": "blake3:39fd81aad4de0023f0baec1bf7d9da06409c7a3436c9df14e74b5dc440a01d8b",
+      "mode": "0644"
+    },
+    "package.json": {
+      "content_hash": "blake3:4102cc895a130ca3b6b751d0226e6643ca6386b3dcb40963e25fc9cd3bee0b6d",
+      "mode": "0644"
+    },
+    "plugin.json": {
+      "content_hash": "blake3:b9ad05541d1f919fdc743b2632f7718ffc131227c949e418d5542d2266d7f81c",
+      "mode": "0644"
+    },
+    "skills/uncomment/SKILL.md": {
+      "content_hash": "blake3:201d65fcc15f52bee54f91cacda8a700f81fe7a1a2043f5c6b52f43ab55db180",
+      "mode": "0644"
+    },
+    "skills/uncomment/index.md": {
+      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "mode": "0644"
+    },
+    "skills/uncomment/references/configuration.md": {
+      "content_hash": "blake3:ff5a20cc917540f9afd622ab89d697c603c90a3bbccc6240082b43bca9bf06c6",
+      "mode": "0644"
+    },
+    "skills/uncomment/references/library.md": {
+      "content_hash": "blake3:c2b7c3bed8e321e5c3e141562df4cc9908f270936bd0dd786bbbdbb9f263394c",
+      "mode": "0644"
+    }
+  },
+  "managed": {
+    "package.json": [
+      "name",
+      "version",
+      "description",
+      "author",
+      "repository",
+      "keywords",
+      "pi",
+      "files",
+      "type",
+      "main",
+      "exports",
+      "dependencies",
+      "homepage",
+      "license",
+      "packageManager"
+    ]
+  }
+}

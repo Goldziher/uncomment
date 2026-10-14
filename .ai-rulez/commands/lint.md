@@ -12,11 +12,11 @@ x-ai-rulez:
     usage: /lint
 ---
 
-# Lint
+## Lint
 
 Run all linters and formatters to check code quality.
 
-## Steps
+### Steps
 
 1. Run `cargo fmt --all -- --check` to verify formatting
 2. Run `cargo clippy -- -D warnings` to check for lint issues

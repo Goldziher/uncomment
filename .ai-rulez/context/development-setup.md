@@ -8,15 +8,15 @@ x-ai-rulez:
     priority: high
 ---
 
-# Development Setup
+## Development Setup
 
-## Prerequisites
+### Prerequisites
 
-- Rust 1.70+ (`rustc --version`)
+- Rust 1.90+ (`rustc --version`)
 - Cargo (included with Rust)
 - Task runner (`task --version`) for task automation
 
-## Build
+### Build
 
 ```bash
 # Debug build
@@ -29,7 +29,7 @@ cargo build --release
 cargo run -- --help
 ```
 
-## Test
+### Test
 
 ```bash
 # Run all tests
@@ -38,7 +38,7 @@ cargo test
 # Verbose output
 cargo test -- --nocapture
 
-# Network-dependent tests (grammar loading)
+# Run explicitly ignored tests when relevant
 cargo test -- --ignored
 
 # Specific test file
@@ -48,7 +48,7 @@ cargo test --test integration_tests
 cargo run -- fixtures/languages/test.py --dry-run
 ```
 
-## Lint & Format
+### Lint & Format
 
 ```bash
 # Format code
@@ -64,7 +64,7 @@ poly lint .
 poly fmt --check .
 ```
 
-## Benchmarks & Profiling
+### Benchmarks & Profiling
 
 ```bash
 # Run benchmarks
@@ -74,7 +74,7 @@ cargo bench
 cargo run --release --features bench-tools --bin profile -- /path/to/repo
 ```
 
-## Task Runner
+### Task Runner
 
 Use `task` for common operations:
 

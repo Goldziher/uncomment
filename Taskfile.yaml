@@ -10,7 +10,7 @@ tasks:
     desc: "Install all dependencies and initialize project. Idempotent."
     cmds:
       - cargo fetch
-      - poly hooks install
+      - task: ai:hooks
       - echo "Setup complete"
 
   build:
@@ -29,14 +29,14 @@ tasks:
       - cargo test -- --nocapture
 
   lint:
-    desc: Run all linters and formatters via prek
+    desc: Lint the repository with Poly
     cmds:
-      - prek run --all-files
+      - poly lint .
 
   format:
     desc: Format code
     cmds:
-      - cargo fmt --all
+      - poly fmt --fix .
 
   check:
     desc: Run all checks (lint + test)
@@ -53,4 +53,38 @@ tasks:
     desc: Update dependencies
     cmds:
       - cargo update
-      - prek autoupdate
+      - poly hooks update
+      - poly hooks install
+
+  ai:hooks:
+    desc: Install governance hooks while preserving local preferences
+    cmds:
+      - >-
+        python3 -c 'from pathlib import Path;
+        p = Path("poly.local.toml");
+        p.exists() or p.write_text("[hook_preferences]\nchannels = [\"system\"]\n")'
+      - poly hooks update
+      - poly hooks install
+
+  ai:validate:
+    desc: Validate both native governance configurations and plugin exports
+    cmds:
+      - ai-rulez migrate okf --check
+      - ai-rulez -C plugin/.ai-rulez migrate okf --check
+      - ai-rulez validate --strict --no-local
+      - ai-rulez -C plugin/.ai-rulez validate --strict --no-local
+      - ai-rulez lock --recursive --check
+      - ai-rulez generate --no-local --strict-config --check
+      - ai-rulez -C plugin/.ai-rulez verify --plugin
+      - python3 scripts/sync_plugin_version.py --check
+      - python3 scripts/sync_public_skills.py --check
+
+  plugin:generate:
+    desc: Generate all runtime plugins and portable public skills
+    cmds:
+      - python3 scripts/sync_plugin_version.py
+      - ai-rulez -C plugin/.ai-rulez lock --content-only
+      - ai-rulez -C plugin/.ai-rulez generate --plugin --no-local
+      - python3 scripts/sync_public_skills.py
+      - ai-rulez lock --content-only
+      - ai-rulez generate --no-local

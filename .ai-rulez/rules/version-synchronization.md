@@ -8,18 +8,18 @@ x-ai-rulez:
     priority: high
 ---
 
-# Version Synchronization
+## Version Synchronization
 
 All version numbers must be kept in sync across the following files when releasing:
 
-## Version Locations
+### Version Locations
 
 1. `Cargo.toml` — the `version` field under `[package]`
 2. `npm-package/package.json` — the `version` field
 3. `pip-package/pyproject.toml` — the `version` field under `[project]`
 4. `pip-package/uncomment/__init__.py` — the `__version__` variable
 
-## Rules
+### Rules
 
 - All four files must contain the same version string when preparing a release
 - Use semantic versioning (SemVer): `MAJOR.MINOR.PATCH`

@@ -1,0 +1,14 @@
+{
+  "name": "uncomment",
+  "description": "Uncomment skills for AST-based source comment cleanup",
+  "owner": {
+    "name": "Goldziher"
+  },
+  "plugins": [
+    {
+      "name": "uncomment",
+      "description": "Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately.",
+      "source": "./plugin"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+version = "5.0"
+name = "uncomment"
+description = "Agent skills for AST-based comment cleanup"
+default_layers = ["plugins"]
+agents_md = false
+gitignore = true
+[mcp]
+self_server = false
+[lock]
+include_outputs = false

@@ -12,11 +12,11 @@ x-ai-rulez:
     usage: /review
 ---
 
-# Review
+## Review
 
 Review all staged and unstaged changes in the current repository.
 
-## Steps
+### Steps
 
 1. Run `git diff` and `git diff --staged` to see all changes
 2. For each changed file, review:

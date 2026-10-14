@@ -1,0 +1,49 @@
+{
+  "author": {
+    "name": "Goldziher"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.0.26"
+  },
+  "description": "Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately.",
+  "exports": {
+    ".": "./.opencode/plugins/uncomment.js"
+  },
+  "files": [
+    ".opencode/ai-rulez-bundle.json",
+    ".opencode/ai-rulez-content.js",
+    ".opencode/plugins/uncomment.js",
+    ".opencode/skills/uncomment/SKILL.md",
+    ".opencode/skills/uncomment/index.md",
+    ".opencode/skills/uncomment/references/configuration.md",
+    ".opencode/skills/uncomment/references/library.md",
+    ".pi/skills/uncomment/SKILL.md",
+    ".pi/skills/uncomment/index.md",
+    ".pi/skills/uncomment/references/configuration.md",
+    ".pi/skills/uncomment/references/library.md",
+    "README.md",
+    "assets/"
+  ],
+  "keywords": [
+    "code-cleanup",
+    "comments",
+    "linting",
+    "pi-package",
+    "tree-sitter"
+  ],
+  "license": "MIT",
+  "main": ".opencode/plugins/uncomment.js",
+  "name": "@goldziher/opencode-uncomment",
+  "pi": {
+    "prompts": [],
+    "skills": [
+      "./.pi/skills/uncomment"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Goldziher/uncomment"
+  },
+  "type": "module",
+  "version": "3.10.3"
+}

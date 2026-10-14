@@ -12,11 +12,11 @@ x-ai-rulez:
     usage: /test
 ---
 
-# Test
+## Test
 
 Run the full test suite and report results.
 
-## Steps
+### Steps
 
 1. Run `cargo test` to execute all unit and integration tests
 2. If any tests fail:

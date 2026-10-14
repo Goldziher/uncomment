@@ -8,12 +8,12 @@ x-ai-rulez:
     priority: high
 ---
 
-# Comment Preservation Rules
+## Comment Preservation Rules
 
 Which comments survive a run is decided in `src/rules/preservation.rs`; the rule set for a file is
 assembled in `Processor::create_preservation_rules_from_config` (`src/processor/mod.rs`).
 
-## The effective default set is `comprehensive_rules()`
+### The effective default set is `comprehensive_rules()`
 
 `use_default_ignores` defaults to `true`, and that is what pulls in `comprehensive_rules()` — so
 the linter directives people assume are covered (`rubocop:`, `eslint-disable`, `noqa`,
@@ -26,7 +26,7 @@ user's own `preserve_patterns`.
 user data. Built-in languages carry no patterns of their own; the generated `init` templates write
 per-language suggestions (`swiftlint:`, `frozen_string_literal:`) into the user's config instead.
 
-## `~keep` is a guarded marker, not a substring
+### `~keep` is a guarded marker, not a substring
 
 A comment is not preserved merely because its text contains `~keep`:
 
@@ -39,7 +39,7 @@ A comment is not preserved merely because its text contains `~keep`:
   false, because the comment was already going to be kept. Never append a marker in-body to a doc
   comment; put it on the line above.
 
-## Guidelines
+### Guidelines
 
 - Adding a language means no preservation work — the rule set is language-independent.
 - A `Pattern` rule is `content.contains(pattern)`: case-sensitive, matching anywhere in the comment,

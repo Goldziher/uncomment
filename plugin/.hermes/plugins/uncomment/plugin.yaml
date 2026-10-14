@@ -1,0 +1,5 @@
+name: "uncomment"
+version: "3.10.3"
+description: "Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately."
+author: "Goldziher"
+kind: "standalone"

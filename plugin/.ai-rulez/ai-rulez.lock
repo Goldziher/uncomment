@@ -1,0 +1,13 @@
+# ai-rulez.lock: pins remote includes, installed skills and authored content. Commit this file.
+# Refresh it with `ai-rulez lock`; `ai-rulez generate --locked` fails when it is stale.
+
+version = 1
+ai_rulez_version = '5.3.0'
+scope = 'all'
+tree = 'sha256:e07134ff0fe0f8887248ac8dc6ffa71988a3f7fffeeefc9b0d4b89265b1f84b7'
+
+[[item]]
+kind = 'skill'
+id = 'uncomment'
+path = 'skills/uncomment'
+digest = 'sha256:420601c50fbed6f87787ee66c144e7cf3e463a765718448d4f375db8c350b8b5'

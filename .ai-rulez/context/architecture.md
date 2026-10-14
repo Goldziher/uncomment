@@ -8,11 +8,11 @@ x-ai-rulez:
     priority: high
 ---
 
-# Project Architecture
+## Project Architecture
 
 uncomment is a Rust CLI tool for AST-based comment removal from source code, distributed via multiple package ecosystems.
 
-## Source Code (`src/`)
+### Source Code (`src/`)
 
 - `main.rs` — Entry point, subcommand dispatch
 - `cli.rs` — CLI interface and argument definitions
@@ -41,7 +41,7 @@ uncomment is a Rust CLI tool for AST-based comment removal from source code, dis
 Tree-sitter grammars are compiled into the binary by `tree-sitter-language-pack`; there is no
 grammar loader and nothing is fetched at runtime.
 
-## Distribution
+### Distribution
 
 - `npm-package/` — npm wrapper package (`uncomment-cli`)
   - `package.json`, `install.js` — Binary download and install
@@ -50,19 +50,19 @@ grammar loader and nothing is fetched at runtime.
 - `.github/workflows/` — CI/CD and release automation (`publish.yaml` builds cross-platform binaries via a native matrix)
 - `scripts/update-homebrew-formula.sh` — Regenerates the Homebrew formula from release checksums
 
-## Testing
+### Testing
 
 - `tests/` — Integration tests
 - `fixtures/languages/` — Test source files for each supported language
 - Unit tests are co-located in source files using `#[cfg(test)]`
 
-## Configuration Files
+### Configuration Files
 
 - `.uncomment.toml` — Per-project configuration
 - `~/.config/uncomment/config.toml` — Global user configuration
 - `examples/` — Example configuration files and usage
 
-## Build Artifacts
+### Build Artifacts
 
 - `target/` — Cargo build output (gitignored)
-- `~/.cache/uncomment/grammars/` — Cached compiled grammars (runtime)
+- Tree-sitter grammars are compiled into the binary; no runtime grammar cache exists.

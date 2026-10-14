@@ -1,0 +1,11 @@
+[[marketplaces]]
+name = "basemind"
+source = "Goldziher/basemind"
+type = "github"
+
+[marketplace]
+name = "uncomment"
+description = "Uncomment skills for AST-based source comment cleanup"
+members = ["plugin"]
+[marketplace.owner]
+name = "Goldziher"

@@ -1,0 +1,32 @@
+{
+  "name": "uncomment",
+  "version": "3.10.3",
+  "description": "Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately.",
+  "author": {
+    "name": "Goldziher"
+  },
+  "repository": "https://github.com/Goldziher/uncomment",
+  "license": "MIT",
+  "keywords": [
+    "comments",
+    "tree-sitter",
+    "code-cleanup",
+    "linting"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Uncomment",
+    "shortDescription": "AST-based source comment cleanup",
+    "longDescription": "Skills for comment inventories, preservation markers, selective cleanup, linting and removal gates. Requires a separately installed Uncomment CLI; no MCP server is provided.",
+    "developerName": "Goldziher",
+    "category": "developer-tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Preview source comment removal with Uncomment",
+      "Preserve the selected comments before cleanup"
+    ]
+  }
+}

@@ -72,7 +72,6 @@ GEMINI.md
 
 # BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
 .agents/skills/
-.ai-rulez/.generated-manifest.json
 .ai-rulez/.generated-manifest.local.json
 .ai-rulez/local/
 .opencode/agents/
@@ -83,3 +82,9 @@ opencode.json
 # END ai-rulez
 
 poly.local.toml
+
+# Python governance tooling caches
+**/__pycache__/
+
+# Isolated consumer SDK checks
+.native/

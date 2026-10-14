@@ -8,14 +8,14 @@ x-ai-rulez:
     priority: high
 ---
 
-# Grammar Management
+## Grammar Management
 
 Every grammar comes from the `tree-sitter-language-pack` crate, resolved at runtime by
 `tree_sitter_language_pack::get_language(&language_config.tslp_name)`. There is no grammar
 compilation, no git or local grammar source, no `~/.cache` and no shared-library loading —
 so a language uncomment does not already know is a *registration* problem, never a build one.
 
-## Adding a built-in language
+### Adding a built-in language
 
 1. Add a constructor to `src/languages/config.rs` following the existing ones:
    `LanguageConfig::new(name, extensions, comment_nodes, doc_comment_nodes, tslp_name)`,
@@ -38,7 +38,7 @@ POD are recognised only at column 0, so they are not offered. Use `None` for a f
 does not have; a language with a `block` pair and no `line` token is still markable, because the
 marker is written with the pair.
 
-## Guidelines
+### Guidelines
 
 - A misnamed `tslp_name` on a **built-in** fails at parse time, per file. Report it with the
   language name and the key that was tried, as `Processor` does.

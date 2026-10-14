@@ -8,12 +8,12 @@ x-ai-rulez:
     priority: medium
 ---
 
-# Configuration System
+## Configuration System
 
 Layered TOML, defined in `src/config/` and resolved per file by `ConfigManager`
 (`src/config/manager.rs`).
 
-## Precedence (highest to lowest)
+### Precedence (highest to lowest)
 
 1. **CLI flags.**
 2. **Project config**, nearest to the file being processed first, then each ancestor outward. A
@@ -39,7 +39,7 @@ processed. A config reached only later, during per-file resolution, is too late 
 than replacing it — so a subdirectory can switch one rule off and keep inheriting `enabled` and
 `key_pattern`. `[patterns."<glob>"]` is the opposite: last match wins.
 
-## Adding an option
+### Adding an option
 
 - Wire form first: every `[global]` key is `Option<T>` on `GlobalConfigFile`, and its presence is
   recorded in `SpecifiedFlags`. Layering needs "key absent" to differ from "key set to the default

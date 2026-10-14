@@ -1,0 +1,18 @@
+{
+  "name": "uncomment",
+  "displayName": "Uncomment",
+  "description": "Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately.",
+  "version": "3.10.3",
+  "author": {
+    "name": "Goldziher"
+  },
+  "repository": "https://github.com/Goldziher/uncomment",
+  "license": "MIT",
+  "keywords": [
+    "comments",
+    "tree-sitter",
+    "code-cleanup",
+    "linting"
+  ],
+  "skills": "./skills/"
+}

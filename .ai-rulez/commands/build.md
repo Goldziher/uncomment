@@ -12,11 +12,11 @@ x-ai-rulez:
     usage: /build
 ---
 
-# Build
+## Build
 
 Build the project and report any compilation errors.
 
-## Steps
+### Steps
 
 1. Run `cargo build --release` to build the project in release mode
 2. If the build fails:

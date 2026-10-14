@@ -720,6 +720,32 @@ AST parsing costs a little more than regex, but the tool is fast and scales well
 *Benchmarked on a large enterprise codebase of ~5,000 mixed-language files.* Measure your own with
 the built-in `benchmark` and `profile` tools (see [optional benchmarking tools](#usage)).
 
+## Coding-agent plugins
+
+The repository includes skills-only plugins for Claude Code, Codex, Cursor,
+Gemini CLI, Kimi CLI, OpenCode, Factory, Hermes, Pi, Agent Plugins and Copilot.
+Install the Uncomment CLI separately; these plugins provide no MCP server.
+
+For Claude Code, add this repository as a marketplace and install its plugin:
+
+```bash
+claude plugin marketplace add Goldziher/uncomment
+claude plugin install uncomment@uncomment
+```
+
+For Codex:
+
+```bash
+codex plugin marketplace add Goldziher/uncomment
+codex plugin add uncomment@uncomment
+```
+
+Portable Agent Skills are available in [`skills/uncomment`](skills/uncomment).
+Native runtime packages and installation details are in
+[`plugin/README.md`](plugin/README.md). Releases attach deterministic plugin
+archives, marketplace indexes and checksums. See [contributor instructions](CONTRIBUTING.md#ai-governance-and-public-plugins)
+for generation and verification.
+
 ## Development
 
 ```bash

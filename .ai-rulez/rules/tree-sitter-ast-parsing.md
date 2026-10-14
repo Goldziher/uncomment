@@ -8,13 +8,13 @@ x-ai-rulez:
     priority: critical
 ---
 
-# Tree-Sitter AST Parsing
+## Tree-Sitter AST Parsing
 
 Comments are found by parsing, never by matching text. That is the tool's entire reason to exist: a
 `TODO` inside a string literal, a `#` inside a shell here-doc and a `//` inside a URL are not
 comments, and no amount of regex tightening makes them distinguishable.
 
-## How it is wired
+### How it is wired
 
 - `Processor` owns one reused `tree_sitter::Parser` and re-points it per language; there is no
   parsed-tree cache, and a file is parsed exactly once per run.
@@ -24,7 +24,7 @@ comments, and no amount of regex tightening makes them distinguishable.
 - Everything downstream — removal, `scan`, `keep`, `lint` — consumes `Processor::inspect`, so they
   cannot disagree about what a comment is. Add a consumer there, not a second traversal.
 
-## Rules
+### Rules
 
 - Never locate a comment by text search. Regex over a comment's *text*, once the AST has handed it
   to you, is fine and is how `lint` reads a tag — the distinction is finding versus inspecting.

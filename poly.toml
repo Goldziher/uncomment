@@ -8,6 +8,26 @@ trim_trailing_whitespace = true
 
 [discovery]
 exclude = [
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez-generated.json",
+  "plugin/.claude-plugin/**",
+  "plugin/.codex-plugin/**",
+  "plugin/.cursor-plugin/**",
+  "plugin/.factory-plugin/**",
+  "plugin/.hermes/**",
+  "plugin/.opencode/**",
+  "plugin/.pi/**",
+  "plugin/.agents/**",
+  "plugin/.github/plugin/**",
+  "plugin/skills/**",
+  "plugin/plugin.json",
+  "plugin/package.json",
+  "plugin/kimi.plugin.json",
+  "plugin/gemini-extension.json",
+  "plugin/README.md",
+  "/skills/**",
+  ".agents/plugins/**",
+  ".claude-plugin/**",
   "**/*.lock",
   "**/*.svg",
   "**/Cargo.lock",
@@ -147,5 +167,5 @@ enabled = true
 [[hooks.sources]]
 id = "ai-rulez"
 git = "https://github.com/Goldziher/ai-rulez.git"
-revision = "v4.9.3"
+revision = "5e0bb9e03377f781ecbeac4110ffeac731d0ceef"
 hooks = ["ai-rulez-validate"]

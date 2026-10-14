@@ -144,10 +144,15 @@ jobs:
           release_assets_exist=false
 
           if gh release view "$tag" >/dev/null 2>&1; then
-            count="$(gh release view "$tag" --json assets --jq '.assets | length')"
-            if [ "${count:-0}" -gt 0 ]; then
-              release_assets_exist=true
-            fi
+            assets="$(gh release view "$tag" --json assets --jq '.assets[].name')"
+            release_assets_exist=true
+            for asset in uncomment-x86_64-unknown-linux-gnu.tar.gz uncomment-aarch64-unknown-linux-gnu.tar.gz \
+              uncomment-aarch64-apple-darwin.tar.gz uncomment-x86_64-apple-darwin.tar.gz \
+              uncomment-x86_64-pc-windows-gnu.zip; do
+              if ! grep -Fxq "$asset" <<< "$assets"; then
+                release_assets_exist=false
+              fi
+            done
           fi
 
           echo "release_assets_exist=$release_assets_exist" >> "$GITHUB_OUTPUT"
@@ -377,10 +382,40 @@ jobs:
           cat "uncomment_${version}_checksums.txt"
           gh release upload "$tag" "uncomment_${version}_checksums.txt" --clobber --repo "$GITHUB_REPOSITORY"
 
+  plugin_assets:
+    name: Package and upload verified coding-agent plugins
+    needs: [meta, create_release]
+    if: always() && needs.meta.result == 'success' && (needs.create_release.result == 'success' || needs.create_release.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.meta.outputs.tag }}
+      - uses: xberg-io/actions/setup-ai-rulez@98adf87f1ed4c62a57ff56f9010d62faf42d4db6
+        with:
+          ai-rulez-version: "5.3.0"
+          source-revision: "1dd46d774f156f3d170ecd1b702598b12d1eaf5b"
+      - name: Verify release version and public skills
+        env:
+          RELEASE_VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          python3 scripts/sync_plugin_version.py --expect "$RELEASE_VERSION"
+          python3 scripts/sync_public_skills.py --check
+      - uses: xberg-io/actions/package-ai-rulez-plugin@66e9a172c28ae7e57496fe92de1ab74f2a604194
+        with:
+          tag: ${{ needs.meta.outputs.tag }}
+          cursor-marketplace: "true"
+      - name: Upload verified plugin assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.meta.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" dist/plugin/* --clobber --repo "$GITHUB_REPOSITORY"
+
   finalize_release:
     name: Publish GitHub release
-    needs: [meta, checksums]
-    if: always() && needs.meta.result == 'success'
+    needs: [meta, checksums, plugin_assets]
+    if: always() && needs.meta.result == 'success' && needs.plugin_assets.result == 'success' && (needs.checksums.result == 'success' || needs.checksums.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Promote draft to published once complete

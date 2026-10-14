@@ -8,11 +8,11 @@ x-ai-rulez:
     priority: high
 ---
 
-# Cross-Platform Distribution
+## Cross-Platform Distribution
 
 uncomment is distributed across multiple package ecosystems. All distribution channels must be kept consistent and functional.
 
-## Distribution Channels
+### Distribution Channels
 
 - **crates.io**: Published via `cargo publish`. Primary source of truth for the Rust binary.
 - **npm** (package: `uncomment-cli`): Binary wrapper in `npm-package/` that downloads pre-built binaries from GitHub Releases via `install.js`.
@@ -21,7 +21,7 @@ uncomment is distributed across multiple package ecosystems. All distribution ch
 - **GitHub Actions (release automation)**: Cross-platform binary builds and release automation live in `.github/workflows/publish.yaml` (a native per-platform build matrix — goreleaser was removed in v3.1.0).
 - **GitHub Action (consumer-facing)**: Root `action.yml` is a composite action (`Goldziher/uncomment@vX.Y.Z`) that downloads and checksum-verifies the release asset matching the runner's OS/arch, caches it with `actions/cache`, and runs `uncomment`/`uncomment lint`. Install logic lives in `scripts/gh-action-*.sh`; annotations come from `problem-matcher.json`. Tested by `.github/workflows/action.yml`.
 
-## Release Workflow
+### Release Workflow
 
 1. Update version numbers in all manifests (see version-synchronization rule)
 2. Commit and tag with `vX.Y.Z`
@@ -32,7 +32,7 @@ uncomment is distributed across multiple package ecosystems. All distribution ch
    promotes the draft to a published release
 5. npm, PyPI, and Homebrew publish from the finalized GitHub Release assets
 
-## Guidelines
+### Guidelines
 
 - Always test binary wrapper install scripts when modifying `npm-package/install.js` or `pip-package/uncomment/downloader.py`
 - Ensure binaries are built for: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-gnu`

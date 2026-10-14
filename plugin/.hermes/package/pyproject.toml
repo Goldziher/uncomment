@@ -1,0 +1,25 @@
+[build-system]
+requires = ['hatchling>=1.27']
+build-backend = 'hatchling.build'
+
+[project]
+name = 'uncomment-hermes-plugin'
+version = '3.10.3'
+description = 'Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately.'
+requires-python = '>=3.11'
+keywords = ['comments', 'tree-sitter', 'code-cleanup', 'linting']
+
+[project.entry-points]
+[project.entry-points.'hermes_agent.plugins']
+uncomment = 'uncomment_hermes_plugin'
+
+[project.urls]
+Homepage = ''
+Repository = 'https://github.com/Goldziher/uncomment'
+
+[tool]
+[tool.hatch]
+[tool.hatch.build]
+[tool.hatch.build.targets]
+[tool.hatch.build.targets.wheel]
+packages = ['src/uncomment_hermes_plugin']

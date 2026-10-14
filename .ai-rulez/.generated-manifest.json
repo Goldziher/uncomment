@@ -64,5 +64,13 @@
   "merged": {
     ".mcp.json": [],
     "opencode.json": []
+  },
+  "servers": {
+    ".mcp.json": [
+      [
+        "mcpServers",
+        "ai-rulez"
+      ]
+    ]
   }
 }
