@@ -331,6 +331,29 @@ fn no_paths_is_a_usage_error() {
 }
 
 #[test]
+fn a_missing_explicit_path_is_an_error_not_a_pass() {
+    let fixture = Fixture::new();
+    for paths in [vec!["missing.rs"], vec!["clean.rs", "missing.rs"]] {
+        fixture.write("clean.rs", "fn main() {}\n");
+        let mut arguments = vec!["--check"];
+        arguments.extend(paths);
+        let output = fixture.run(&arguments);
+        assert_eq!(code(&output), EXIT_ERROR, "{}", stdout(&output));
+        assert!(stderr(&output).contains("missing.rs"), "{}", stderr(&output));
+    }
+}
+
+#[test]
+fn an_existing_explicit_path_checks_one_file_before_passing() {
+    let fixture = Fixture::new();
+    fixture.write("clean.rs", "fn main() {}\n");
+    let output = fixture.run(&["--check", "--format", "json", "clean.rs"]);
+    assert_eq!(code(&output), EXIT_CLEAN, "{}", stderr(&output));
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("check report");
+    assert_eq!(report["summary"]["files_checked"], 1);
+}
+
+#[test]
 fn an_unreadable_config_is_an_error_not_a_pass() {
     let fixture = Fixture::new();
     fixture.write("a.js", "const a = 1;\n");

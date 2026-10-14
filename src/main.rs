@@ -129,6 +129,10 @@ fn run(cli: &Cli) -> Result<i32> {
 
     let excludes = config_manager.exclude_set(&cli.args.exclude)?;
 
+    if checking {
+        validate_explicit_check_paths(&cli.args.paths)?;
+    }
+
     let mut unsupported_report = UnsupportedFilesReport::default();
     let mut files = collect_files(&cli.args.paths, &options, &registry, &excludes, &mut unsupported_report)?;
 
@@ -349,6 +353,16 @@ fn report_removal(
         }
     }
 
+    Ok(())
+}
+
+fn validate_explicit_check_paths(paths: &[String]) -> Result<()> {
+    for path in paths {
+        if path.chars().any(|character| matches!(character, '*' | '?' | '[')) {
+            continue;
+        }
+        std::fs::metadata(path).with_context(|| format!("Failed to inspect input path: {path}"))?;
+    }
     Ok(())
 }
 

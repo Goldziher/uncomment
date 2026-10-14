@@ -83,7 +83,8 @@ The removal gate exits 0 when nothing would be removed, 1 when removable comment
 exist, and 2 when inspection could not complete. Check reported file counts;
 zero matched files are not evidence that the intended tree passed. In 3.10.3, a
 missing input path can print an error and still exit 0, so also verify paths exist
-and the report covers the expected files.
+and the report covers the expected files. Current main source builds reject a
+missing explicit path with exit 2; that fix has not been released yet.
 
 ### Lint tag conventions
 

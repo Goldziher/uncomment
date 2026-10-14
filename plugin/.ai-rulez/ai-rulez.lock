@@ -4,10 +4,10 @@
 version = 1
 ai_rulez_version = '5.3.0'
 scope = 'all'
-tree = 'sha256:e07134ff0fe0f8887248ac8dc6ffa71988a3f7fffeeefc9b0d4b89265b1f84b7'
+tree = 'sha256:810684697e2f01cb1e2f34b3232459c938f62efef8d1cac2fbb8da795f276b12'
 
 [[item]]
 kind = 'skill'
 id = 'uncomment'
 path = 'skills/uncomment'
-digest = 'sha256:420601c50fbed6f87787ee66c144e7cf3e463a765718448d4f375db8c350b8b5'
+digest = 'sha256:857450098e394f90c30c85268742054ada2ad9009cec6c1eb5abc75fb5e07049'

@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## Unreleased
+
+### Fixed
+
+- `--check` now rejects missing explicit input paths with exit 2, including when a
+  valid path is supplied alongside them. Published 3.10.3 can report zero inspected
+  files and exit 0 for such a path; continue checking that the intended files were
+  inspected when using that release. Glob and change-scope filtering remain supported.
+
 ## [v3.10.0] - 2026-09-28
 
 ### Added

@@ -9,8 +9,8 @@ metadata:
 
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Content-Hash: blake3:201d65fcc15f52bee54f91cacda8a700f81fe7a1a2043f5c6b52f43ab55db180
-Source-Hash: blake3:f72d06fa94fa3cd18735f59cefe1c96293f5482a84bde29a88c1ec89b329c12f
+Content-Hash: blake3:0c7de78d48b93b3fbba0488c23059fea8b4e0ff49f7c1de07c8c7bbf8a3c24fa
+Source-Hash: blake3:85d69a598be3b0d78b61f01a4820b8971960a0c17a72cb0f7d5fe3ef80a91870
 Schema-Version: v1
 -->
 
@@ -84,7 +84,8 @@ The removal gate exits 0 when nothing would be removed, 1 when removable comment
 exist, and 2 when inspection could not complete. Check reported file counts;
 zero matched files are not evidence that the intended tree passed. In 3.10.3, a
 missing input path can print an error and still exit 0, so also verify paths exist
-and the report covers the expected files.
+and the report covers the expected files. Current main source builds reject a
+missing explicit path with exit 2; that fix has not been released yet.
 
 ### Lint tag conventions
 
