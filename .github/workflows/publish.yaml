@@ -446,7 +446,7 @@ jobs:
         run: |
           python3 scripts/sync_plugin_version.py --expect "$RELEASE_VERSION"
           python3 scripts/sync_public_skills.py --check
-      - uses: xberg-io/actions/package-ai-rulez-plugin@66e9a172c28ae7e57496fe92de1ab74f2a604194
+      - uses: xberg-io/actions/package-ai-rulez-plugin@0c528a8b4fc40259211d21c47216a776ead6370c
         with:
           tag: ${{ needs.meta.outputs.tag }}
           cursor-marketplace: "true"
