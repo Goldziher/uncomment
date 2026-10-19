@@ -86,5 +86,5 @@ libc = "0.2.190"
 jsonschema = { version = "0.58", default-features = false }
 pretty_assertions = "1.4"
 # ~keep only tests/uncomment_integration.rs parses YAML; keep it out of the shipped binary.
-saphyr = "0.1.0"
+saphyr = "0.2.2"
 tempfile = "3.27.0"
