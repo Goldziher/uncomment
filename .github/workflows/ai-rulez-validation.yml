@@ -39,7 +39,7 @@ jobs:
           repository: NousResearch/hermes-agent
           ref: caf557be5b4c9ae75b3a7566d65d3df2c701c5df
           path: .native/hermes
-      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: astral-sh/setup-uv@v10.3.2
       - name: Build and strictly validate the Hermes wheel
         shell: bash
         run: |
