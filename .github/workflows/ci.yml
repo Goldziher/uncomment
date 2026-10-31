@@ -18,7 +18,7 @@ env:
 
 jobs:
   validate:
-    uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1.27.1
+    uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1
     permissions:
       contents: read
       id-token: write
@@ -37,8 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
         with:
+          toolchain: stable
           components: clippy
       - name: Check formatting
         run: cargo fmt --check
@@ -57,7 +58,7 @@ jobs:
       MSRV: "1.90"
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ env.MSRV }}
       - uses: Swatinem/rust-cache@v2
@@ -97,7 +98,9 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - name: Cache tree-sitter parser bundles
         uses: actions/cache@v6
@@ -114,7 +117,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - name: Build
         run: cargo build --release
