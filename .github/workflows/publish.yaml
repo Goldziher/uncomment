@@ -543,7 +543,7 @@ jobs:
     # fetch the archives from their public download URLs (draft assets 404 for anon requests).
     if: >-
       !inputs.plugins-only && (needs.meta.outputs.release_assets_exist != 'true' && needs.finalize_release.result == 'success')
-    uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1.24.1
+    uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1.27.1
     with:
       package-name: uncomment
       binary-name: uncomment
@@ -846,7 +846,7 @@ jobs:
           python3 scripts/sync_plugin_version.py --expect "$VERSION"
           python3 scripts/sync_public_skills.py --check
           ai-rulez verify --plugin
-      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: "3.13"
       - name: Read the verified Hermes package version
