@@ -7,6 +7,14 @@ gitignore_exclude = [".ai-rulez/.generated-manifest.json"]
 presets = ["claude", "codex", "opencode", "pi"]
 builtins = ['rust', 'default-commands']
 
+[lint]
+allow_overrides = ["claude:review"]
+
+[lint.builtin_names]
+# `review` is this project's own command; the name also exists as an opencode built-in, so the
+# collision is intentional.
+allow = ["opencode:review"]
+
 [mcp]
 self_server_command = ["ai-rulez", "mcp"]
 
