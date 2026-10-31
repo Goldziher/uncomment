@@ -38,7 +38,7 @@ jobs:
       matrix:
         # Every OS the release workflow ships a binary for, plus the free-for-public-repos Linux
         # arm64 runner — cheap to add and the only arm64 case that isn't macOS.
-        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
+        os: [ubuntu-latest, macos-26, windows-latest, ubuntu-24.04-arm]
     steps:
       - name: Checkout
         uses: actions/checkout@v7

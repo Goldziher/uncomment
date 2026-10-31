@@ -27,7 +27,7 @@ uncomment is distributed across multiple package ecosystems. All distribution ch
 2. Commit and tag with `vX.Y.Z`
 3. Push the tag to trigger `.github/workflows/publish.yaml`
 4. The workflow creates a draft release, builds binaries for all platforms natively
-   (macOS on `macos-latest`/`macos-15-intel`, Windows cross-compiled with mingw-w64,
+   (macOS on `macos-26`/`macos-26-intel`, Windows cross-compiled with mingw-w64,
    Linux in `manylinux_2_28` containers), uploads them plus a checksums file, then
    promotes the draft to a published release
 5. npm, PyPI, and Homebrew publish from the finalized GitHub Release assets
