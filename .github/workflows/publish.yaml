@@ -70,20 +70,18 @@ jobs:
       pypi_exists: ${{ steps.published.outputs.pypi_exists }}
       release_assets_exist: ${{ steps.release_assets.outputs.release_assets_exist }}
     steps:
-      - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: "12.11.2"
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+      - name: Setup Node.js and pnpm
+        uses: xberg-io/actions/setup-mise@v1
         with:
-          node-version: "24"
+          # A dispatched tag can predate mise.toml; restore the config from the workflow's commit. ~keep
+          config-ref: ${{ github.sha }}
+          tools: node pnpm
 
       - name: Extract version from tag
         id: version
@@ -609,21 +607,18 @@ jobs:
       !inputs.plugins-only && (always() && needs.meta.outputs.npm_exists != 'true' && needs.finalize_release.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: "12.11.2"
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+      - name: Setup Node.js and pnpm
+        uses: xberg-io/actions/setup-mise@v1
         with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+          # A dispatched tag can predate mise.toml; restore the config from the workflow's commit. ~keep
+          config-ref: ${{ github.sha }}
+          tools: node pnpm
 
       - name: Publish to npm
         env:
@@ -655,9 +650,11 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: xberg-io/actions/setup-mise@v1
         with:
-          python-version: "3.14"
+          # A dispatched tag can predate mise.toml; restore the config from the workflow's commit. ~keep
+          config-ref: ${{ github.sha }}
+          tools: python
 
       - name: Build Python package
         run: |
@@ -728,9 +725,12 @@ jobs:
         with:
           ref: ${{ inputs.plugins-only && github.sha || needs.meta.outputs.tag }}
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - name: Setup Node.js
+        uses: xberg-io/actions/setup-mise@v1
         with:
-          node-version: "24"
+          # A dispatched tag can predate mise.toml; restore the config from the workflow's commit. ~keep
+          config-ref: ${{ github.sha }}
+          tools: node
       - name: Install ai-rulez
         uses: xberg-io/actions/setup-ai-rulez@0c528a8b4fc40259211d21c47216a776ead6370c
         with:
@@ -846,9 +846,12 @@ jobs:
           python3 scripts/sync_plugin_version.py --expect "$VERSION"
           python3 scripts/sync_public_skills.py --check
           ai-rulez verify --plugin
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Setup Python and uv
+        uses: xberg-io/actions/setup-mise@v1
         with:
-          python-version: "3.13"
+          # A dispatched tag can predate mise.toml; restore the config from the workflow's commit. ~keep
+          config-ref: ${{ github.sha }}
+          tools: python uv
       - name: Read the verified Hermes package version
         id: wheel-version
         run: |
