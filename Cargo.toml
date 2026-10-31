@@ -83,7 +83,7 @@ libc = "0.2.190"
 # ~keep only tests/schema_test.rs validates the published config schema; keep it out of the binary.
 # ~keep the default HTTP/TLS resolution features drag in reqwest and a native TLS backend; the schema
 # ~keep resolves nothing over the network, so only in-document `$ref`s need to work.
-jsonschema = { version = "0.58", default-features = false }
+jsonschema = { version = "0.60", default-features = false }
 pretty_assertions = "1.4"
 # ~keep only tests/uncomment_integration.rs parses YAML; keep it out of the shipped binary.
 saphyr = "0.2.2"
