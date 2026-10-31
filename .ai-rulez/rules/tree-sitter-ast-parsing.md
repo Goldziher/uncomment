@@ -26,7 +26,7 @@ comments, and no amount of regex tightening makes them distinguishable.
 
 ### Rules
 
-- Never locate a comment by text search. Regex over a comment's *text*, once the AST has handed it
+- Never locate a comment by text search. Regex over a comment's _text_, once the AST has handed it
   to you, is fine and is how `lint` reads a tag — the distinction is finding versus inspecting.
 - Never edit source without the parse. Byte ranges come from the tree; apply them through
   `crate::edit`, which rejects overlapping, out-of-bounds and non-character-boundary ranges rather

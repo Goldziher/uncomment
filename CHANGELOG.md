@@ -107,7 +107,7 @@ This changelog is generated from git tags and commit history.
 - Markdown is a built-in language, covering `.md`, `.markdown`, `.mdown` and `.mkd`. The grammar
   emits no comment node at all — an HTML comment is raw HTML to CommonMark, so `<!-- … -->` arrives
   as an `html_block`, the same node kind as a `<div align="center">` badge row or a `<details>`
-  block. A block therefore counts as a comment only when its text is *nothing but* one comment:
+  block. A block therefore counts as a comment only when its text is _nothing but_ one comment:
   embedded HTML, a `<!DOCTYPE>`, an unterminated `<!--` (which CommonMark runs to the end of the
   document) and a comment sharing its line with anything else are all left alone.
 
@@ -124,7 +124,7 @@ This changelog is generated from git tags and commit history.
   writes `{{/* ~keep */}}`.
 
   Unlike `if_action`, `range_action` and `define_action`, which all span their own `{{`/`}}`, a comment
-  action has no node covering it: the comment sits between two *bare sibling* delimiter tokens.
+  action has no node covering it: the comment sits between two _bare sibling_ delimiter tokens.
   Removing just the comment leaves `{{}}`, which the grammar rejects and Helm refuses to render
   (`missing value for command`). So the removal widens to the whole action whenever the comment's
   immediate siblings are the delimiters with nothing but whitespace between — a comment sharing its
@@ -174,7 +174,7 @@ This changelog is generated from git tags and commit history.
   clean file into a trailing-whitespace lint failure — `buildifier`, `gofmt`, ruff's `W291` and the
   usual pre-commit whitespace hook all reject it, which is enough to make an otherwise correct run
   unmergeable. Spaces and tabs are consumed, never the newline, so lines cannot splice. A comment
-  with code on *both* sides is untouched, and a standalone comment still loses its whole line.
+  with code on _both_ sides is untouched, and a standalone comment still loses its whole line.
 
   Measured over 6,054 tracked Bazel files: the old behaviour introduced 54 new trailing-whitespace
   lines across 26 files, the new one introduces zero, and the two outputs differ under nothing but
@@ -391,7 +391,7 @@ This changelog is generated from git tags and commit history.
   counted as unsupported and skipped. Collection was built from the built-in languages
   alone and the config was consulted only afterwards, per file — so overriding an
   extension that was already built in worked, and declaring a genuinely new one silently
-  did nothing. Declarations in a config file *below* the invocation directory, under the
+  did nothing. Declarations in a config file _below_ the invocation directory, under the
   paths being processed, now count too: deepest declaration wins.
 
 - `npm install -g uncomment-cli` no longer installs uncomment 2.0.0. A 15 MB macOS arm64
@@ -474,7 +474,7 @@ This changelog is generated from git tags and commit history.
   Such a marker does nothing where it sits — doc comments are preserved anyway unless
   `--remove-doc` is set — while the token travels outward into rendered documentation.
   The marker is left in place when `--remove-doc` is set, where it is the only thing
-  protecting that doc comment, and prose *about* the marker is never rewritten: a line
+  protecting that doc comment, and prose _about_ the marker is never rewritten: a line
   containing backticks, or a commented-out code sample, reads as documentation rather
   than as a directive.
 - Per-file output no longer leads with a removal count when nothing was removed, so a

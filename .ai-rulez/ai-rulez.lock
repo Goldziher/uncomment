@@ -4,7 +4,7 @@
 version = 1
 ai_rulez_version = '5.9.8'
 scope = 'all'
-tree = 'sha256:b4d6d3590af9e330110647c137a4864286e285dce72be8c60fe8380523abcc1e'
+tree = 'sha256:86a9bcbd825d8598cc317c68e3281f6fe5f7c5090ca3f03de8c0854789d7fad2'
 
 [[served]]
 name = 'build'
@@ -178,19 +178,19 @@ digest = 'sha256:5bf494533e0f472a74a6e5428570fe1e01831ccc5ac2c33fa00fd209175cc83
 kind = 'rule'
 id = 'grammar-management'
 path = 'rules/grammar-management.md'
-digest = 'sha256:185a74615062195053e4a5ed8ec8b3e909e86b33f549a8d88d2f624d515623e4'
+digest = 'sha256:4bdedfc7f738c58a3e9cce936a0a7be81c1e0873a547805ec4731056173dc4c0'
 
 [[item]]
 kind = 'rule'
 id = 'preservation-rules'
 path = 'rules/preservation-rules.md'
-digest = 'sha256:ad7c0196c9280f6cf66fd4b2a1a1120c2cbeea40805d81819c756fdd41a99078'
+digest = 'sha256:577facc31bef83412e4d1bcf6067482b6dda061af7737ccf11c7f8e90f6800f5'
 
 [[item]]
 kind = 'rule'
 id = 'tree-sitter-ast-parsing'
 path = 'rules/tree-sitter-ast-parsing.md'
-digest = 'sha256:a6c6379c95be8ad5bf19a454c175279c177d5bf4f9f0f70b8c9eb811fa4d8b83'
+digest = 'sha256:5d08c54f2c646783cb8f9936f004784a92e40050937b9b50006fe431e9ee0693'
 
 [[item]]
 kind = 'rule'

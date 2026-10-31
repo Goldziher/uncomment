@@ -54,12 +54,12 @@ checks that a TODO or FIXME still points at a live issue key instead of quietly 
 
 ## Installation
 
-| Channel | Command |
-| ------- | ------- |
+| Channel                | Command                                            |
+| ---------------------- | -------------------------------------------------- |
 | Homebrew (macOS/Linux) | `brew tap goldziher/tap && brew install uncomment` |
-| Cargo (Rust) | `cargo install uncomment` |
-| npm (Node.js) | `pnpm add -g uncomment-cli` |
-| pip (Python) | `pip install uncomment` |
+| Cargo (Rust)           | `cargo install uncomment`                          |
+| npm (Node.js)          | `pnpm add -g uncomment-cli`                        |
+| pip (Python)           | `pip install uncomment`                            |
 
 Prefer prebuilt binaries? [`cargo binstall uncomment`](https://github.com/cargo-bins/cargo-binstall) downloads a
 release archive instead of compiling from source.
@@ -206,16 +206,16 @@ Objective-C++ (`.mm`) is not included in built-in support.
 
 Markdown has no comment of its own — `<!-- … -->` is raw HTML to CommonMark, and the grammar reports
 it as the same `html_block` that carries a `<div align="center">` badge row. A block is treated as a
-comment only when it is *nothing but* one comment, so embedded HTML, a `<!DOCTYPE>`, an unterminated
+comment only when it is _nothing but_ one comment, so embedded HTML, a `<!DOCTYPE>`, an unterminated
 `<!--` (which runs to the end of the document) and `<!-- x --><div>kept</div>` are all left alone. A
 comment inside a paragraph or a table cell is inline content rather than an `html_block`, so it is
 out of reach; `.mdx` is not supported at all, because no grammar in the pack parses `{/* … */}`.
 
 In a Go template a comment is only a comment inside an action, so a bare `/* … */` is literal output
-text and `{{/* … */}}` is the only form. The grammar models the `{{` and `}}` as *siblings* of the
+text and `{{/* … */}}` is the only form. The grammar models the `{{` and `}}` as _siblings_ of the
 comment rather than as part of it, so the whole action is removed — deleting only the comment would
 leave `{{}}`, which Helm refuses to render. One spacing caveat: `{{ /* spaced */ }}` and `{{-/* x */-}}`
-produce no comment node at all and are left alone. A comment with code on *both* sides keeps the
+produce no comment node at all and are left alone. A comment with code on _both_ sides keeps the
 spaces around it (`hello {{/* x */}} world` → `hello  world`), because in a template that whitespace is
 rendered output. One that ends the line does not: `hello {{/* x */}}` leaves `hello`, since a trailing
 comment takes its separator with it like any other language's.
@@ -254,26 +254,26 @@ Inside a doc comment the marker is usually redundant, since doc comments are pre
 anyway unless `--remove-doc` is set. uncomment strips such a marker from the doc text and
 reports it (`stripped 2 redundant ~keep markers`), leaving the comment itself untouched.
 Two cases are left alone: a marker is kept when `--remove-doc` is set, because there it is
-the only thing protecting that doc comment, and prose *about* the marker is never rewritten
+the only thing protecting that doc comment, and prose _about_ the marker is never rewritten
 — a line containing backticks, or a commented-out code sample, is read as documentation
 rather than as a directive.
 
 <details>
 <summary><b>Linting &amp; formatter directives (always preserved)</b></summary>
 
-| Language | Directives |
-| -------- | ---------- |
-| Go | `//nolint`, `//golangci-lint`, `//staticcheck`, `//go:generate` |
-| Python | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# nosec`, `# pyre-ignore` |
-| JS/TS | `eslint-disable*`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `/// <reference`, `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`, `v8/c8/istanbul ignore` |
-| Rust | `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`, `clippy::`, `#[rustfmt::skip]` |
-| Java | `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:` |
-| C/C++ | `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on` |
-| Shell | `# shellcheck disable`, `# hadolint ignore` |
-| YAML | `# yamllint disable/enable` |
-| HCL/Terraform | `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore` |
-| Ruby | `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable` |
-| Markdown | `<!-- markdownlint-* -->`, `<!-- prettier-ignore -->`, `<!-- vale off/on -->`, `<!-- START/END doctoc -->` |
+| Language      | Directives                                                                                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Go            | `//nolint`, `//golangci-lint`, `//staticcheck`, `//go:generate`                                                                                                            |
+| Python        | `# noqa`, `# type: ignore`, `# mypy:`, `# pyright:`, `# ruff:`, `# pylint:`, `# flake8:`, `# fmt: off/on`, `# black:`, `# isort:`, `# bandit:`, `# nosec`, `# pyre-ignore` |
+| JS/TS         | `eslint-disable*`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `/// <reference`, `prettier-ignore`, `biome-ignore`, `deno-lint-ignore`, `v8/c8/istanbul ignore`       |
+| Rust          | `#[allow]`, `#[deny]`, `#[warn]`, `#[forbid]`, `#[cfg]`, `clippy::`, `#[rustfmt::skip]`                                                                                    |
+| Java          | `@SuppressWarnings`, `@SuppressFBWarnings`, `//noinspection`, `// checkstyle:`                                                                                             |
+| C/C++         | `// NOLINT`, `// NOLINTNEXTLINE`, `#pragma`, `// clang-format off/on`                                                                                                      |
+| Shell         | `# shellcheck disable`, `# hadolint ignore`                                                                                                                                |
+| YAML          | `# yamllint disable/enable`                                                                                                                                                |
+| HCL/Terraform | `# tfsec:ignore`, `# checkov:skip`, `# trivy:ignore`, `# tflint-ignore`                                                                                                    |
+| Ruby          | `# rubocop:disable/enable`, `# reek:`, `# standard:disable/enable`                                                                                                         |
+| Markdown      | `<!-- markdownlint-* -->`, `<!-- prettier-ignore -->`, `<!-- vale off/on -->`, `<!-- START/END doctoc -->`                                                                 |
 
 </details>
 
@@ -404,9 +404,9 @@ uncomment lint src/ --baseline .lint-baseline.json
 
 **Five rules:**
 
-1. `tag-not-canonical` — a tag not written the way `canonical_tag` is written. That covers two defects and the message says which: a different spelling, reported as *`FIXME` should be written as `TODO`*, and the canonical spelling in the wrong casing, reported as *`todo` is `TODO` written with the wrong casing*. `--fix` rewrites both.
+1. `tag-not-canonical` — a tag not written the way `canonical_tag` is written. That covers two defects and the message says which: a different spelling, reported as _`FIXME` should be written as `TODO`_, and the canonical spelling in the wrong casing, reported as _`todo` is `TODO` written with the wrong casing_. `--fix` rewrites both.
 2. `todo-missing-key` — no issue key at all: not in a group, not spelled out nearby
-3. `todo-key-not-upper-case` — a key was found but is not upper case, reported as *issue key `amvp-12` must be upper case*. `--fix` recases it in place.
+3. `todo-key-not-upper-case` — a key was found but is not upper case, reported as _issue key `amvp-12` must be upper case_. `--fix` recases it in place.
 4. `tag-form-not-canonical` — a key was found near the tag, but the tag is not written as `TAG(KEY):` around it: the key sits bare in the text (`TODO AMVP-12: x`, `TODO: AMVP-12 x`), in brackets (`TODO [AMVP-12] x`), or the tag itself is wrapped in its own `(...)`. `--fix` rewrites the whole form — the wrap, any bracket, and a key already in the leading text — into the single `TAG(KEY):` prefix, reusing the key that was already there rather than inserting a second one from `--todo-key`. A leftover from an earlier, careless rewrite, such as `(TODO(AMVP-1):):`, is reported and cleaned up the same way.
 5. `todo-self-reference` — the key must not be the issue the current branch is for (that issue closes when the branch merges, leaving the TODO pointing at a dead ticket)
 
@@ -437,7 +437,7 @@ Note what `enabled = true` alone commits you to: with the default `tags` and `ca
 
 On a large codebase, deciding which comments to keep is a batch process: scan once, filter the report, then mark what the filter selected.
 
-Two scans, because the two reports answer different questions. A grouped report is for *deciding* — one judgement per distinct wording instead of hundreds. `keep` cannot act on it: a grouped record's `id` is a group id derived from the normalized text, with no path and no occurrence index, so it resolves to no single comment and the run fails with every id unresolved (`--skip-missing` downgrades that to a warning). Feed `keep --from` the ungrouped report.
+Two scans, because the two reports answer different questions. A grouped report is for _deciding_ — one judgement per distinct wording instead of hundreds. `keep` cannot act on it: a grouped record's `id` is a group id derived from the normalized text, with no path and no occurrence index, so it resolves to no single comment and the run fails with every id unresolved (`--skip-missing` downgrades that to a warning). Feed `keep --from` the ungrouped report.
 
 ```bash
 # 1. Read the decision surface: one record per distinct comment, by frequency
@@ -686,17 +686,17 @@ lint.
 
 **Inputs** (all optional):
 
-| Input | Default | Description |
-| --- | --- | --- |
-| `version` | resolved from the tag the action is pinned to (`@v3` resolves the newest 3.x release), else `latest` | uncomment version to install, with or without a leading `v` |
-| `args` | `lint .` | Arguments passed to `uncomment`, as one space-separated string |
-| `working-directory` | `.` | Directory to run uncomment in |
-| `install-only` | `false` | Install and put uncomment on `PATH`, but don't run it |
-| `changed-only` | `false` | Append `--changed-only` |
-| `changed-lines` | `false` | Append `--changed-lines` (implies `changed-only`) |
-| `staged` | `false` | Append `--staged` |
-| `base` | PR base SHA on `pull_request`, else uncomment's own default | Base ref/SHA for `--changed-only`/`--changed-lines` |
-| `token` | `${{ github.token }}` | Token used to resolve `latest` and download the release asset |
+| Input               | Default                                                                                              | Description                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `version`           | resolved from the tag the action is pinned to (`@v3` resolves the newest 3.x release), else `latest` | uncomment version to install, with or without a leading `v`    |
+| `args`              | `lint .`                                                                                             | Arguments passed to `uncomment`, as one space-separated string |
+| `working-directory` | `.`                                                                                                  | Directory to run uncomment in                                  |
+| `install-only`      | `false`                                                                                              | Install and put uncomment on `PATH`, but don't run it          |
+| `changed-only`      | `false`                                                                                              | Append `--changed-only`                                        |
+| `changed-lines`     | `false`                                                                                              | Append `--changed-lines` (implies `changed-only`)              |
+| `staged`            | `false`                                                                                              | Append `--staged`                                              |
+| `base`              | PR base SHA on `pull_request`, else uncomment's own default                                          | Base ref/SHA for `--changed-only`/`--changed-lines`            |
+| `token`             | `${{ github.token }}`                                                                                | Token used to resolve `latest` and download the release asset  |
 
 **Outputs:** `version` (the version installed) and `path` (absolute path to the binary).
 
@@ -713,11 +713,11 @@ AST parsing costs a little more than regex, but the tool is fast and scales well
 
 | Threads | Files/second | Speedup |
 | ------- | ------------ | ------- |
-| 1 | 1,500 | 1.0× |
-| 4 | 3,900 | 2.6× |
-| 8 | 5,100 | 3.4× |
+| 1       | 1,500        | 1.0×    |
+| 4       | 3,900        | 2.6×    |
+| 8       | 5,100        | 3.4×    |
 
-*Benchmarked on a large enterprise codebase of ~5,000 mixed-language files.* Measure your own with
+_Benchmarked on a large enterprise codebase of ~5,000 mixed-language files._ Measure your own with
 the built-in `benchmark` and `profile` tools (see [optional benchmarking tools](#usage)).
 
 ## Coding-agent plugins

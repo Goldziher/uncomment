@@ -1,7 +1,7 @@
 
 [global]
-remove_todos = false                                                   # Remove TODO comments
-remove_fixme = false                                                   # Remove FIXME comments
+remove_todos = false # Remove TODO comments
+remove_fixme = false # Remove FIXME comments
 remove_docs = false
 preserve_patterns = ["HACK", "WORKAROUND", "NOTE", "BUG", "IMPORTANT"]
 use_default_ignores = true

@@ -13,7 +13,7 @@ x-ai-rulez:
 Every grammar comes from the `tree-sitter-language-pack` crate, resolved at runtime by
 `tree_sitter_language_pack::get_language(&language_config.tslp_name)`. There is no grammar
 compilation, no git or local grammar source, no `~/.cache` and no shared-library loading —
-so a language uncomment does not already know is a *registration* problem, never a build one.
+so a language uncomment does not already know is a _registration_ problem, never a build one.
 
 ### Adding a built-in language
 

@@ -22,7 +22,7 @@ base `comprehensive_rules()` extends; nothing calls it on its own. Setting
 `use_default_ignores = false` drops the whole set, keeping only the `remove_*` flags and the
 user's own `preserve_patterns`.
 
-`preserve_patterns` exists only on the *config-side* `LanguageConfig` (`src/config/file.rs`) — it is
+`preserve_patterns` exists only on the _config-side_ `LanguageConfig` (`src/config/file.rs`) — it is
 user data. Built-in languages carry no patterns of their own; the generated `init` templates write
 per-language suggestions (`swiftlint:`, `frozen_string_literal:`) into the user's config instead.
 
@@ -31,7 +31,7 @@ per-language suggestions (`swiftlint:`, `frozen_string_literal:`) into the user'
 A comment is not preserved merely because its text contains `~keep`:
 
 - `is_marker_occurrence` rejects the word inside backticks or quotes, and rejects `~keepsake` —
-  prose *about* the marker does not become one.
+  prose _about_ the marker does not become one.
 - `is_keep_marker_line` (the standalone marker that protects a neighbour) additionally requires the
   comment to be standalone and **not** a documentation comment. `/// ~keep` and `## ~keep` are
   documentation, so they are inert — write the plain form (`// ~keep`, `# ~keep`, `<!-- ~keep -->`).
