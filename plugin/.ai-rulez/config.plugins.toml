@@ -1,6 +1,6 @@
 [plugin]
 name = "uncomment"
-version = "3.10.3"
+version = "3.10.4"
 display_name = "Uncomment"
 description = "Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately."
 repository = "https://github.com/Goldziher/uncomment"

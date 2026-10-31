@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "uncomment",
-  "version": "3.10.3",
+  "version": "3.10.4",
   "description": "Inventory, preserve and remove source comments with AST parsing. Skills only; install the Uncomment CLI separately.",
   "author": {
     "name": "Goldziher"

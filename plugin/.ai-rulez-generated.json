@@ -1,17 +1,17 @@
 {
   "schema_version": "v1",
-  "source_hash": "blake3:d94e47c9b5760f2cf724e055e236d9021312752c3c3f065f46d95d0ea5818506",
+  "source_hash": "blake3:632626448c20c35e5a1201704fa17dabcd59ec395a3e338c62ac5d02b619d20c",
   "outputs": {
     ".claude-plugin/plugin.json": {
-      "content_hash": "blake3:53404dc5d30e9bfe364e5be09dd751700e8402a4e2e35cadd659ac2801f8604e",
+      "content_hash": "blake3:8e024ca940c5a85886e3bf9a61fff6eb79de597cdf14a1327c50f324099f2911",
       "mode": "0644"
     },
     ".codex-plugin/plugin.json": {
-      "content_hash": "blake3:008dde702bb06d0d4b2abd810ff4dfb1c013b72bc5d5a5f4468b33b7d0943666",
+      "content_hash": "blake3:c0c91eee03900a6669a3d31a80537a2fc12b95a0a26d3544597d58d778a6eaf1",
       "mode": "0644"
     },
     ".cursor-plugin/plugin.json": {
-      "content_hash": "blake3:450d7d2fdf07764a8785122a6e6af8f4bcedb399239720e3d683ff3e304bf724",
+      "content_hash": "blake3:52061399e4a89e07956b4188993bcdd466d78fb5b35f2967eb91fc8cef6dd00a",
       "mode": "0644"
     },
     ".cursor-plugin/skills/uncomment/SKILL.md": {
@@ -31,15 +31,15 @@
       "mode": "0644"
     },
     ".factory-plugin/plugin.json": {
-      "content_hash": "blake3:8c621d26180368b1aa18e614b877a7f86c0dd1b9698bbe1c38b3ec41015fc7e8",
+      "content_hash": "blake3:ad1a2d6db66c2dee66a4abe621b7c993d4bc01596aa80cbe3266e0f041c965a7",
       "mode": "0644"
     },
     ".hermes/package/pyproject.toml": {
-      "content_hash": "blake3:dcb15b4b45b065fdc814b37737933d77ecef497a0ed4a006bc7ee8d842d0eaf5",
+      "content_hash": "blake3:0f4a2cc9ddd55bde68128a15a0fa5c247983c203b1cdec3b5f9a5b0cce22406f",
       "mode": "0644"
     },
     ".hermes/package/src/uncomment_hermes_plugin/__init__.py": {
-      "content_hash": "blake3:108dedcbe5c8f5d5ef009226493fbc1177125be18fe519ed65e26bc396133b3e",
+      "content_hash": "blake3:84cc43f0d5bf43a8413ba3352e503e6c7bde36ee59b575f879336332ee7cc8bf",
       "mode": "0644"
     },
     ".hermes/package/src/uncomment_hermes_plugin/hermes.py": {
@@ -47,7 +47,7 @@
       "mode": "0644"
     },
     ".hermes/package/src/uncomment_hermes_plugin/plugin.yaml": {
-      "content_hash": "blake3:20e0b299446a1cfac7ee50082875cec45c5a478c43c2a80a5b32a50a81cba8ce",
+      "content_hash": "blake3:e3cf11b1e6a2bc51ba19403bf75becd9893423a2231a7058ad80f1d33231c923",
       "mode": "0644"
     },
     ".hermes/package/src/uncomment_hermes_plugin/skills/uncomment/SKILL.md": {
@@ -67,7 +67,7 @@
       "mode": "0644"
     },
     ".hermes/plugins/uncomment/__init__.py": {
-      "content_hash": "blake3:108dedcbe5c8f5d5ef009226493fbc1177125be18fe519ed65e26bc396133b3e",
+      "content_hash": "blake3:84cc43f0d5bf43a8413ba3352e503e6c7bde36ee59b575f879336332ee7cc8bf",
       "mode": "0644"
     },
     ".hermes/plugins/uncomment/hermes.py": {
@@ -75,7 +75,7 @@
       "mode": "0644"
     },
     ".hermes/plugins/uncomment/plugin.yaml": {
-      "content_hash": "blake3:20e0b299446a1cfac7ee50082875cec45c5a478c43c2a80a5b32a50a81cba8ce",
+      "content_hash": "blake3:e3cf11b1e6a2bc51ba19403bf75becd9893423a2231a7058ad80f1d33231c923",
       "mode": "0644"
     },
     ".hermes/plugins/uncomment/skills/uncomment/SKILL.md": {
@@ -139,19 +139,19 @@
       "mode": "0644"
     },
     "gemini-extension.json": {
-      "content_hash": "blake3:be4577d2565de62f965c23a885c99886040bbda480eace9350e814fb9d75c497",
+      "content_hash": "blake3:91274061a37cde84f4ddc04c18682a62ddebb08fe96629e80dc3f22eda5409e9",
       "mode": "0644"
     },
     "kimi.plugin.json": {
-      "content_hash": "blake3:39fd81aad4de0023f0baec1bf7d9da06409c7a3436c9df14e74b5dc440a01d8b",
+      "content_hash": "blake3:929734a1dd45270cd11ab3a4a9492c3b4eef7c2a68b61164caf6d0bfba51d952",
       "mode": "0644"
     },
     "package.json": {
-      "content_hash": "blake3:4102cc895a130ca3b6b751d0226e6643ca6386b3dcb40963e25fc9cd3bee0b6d",
+      "content_hash": "blake3:b3e1e2434708e4eb99e70faa82c04814fc99df4cca0fe8001ef1f4b5b55d37fc",
       "mode": "0644"
     },
     "plugin.json": {
-      "content_hash": "blake3:b9ad05541d1f919fdc743b2632f7718ffc131227c949e418d5542d2266d7f81c",
+      "content_hash": "blake3:2744492787fce13673f04f6e3d79774f7947205dfd18f000f2d3190e7ce7a41f",
       "mode": "0644"
     },
     "skills/uncomment/SKILL.md": {
