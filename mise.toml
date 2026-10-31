@@ -11,3 +11,67 @@ node = "26.12.1"
 pnpm = "12.15.0"
 "github:Goldziher/poly" = "0.31.2"
 actionlint = "1.7.12"
+
+[vars]
+# ai-rulez is never pinned: every task runs its newest release on the baseline Node. ~keep
+ai_rulez = "npx -y ai-rulez@latest"
+
+[task_config]
+includes = ["mise-tasks", "mise-tasks/shared.toml"]
+
+[tasks.setup]
+description = "Install all dependencies and initialize project. Idempotent."
+run = ["mise install", "cargo fetch", { task = "ai:hooks" }]
+
+[tasks.build]
+description = "Build the uncomment binary"
+run = "cargo build --release"
+
+[tasks.test]
+description = "Run all tests"
+run = "cargo test"
+
+[tasks."test:verbose"]
+description = "Run tests with verbose output"
+run = "cargo test -- --nocapture"
+
+[tasks.check]
+description = "Run all checks (lint + test)"
+run = [{ task = "lint" }, { task = "test" }]
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "cargo clean"
+
+[tasks.update]
+description = "Update dependencies"
+run = ["cargo update", "poly hooks update", "poly hooks install"]
+
+[tasks."ai:hooks"]
+description = "Update the reviewed governance hooks and install them while preserving local preferences"
+run = ["poly hooks update", { task = "governance:hooks:install" }]
+
+[tasks."ai:validate"]
+description = "Validate both native governance configurations and plugin exports"
+run = [
+  "{{vars.ai_rulez}} migrate okf --check",
+  "{{vars.ai_rulez}} -C plugin/.ai-rulez migrate okf --check",
+  "{{vars.ai_rulez}} validate --strict --no-local",
+  "{{vars.ai_rulez}} -C plugin/.ai-rulez validate --strict --no-local",
+  "{{vars.ai_rulez}} lock --recursive --check",
+  "{{vars.ai_rulez}} generate --no-local --strict-config --check",
+  "{{vars.ai_rulez}} verify --plugin",
+  "python3 scripts/sync_plugin_version.py --check",
+  "python3 scripts/sync_public_skills.py --check",
+]
+
+[tasks."plugin:generate"]
+description = "Generate all runtime plugins and portable public skills"
+run = [
+  "python3 scripts/sync_plugin_version.py",
+  "{{vars.ai_rulez}} -C plugin/.ai-rulez lock --content-only",
+  "{{vars.ai_rulez}} generate --plugin --no-local --strict-config",
+  "python3 scripts/sync_public_skills.py",
+  "{{vars.ai_rulez}} lock --content-only",
+  "{{vars.ai_rulez}} generate --no-local",
+]
