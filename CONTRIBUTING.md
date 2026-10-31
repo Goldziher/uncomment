@@ -8,7 +8,7 @@ Thanks for helping improve `uncomment`! This guide keeps the local workflow and 
 
 - Rust 1.90+ with `cargo`
 - Python 3.11+ for governance hooks and plugin checks
-- Poly and ai-rulez 5.3.0 for governance generation
+- Poly, and Node for ai-rulez, which tasks run at its latest release
 - Node.js 24+ (for optional tooling and npm wrapper verification)
 - Tree-sitter grammars are provided by [tree-sitter-language-pack](https://github.com/kreuzberg-dev/tree-sitter-language-pack); no extra setup is required
 
@@ -84,8 +84,9 @@ Pushing the tag triggers `.github/workflows/publish.yaml`, which builds signed b
 ## AI governance and public plugins
 
 Edit `.ai-rulez/` for repository instructions and `plugin/.ai-rulez/` for public
-skills. Both use OKF content and native schema version `5.0`; the CLI is 5.3.0.
-The plugin has no MCP server and requires a separately installed Uncomment CLI.
+skills. Both use OKF content and native schema version `5.0`; tasks and CI run
+the latest ai-rulez release. The plugin has no MCP server and requires a
+separately installed Uncomment CLI.
 
 Run `mise run ai:hooks` to refresh the pinned hook catalog, add the npm and system
 hook channels to `poly.local.toml` when it allows neither, and install hooks.

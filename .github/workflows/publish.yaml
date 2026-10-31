@@ -437,9 +437,6 @@ jobs:
           fetch-depth: 0
           ref: ${{ needs.meta.outputs.tag }}
       - uses: xberg-io/actions/setup-ai-rulez@v1
-        with:
-          ai-rulez-version: "5.3.0"
-          source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
       - name: Verify release version and public skills
         env:
           RELEASE_VERSION: ${{ needs.meta.outputs.version }}
@@ -737,9 +734,6 @@ jobs:
           tools: node
       - name: Install ai-rulez
         uses: xberg-io/actions/setup-ai-rulez@v1
-        with:
-          ai-rulez-version: "5.3.0"
-          source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
       - name: Verify plugin versions and generated resources before publishing
         env:
           VERSION: ${{ needs.plugin-meta.outputs.version || needs.meta.outputs.version }}
@@ -839,9 +833,6 @@ jobs:
           fetch-depth: 0
       - name: Install ai-rulez
         uses: xberg-io/actions/setup-ai-rulez@v1
-        with:
-          ai-rulez-version: "5.3.0"
-          source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
       - name: Verify plugin versions and generated resources before publishing
         env:
           VERSION: ${{ needs.plugin-meta.outputs.version || needs.meta.outputs.version }}
