@@ -1,3 +1,3 @@
 # Subdirectories
 
-* [uncomment](uncomment/index.md)
+- [uncomment](uncomment/index.md)

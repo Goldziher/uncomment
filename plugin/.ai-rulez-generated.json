@@ -1,6 +1,6 @@
 {
   "schema_version": "v1",
-  "source_hash": "blake3:0935b1c74300d0f985a89bd38c3cfd9146d3b7832a514aca4b1d1a2f0db775ed",
+  "source_hash": "blake3:d94e47c9b5760f2cf724e055e236d9021312752c3c3f065f46d95d0ea5818506",
   "outputs": {
     ".claude-plugin/plugin.json": {
       "content_hash": "blake3:53404dc5d30e9bfe364e5be09dd751700e8402a4e2e35cadd659ac2801f8604e",
@@ -19,7 +19,7 @@
       "mode": "0644"
     },
     ".cursor-plugin/skills/uncomment/index.md": {
-      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "content_hash": "blake3:cc81cf423c5ad94921b9378edd664206f97717227ecee71551500f251cbeefa3",
       "mode": "0644"
     },
     ".cursor-plugin/skills/uncomment/references/configuration.md": {
@@ -55,7 +55,7 @@
       "mode": "0644"
     },
     ".hermes/package/src/uncomment_hermes_plugin/skills/uncomment/index.md": {
-      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "content_hash": "blake3:cc81cf423c5ad94921b9378edd664206f97717227ecee71551500f251cbeefa3",
       "mode": "0644"
     },
     ".hermes/package/src/uncomment_hermes_plugin/skills/uncomment/references/configuration.md": {
@@ -83,7 +83,7 @@
       "mode": "0644"
     },
     ".hermes/plugins/uncomment/skills/uncomment/index.md": {
-      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "content_hash": "blake3:cc81cf423c5ad94921b9378edd664206f97717227ecee71551500f251cbeefa3",
       "mode": "0644"
     },
     ".hermes/plugins/uncomment/skills/uncomment/references/configuration.md": {
@@ -111,7 +111,7 @@
       "mode": "0644"
     },
     ".opencode/skills/uncomment/index.md": {
-      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "content_hash": "blake3:cc81cf423c5ad94921b9378edd664206f97717227ecee71551500f251cbeefa3",
       "mode": "0644"
     },
     ".opencode/skills/uncomment/references/configuration.md": {
@@ -127,7 +127,7 @@
       "mode": "0644"
     },
     ".pi/skills/uncomment/index.md": {
-      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "content_hash": "blake3:cc81cf423c5ad94921b9378edd664206f97717227ecee71551500f251cbeefa3",
       "mode": "0644"
     },
     ".pi/skills/uncomment/references/configuration.md": {
@@ -159,7 +159,7 @@
       "mode": "0644"
     },
     "skills/uncomment/index.md": {
-      "content_hash": "blake3:f42f05d7c370b764780e3f369cbb5e6946ea4a6b7ff99106c59e97bdfcc8435d",
+      "content_hash": "blake3:cc81cf423c5ad94921b9378edd664206f97717227ecee71551500f251cbeefa3",
       "mode": "0644"
     },
     "skills/uncomment/references/configuration.md": {
