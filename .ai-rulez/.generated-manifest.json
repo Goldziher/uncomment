@@ -1,21 +1,39 @@
 {
   "version": "1",
   "files": [
+    ".agents/skills/build/SKILL.md",
+    ".agents/skills/build/agents/openai.yaml",
     ".agents/skills/code-quality-standards/SKILL.md",
+    ".agents/skills/config-placement/SKILL.md",
     ".agents/skills/dependency-awareness/SKILL.md",
     ".agents/skills/error-handling/SKILL.md",
+    ".agents/skills/fix/SKILL.md",
+    ".agents/skills/fix/agents/openai.yaml",
     ".agents/skills/incremental-approach/SKILL.md",
+    ".agents/skills/iterate/SKILL.md",
+    ".agents/skills/iterate/agents/openai.yaml",
+    ".agents/skills/lint/SKILL.md",
+    ".agents/skills/lint/agents/openai.yaml",
     ".agents/skills/owasp-quick-reference/SKILL.md",
+    ".agents/skills/parallelize/SKILL.md",
+    ".agents/skills/parallelize/agents/openai.yaml",
+    ".agents/skills/review/SKILL.md",
+    ".agents/skills/review/agents/openai.yaml",
     ".agents/skills/rust-conventions/SKILL.md",
+    ".agents/skills/skill-authoring/SKILL.md",
     ".agents/skills/task-runner/SKILL.md",
     ".agents/skills/tdd-workflow/SKILL.md",
+    ".agents/skills/test/SKILL.md",
+    ".agents/skills/test/agents/openai.yaml",
     ".agents/skills/testing-conventions/SKILL.md",
     ".claude/agents/code-reviewer.md",
     ".claude/agents/docs-writer.md",
     ".claude/agents/security-auditor.md",
     ".claude/agents/test-writer.md",
+    ".claude/settings.json",
     ".claude/skills/build/SKILL.md",
     ".claude/skills/code-quality-standards/SKILL.md",
+    ".claude/skills/config-placement/SKILL.md",
     ".claude/skills/dependency-awareness/SKILL.md",
     ".claude/skills/error-handling/SKILL.md",
     ".claude/skills/fix/SKILL.md",
@@ -26,6 +44,7 @@
     ".claude/skills/parallelize/SKILL.md",
     ".claude/skills/review/SKILL.md",
     ".claude/skills/rust-conventions/SKILL.md",
+    ".claude/skills/skill-authoring/SKILL.md",
     ".claude/skills/task-runner/SKILL.md",
     ".claude/skills/tdd-workflow/SKILL.md",
     ".claude/skills/test/SKILL.md",
@@ -34,6 +53,7 @@
     ".codex/agents/docs-writer.toml",
     ".codex/agents/security-auditor.toml",
     ".codex/agents/test-writer.toml",
+    ".codex/config.toml",
     ".mcp.json",
     ".opencode/agents/code-reviewer.md",
     ".opencode/agents/docs-writer.md",
@@ -62,13 +82,27 @@
     "opencode.json"
   ],
   "merged": {
+    ".claude/settings.json": [],
+    ".codex/config.toml": [],
     ".mcp.json": [],
     "opencode.json": []
   },
   "servers": {
+    ".codex/config.toml": [
+      [
+        "mcp_servers",
+        "ai-rulez"
+      ]
+    ],
     ".mcp.json": [
       [
         "mcpServers",
+        "ai-rulez"
+      ]
+    ],
+    "opencode.json": [
+      [
+        "mcp",
         "ai-rulez"
       ]
     ]

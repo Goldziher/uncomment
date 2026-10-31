@@ -14,7 +14,7 @@ x-ai-rulez:
 
 - Rust 1.90+ (`rustc --version`)
 - Cargo (included with Rust)
-- Task runner (`task --version`) for task automation
+- mise (`mise --version`) for the toolchain and tasks
 
 ### Build
 
@@ -76,15 +76,15 @@ cargo run --release --features bench-tools --bin profile -- /path/to/repo
 
 ### Task Runner
 
-Use `task` for common operations:
+Use `mise run` for common operations:
 
 ```bash
-task          # List available tasks
-task setup    # Install dependencies and hooks
-task build    # Release build
-task test     # Run tests
-task lint     # Run linters
-task check    # Lint + test
-task format   # Format code
-task clean    # Clean build artifacts
+mise tasks ls        # List available tasks
+mise run setup       # Install the toolchain, dependencies and hooks
+mise run build       # Release build
+mise run test        # Run tests
+mise run lint        # Run linters
+mise run check       # Lint + test
+mise run format      # Format code
+mise run clean       # Clean build artifacts
 ```

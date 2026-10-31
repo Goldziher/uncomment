@@ -3,7 +3,7 @@
 Skills for AST-based comment inventory, preservation, removal and linting.
 Install the Uncomment CLI 3.10 or newer separately. This plugin has no MCP server.
 
-The authored skill lives in `.ai-rulez/skills/uncomment/`. Run `task plugin:generate`
+The authored skill lives in `.ai-rulez/skills/uncomment/`. Run `mise run plugin:generate`
 from the repository root to regenerate the runtime bundles and portable `skills/`
 export. Edit source files rather than generated manifests or native skills.
 
@@ -25,6 +25,6 @@ library references. Keep supporting resources together with `SKILL.md`.
 
 ## Verification
 
-`task ai:validate` checks both authored roots, pinned content, native bundle drift,
+`mise run ai:validate` checks both authored roots, pinned content, native bundle drift,
 CLI/plugin version agreement and public skill resource bytes. Consumer tests check
 native Pi discovery, OpenCode v2 skill schemas and Hermes skill registration.

@@ -31,7 +31,7 @@ cargo test --all-features
 
 ## Pre-commit hooks
 
-Install the git hooks with `task setup` (or `poly hooks install` directly). On
+Install the toolchain and git hooks with `mise run setup` (or `poly hooks install` directly). On
 every commit, poly runs lint, format, and file-safety checks plus `cargo clippy`;
 the commit-msg hook validates the message. Run all hooks manually with
 `poly hooks run pre-commit --all-files`.
@@ -47,7 +47,7 @@ the commit-msg hook validates the message. Run all hooks manually with
    - `npm-package/package.json`
    - `pip-package/pyproject.toml`
    - `pip-package/uncomment/__init__.py`
-2. Run `task plugin:generate` to synchronize the plugin version and public skills.
+2. Run `mise run plugin:generate` to synchronize the plugin version and public skills.
 3. Regenerate `Cargo.lock` if needed (`cargo update`).
 4. Commit the changes with a descriptive message.
 
@@ -87,10 +87,10 @@ Edit `.ai-rulez/` for repository instructions and `plugin/.ai-rulez/` for public
 skills. Both use OKF content and native schema version `5.0`; the CLI is 5.3.0.
 The plugin has no MCP server and requires a separately installed Uncomment CLI.
 
-Run `task ai:hooks` to initialize system-channel hook preferences only when no
-local preferences file exists, refresh the pinned hook catalog, and install hooks.
-Run `task plugin:generate` after editing skills or bumping the CLI version, then
-`task ai:validate`. Generated runtime bundles and the portable `skills/` export
+Run `mise run ai:hooks` to refresh the pinned hook catalog, add the npm and system
+hook channels to `poly.local.toml` when it allows neither, and install hooks.
+Run `mise run plugin:generate` after editing skills or bumping the CLI version, then
+`mise run ai:validate`. Generated runtime bundles and the portable `skills/` export
 must remain byte-for-byte current. Public skills are copied only from native
 Agent Skills output; ownership checks preserve unowned files and reject symlinks.
 
