@@ -3,9 +3,8 @@
 import argparse
 import re
 import sys
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 VERSION = re.compile(r'(\[plugin\][^\[]*?\nversion = ")([^"\n]*)(")', re.DOTALL)
 
