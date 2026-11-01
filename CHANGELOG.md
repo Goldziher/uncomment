@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
-## Unreleased
+## [v3.10.4] - 2026-11-01
 
 ### Fixed
 
