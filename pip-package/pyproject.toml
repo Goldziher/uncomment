@@ -15,7 +15,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -25,7 +24,7 @@ classifiers = [
     "Environment :: Console"
 ]
 keywords = ["comments", "cli", "rust", "remove-comments", "code-cleanup", "ai-generated-code", "formatting", "uncomment"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "certifi>=2026.7.22"
 ]
