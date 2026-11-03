@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 This changelog is generated from git tags and commit history.
 
+## [v3.11.0] - 2026-11-03
+
+### Added
+
+- A default `cli` Cargo feature gates the CLI-only dependencies (clap, ignore, indicatif, walkdir).
+  Library consumers build with `default-features = false` and get the per-file `Processor` API without
+  them (#140).
+
+### Changed
+
+- rayon is confined to the CLI's directory walk, so the library no longer runs a global thread pool
+  outside a host's thread budget (#141).
+- Dependencies upgraded, including saphyr 0.3.
+
 ## [v3.10.4] - 2026-11-01
 
 ### Fixed
