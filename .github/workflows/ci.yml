@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Keep in step with package.rust-version in Cargo.toml.
-      MSRV: "1.90"
+      MSRV: "1.99"
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@v1

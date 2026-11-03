@@ -6,7 +6,7 @@ Thanks for helping improve `uncomment`! This guide keeps the local workflow and 
 
 ### Prerequisites
 
-- Rust 1.90+ with `cargo`
+- Rust 1.99+ with `cargo`
 - Python 3.11+ for governance hooks and plugin checks
 - Poly, and Node for ai-rulez, which tasks run at its latest release
 - Node.js 24+ (for optional tooling and npm wrapper verification)

@@ -12,7 +12,7 @@ x-ai-rulez:
 
 ### Prerequisites
 
-- Rust 1.90+ (`rustc --version`)
+- Rust 1.99+ (`rustc --version`)
 - Cargo (included with Rust)
 - mise (`mise --version`) for the toolchain and tasks
 

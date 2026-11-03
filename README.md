@@ -82,7 +82,7 @@ cd uncomment
 cargo install --path .
 ```
 
-Requires Rust 1.70+. npm and pip packages download pre-built binaries automatically.
+Requires Rust 1.99+. npm and pip packages download pre-built binaries automatically.
 
 </details>
 
