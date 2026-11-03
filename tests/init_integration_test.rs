@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 use std::fs;
 use std::process::Command;
 use tempfile::TempDir;

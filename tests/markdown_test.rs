@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! Markdown as a built-in language.
 //!
 //! The markdown grammar emits no `comment` node at all: an HTML comment surfaces as an

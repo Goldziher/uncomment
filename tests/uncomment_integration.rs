@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 use anyhow::{Context, anyhow};
 use saphyr::{LoadableYamlNode, Yaml};
 use std::{

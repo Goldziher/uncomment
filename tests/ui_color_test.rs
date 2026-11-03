@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! The colour contract of `src/ui.rs`: styling is applied unconditionally with `owo_colors` and it
 //! is the output stream — `anstream` — that decides whether the escapes survive.
 //!

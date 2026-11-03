@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! Starlark docstrings.
 //!
 //! Bazel's build language borrows Python's documentation form: a `.bzl` module or function documents

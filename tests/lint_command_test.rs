@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! End-to-end tests for `uncomment lint`.
 //!
 //! Every test drives the command's real entry point over real files, with a real tree-sitter parse

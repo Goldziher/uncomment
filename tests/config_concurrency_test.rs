@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! `ConfigManager` hands one `&self` to every rayon worker and fills its caches behind
 //! `RwLock`s while they read. Nothing else in the suite exercises that, so these tests
 //! resolve a few hundred files across differing configs from the real parallel path.

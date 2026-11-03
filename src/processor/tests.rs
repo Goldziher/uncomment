@@ -1179,3 +1179,27 @@ fn inspect_unsupported_extension_errors() {
     let result = processor.inspect("noop", Path::new("file.unknownext"), &default_resolved_config());
     assert!(result.is_err());
 }
+
+/// The per-file library API is the only thing a consumer built with `default-features = false`
+/// has: `rayon` is a `cli`-only dependency, so this runs on caller-owned threads and must work
+/// without any thread pool of this crate's own.
+#[test]
+fn per_file_api_runs_on_caller_threads_without_rayon() {
+    let source = "// remove me\nfn main() {}\n";
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            std::thread::spawn(move || {
+                let mut processor = Processor::new();
+                processor
+                    .plan_removals(source, Path::new("sample.rs"), &default_resolved_config())
+                    .expect("plan removals")
+                    .into_iter()
+                    .map(|removal| removal.preview)
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect();
+    for handle in handles {
+        assert_eq!(handle.join().expect("worker thread"), vec!["// remove me".to_string()]);
+    }
+}

@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 use std::fs;
 use tempfile::TempDir;
 use uncomment::cli::Cli;

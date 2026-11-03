@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 use std::fs;
 use std::io::Write;
 use std::process::{Command, Stdio};

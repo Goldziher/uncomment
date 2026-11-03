@@ -7,11 +7,13 @@
 mod exclude;
 mod file;
 mod manager;
+#[cfg(feature = "cli")]
 mod templates;
 
 pub use exclude::ExcludeSet;
 pub use file::{Config, GlobalConfig, LanguageConfig, PatternConfig, ResolvedConfig};
 pub use manager::ConfigManager;
+#[cfg(feature = "cli")]
 pub use templates::DetectionInfo;
 
 use std::sync::Once;

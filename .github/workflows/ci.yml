@@ -111,6 +111,11 @@ jobs:
             tslp-${{ runner.os }}-
       - name: Run tests
         run: cargo test
+      # Library consumers build with `default-features = false`; keep that path compiling and tested.
+      - name: Build the library without default features
+        run: cargo build --no-default-features --lib
+      - name: Test the library without default features
+        run: cargo test --no-default-features --lib
 
   build:
     name: Build

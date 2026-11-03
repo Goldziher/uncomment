@@ -88,6 +88,7 @@ impl ExcludeSet {
     /// Predicate for [`ignore::WalkBuilder::filter_entry`], which needs an owned `'static` closure.
     /// Pruning is an optimisation only: a collector still tests each entry it is handed, so a
     /// walker that descends anyway yields nothing excluded.
+    #[cfg(feature = "cli")]
     pub fn walk_filter(&self) -> impl Fn(&ignore::DirEntry) -> bool + Send + Sync + 'static {
         let excludes = self.clone();
         move |entry| {

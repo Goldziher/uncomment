@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! Guards the published config schema, `schema/uncomment.schema.json`.
 //!
 //! The schema is what an editor validates `.uncomment.toml` against, so it has to accept every

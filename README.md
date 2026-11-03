@@ -167,6 +167,19 @@ cargo run --release --features bench-tools --bin profile -- /path/to/repo
 
 </details>
 
+<details>
+<summary><b>Using uncomment as a library</b></summary>
+
+The command-line front end (binary, argument parsing, directory walk and its `rayon` parallelism,
+and the `lint`, `scan`, `keep`, `check` and `init` subcommands) sits behind the default-on `cli`
+feature. Library consumers that only need the per-file `Processor` API opt out:
+
+```toml
+uncomment = { version = "3", default-features = false }
+```
+
+</details>
+
 ## Supported Languages
 
 uncomment ships with 55 built-in language configurations and can process any of the **306 languages**

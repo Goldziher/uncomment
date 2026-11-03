@@ -1,16 +1,21 @@
 pub mod ast;
+#[cfg(feature = "cli")]
 pub mod changes;
+#[cfg(feature = "cli")]
 pub mod check;
+#[cfg(feature = "cli")]
 pub mod cli;
 pub mod config;
 pub mod edit;
 pub mod git;
+#[cfg(feature = "cli")]
 pub mod keep;
 pub mod languages;
 pub mod lint;
 pub mod paths;
 pub mod processor;
 pub mod rules;
+#[cfg(feature = "cli")]
 pub mod scan;
 pub mod ui;
 

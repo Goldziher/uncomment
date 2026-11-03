@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! End-to-end tests for `uncomment --check`, driven through the compiled binary.
 //!
 //! `--check` is a gate: its whole contract is the exit code, the lines it prints and the files it

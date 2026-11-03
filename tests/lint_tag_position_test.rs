@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! Which occurrences of a tag word `uncomment lint` treats as tags, driven through the compiled
 //! binary over fixture repositories with a real `.git/HEAD`.
 //!

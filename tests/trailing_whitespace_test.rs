@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! Removing a trailing comment must take the whitespace that separated it from the code.
 //!
 //! Leaving that run behind turns every rewritten line into a trailing-whitespace violation, which

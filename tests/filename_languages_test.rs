@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! Bare-filename language detection, and the two languages it unlocks.
 //!
 //! `BUILD`, `WORKSPACE` and `MODULE.bazel` carry no usable extension, so nothing about them can be

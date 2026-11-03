@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! Path exclusion — `[global] exclude` and `--exclude` — driven through the compiled binary, so each
 //! of the four subcommands' own file collector is exercised rather than a shared helper standing in
 //! for all of them.

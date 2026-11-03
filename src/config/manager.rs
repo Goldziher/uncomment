@@ -10,7 +10,9 @@ use super::{
 };
 use crate::lint::config::LintTable;
 use crate::paths;
-use ahash::{AHashMap, AHashSet};
+use ahash::AHashMap;
+#[cfg(feature = "cli")]
+use ahash::AHashSet;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -43,6 +45,7 @@ pub struct ConfigManager {
 
     /// The directory the requested paths are resolved against, and the floor of the
     /// eagerly loaded ancestor chain.
+    #[cfg_attr(not(feature = "cli"), allow(dead_code))] // read only by the CLI's language discovery
     root_dir: PathBuf,
 
     current_dir: PathBuf,
@@ -463,6 +466,7 @@ impl ConfigManager {
     /// speculative, and a broken config in a subtree the run never touches must not fail the run.
     ///
     /// `--config` replaces discovery entirely, so this does nothing for a manager built from one.
+    #[cfg(feature = "cli")]
     pub fn discover_language_sources(&mut self, paths: &[String], respect_gitignore: bool) {
         if self.forced_config.is_some() {
             return;
@@ -526,6 +530,7 @@ impl ConfigManager {
     }
 
     /// Load `dir`'s config into `found` unless the directory has already been accounted for.
+    #[cfg(feature = "cli")]
     fn take_language_source(&self, dir: &Path, seen: &mut AHashSet<PathBuf>, found: &mut Vec<Arc<LoadedConfig>>) {
         if !seen.insert(dir.to_path_buf()) {
             return;
@@ -541,6 +546,7 @@ impl ConfigManager {
     /// glob metacharacter — because the rest only filters what the walk finds. A file's own
     /// directory stands in for it. Roots contained by another root are dropped so no subtree is
     /// walked twice.
+    #[cfg(feature = "cli")]
     fn language_scan_roots(root_dir: &Path, paths: &[String]) -> Vec<PathBuf> {
         let mut roots: Vec<PathBuf> = Vec::with_capacity(paths.len());
         for pattern in paths {
@@ -623,7 +629,7 @@ impl ConfigManager {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "cli"))]
 mod tests {
     use super::*;
 

@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! End-to-end tests for `uncomment scan`, driven through the compiled binary so the argument
 //! surface, the report bytes, the stream each one lands on and the exit status are all covered.
 

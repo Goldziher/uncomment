@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! Go template (`gotmpl`) support, and the empty-action hazard specific to it.
 //!
 //! The `gotmpl` grammar models a comment action as three *bare siblings* — `{{`, `comment`, `}}` —

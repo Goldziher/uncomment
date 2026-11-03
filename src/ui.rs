@@ -11,6 +11,7 @@
 use std::fmt::Display;
 use std::path::Path;
 
+#[cfg(feature = "cli")]
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 
@@ -84,6 +85,7 @@ pub fn format_line_ranges(rows: impl Iterator<Item = (usize, usize)>, verbose: b
 }
 
 /// clap help styling that matches the brand: cyan headers/usage, green literals.
+#[cfg(feature = "cli")]
 pub fn clap_styles() -> clap::builder::Styles {
     use clap::builder::styling::{AnsiColor, Style};
 
@@ -101,6 +103,7 @@ pub fn clap_styles() -> clap::builder::Styles {
 ///
 /// Returns a hidden bar when stderr is not a terminal, so piped or redirected
 /// runs never emit control characters.
+#[cfg(feature = "cli")]
 pub fn progress_bar(len: u64) -> ProgressBar {
     use std::io::IsTerminal;
 

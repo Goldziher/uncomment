@@ -1,3 +1,4 @@
+#![cfg(feature = "cli")]
 //! End-to-end coverage for `uncomment keep`.
 //!
 //! The command is driven through the compiled binary whenever the `keep` subcommand is wired into
